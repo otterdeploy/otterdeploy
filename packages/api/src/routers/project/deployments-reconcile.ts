@@ -10,7 +10,8 @@ import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment } from "@otterdeploy/db/schema/project";
-import { inFlightDeploys } from "@otterdeploy/jobs";
+import { inFlightDeploys, type InFlightDeploys } from "@otterdeploy/jobs";
+import { withTimeout } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
@@ -20,6 +21,32 @@ import { type DeploymentRow, markDeploymentFailed } from "./deployments";
 import { BUILD_LOG_QUIET_MS, ZERO_TASK_STALE_MS } from "./deployments-derive";
 import { emitDeploySucceeded } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
+
+/** How long a list read waits on the job scan before reading without it. */
+const IN_FLIGHT_SCAN_BUDGET_MS = 1_500;
+/** After a scan fails, later reads skip it for this long: a list of many
+ *  pending rows must not pay the budget once per row while Redis is down. */
+const IN_FLIGHT_SCAN_BACKOFF_MS = 10_000;
+let scanSkippedUntil = 0;
+
+/**
+ * The job scan for a READ path, bounded: with Redis unreachable the queue
+ * reads never answer, and a list that waits on them would hang the page. A
+ * scan that fails or runs out of budget answers null (read without it).
+ */
+async function boundedInFlightScan(): Promise<InFlightDeploys | null> {
+  if (performance.now() < scanSkippedUntil) return null;
+  const scanned = await Result.tryPromise({
+    try: () => withTimeout(inFlightDeploys(), IN_FLIGHT_SCAN_BUDGET_MS, "in-flight job scan"),
+    catch: () => null,
+  });
+  if (scanned.isErr()) {
+    scanSkippedUntil = performance.now() + IN_FLIGHT_SCAN_BACKOFF_MS;
+    return null;
+  }
+  scanSkippedUntil = 0;
+  return scanned.value;
+}
 
 /**
  * Persist the building/pending → running flip for deployments whose tasks have
@@ -62,12 +89,44 @@ export async function reconcileObservedSuccess(
   resourceId: ResourceId,
 ): Promise<void> {
   if (deploymentIds.length === 0) return;
-  const inFlight = await Result.tryPromise({ try: () => inFlightDeploys(), catch: () => null });
-  const owned = inFlight.isOk() ? inFlight.value.ownedIds : new Set<string>();
+  const owned = (await boundedInFlightScan())?.ownedIds ?? new Set<string>();
   await reconcileDeploySuccess(
     deploymentIds.filter((id) => !owned.has(id)),
     resourceId,
   );
+}
+
+/**
+ * Is an in-flight job (a `deploy.triggered` build, a `service.rollout`) still
+ * settling this row? Only asked for a row stored pending/building: anything
+ * else is settled already, and the steady-state list read stays Redis-free.
+ * A failed scan (Redis down) answers no, and the derivation reads the tasks as
+ * it always did.
+ */
+export async function isOwnedInFlight(
+  row: Pick<DeploymentRow, "id" | "status"> | undefined,
+): Promise<boolean> {
+  if (!row || (row.status !== "pending" && row.status !== "building")) return false;
+  const inFlight = await boundedInFlightScan();
+  return inFlight?.ownedIds.has(row.id) ?? false;
+}
+
+/** What the derivation needs to know about a resource's latest row. */
+export interface LatestRowSignals {
+  /** See isBuildStillLogging. */
+  buildActive: boolean;
+  /** See isOwnedInFlight. */
+  ownerSettling: boolean;
+}
+
+export async function latestRowSignals(
+  latest: DeploymentRow | undefined,
+  tasksByDeployment: Map<string, InstanceGlimpse[]>,
+): Promise<LatestRowSignals> {
+  return {
+    buildActive: await isBuildStillLogging(latest, tasksByDeployment),
+    ownerSettling: await isOwnedInFlight(latest),
+  };
 }
 
 const STALE_BUILD_MESSAGE =

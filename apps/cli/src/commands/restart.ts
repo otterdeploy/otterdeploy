@@ -5,6 +5,7 @@ import type { ResourceContext } from "../lib/resolve";
 import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
 import { abort, detail, ok, stateLabel } from "../lib/ui";
+import { waitForDeployments } from "../lib/wait";
 
 /** Database engines the control plane can roll today. Postgres is the only one
  *  with a restart endpoint; the others have no route to call, so they get an
@@ -24,6 +25,30 @@ async function restartDatabase(ctx: ResourceContext): Promise<{ status: string }
     resourceId: ctx.resourceId,
   });
   return { status: view.runtime.status };
+}
+
+/** A service's roll runs in the background (the request answers with its
+ *  deployment): follow it to the outcome, and exit non-zero when it fails. */
+async function restartService(
+  ctx: ResourceContext,
+  json: boolean,
+): Promise<{ status: string; deploymentId: string | null }> {
+  const view = await ctx.client.service.restart({
+    projectId: ctx.projectId,
+    resourceId: ctx.resourceId,
+  });
+  if (view.deploymentId === null) return { status: view.runtime.status, deploymentId: null };
+  const waited = await waitForDeployments({
+    client: ctx.client,
+    projectId: ctx.projectId,
+    targets: [{ resourceId: ctx.resourceId, name: ctx.resourceName }],
+    json,
+  });
+  if (!waited.ok) process.exitCode = 1;
+  return {
+    status: waited.outcomes[0]?.status ?? view.runtime.status,
+    deploymentId: view.deploymentId,
+  };
 }
 
 export const restartCommand = defineCommand({
@@ -55,14 +80,13 @@ export const restartCommand = defineCommand({
     const result =
       ctx.resourceType === "database"
         ? await restartDatabase(ctx)
-        : await ctx.client.service
-            .restart({ projectId: ctx.projectId, resourceId: ctx.resourceId })
-            .then((view) => ({ status: view.runtime.status }));
+        : await restartService(ctx, Boolean(args.json));
 
     if (args.json) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
     }
+    if (result.status !== "running" && ctx.resourceType !== "database") return;
     ok(`Restarted ${ctx.resourceName}.`);
     detail([["runtime", stateLabel(result.status)]]);
   },

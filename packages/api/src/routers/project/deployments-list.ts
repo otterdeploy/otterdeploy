@@ -27,7 +27,8 @@ import { backfillCommitMeta } from "./deployment-commit-backfill";
 import { resolveListingScope } from "./deployments";
 import { deriveDeploymentStatus, FAILED_TASK_COUNT_STATES } from "./deployments-derive";
 import {
-  isBuildStillLogging,
+  latestRowSignals,
+  type LatestRowSignals,
   reconcileDeployFailure,
   reconcileObservedSuccess,
 } from "./deployments-reconcile";
@@ -174,19 +175,20 @@ function resolveRestartMaxAttempts(found: ResolvedResource): number | null {
 function toDeploymentWithStats(
   row: DeploymentRow,
   projectId: ProjectId,
-  isLatest: boolean,
+  /** Null for every row but the latest. */
+  latest: LatestRowSignals | null,
   instances: InstanceGlimpse[],
-  buildActive: boolean,
   restartMaxAttempts: number | null,
   paused: boolean,
 ): DeploymentWithStats {
   const status = deriveDeploymentStatus(
     row.status,
-    isLatest,
+    latest !== null,
     instances,
     row.createdAt,
-    buildActive,
+    latest?.buildActive ?? false,
     paused,
+    latest?.ownerSettling ?? false,
   );
   const failed = instances.filter((i) => FAILED_TASK_COUNT_STATES.has(i.state)).length;
   const running = instances.filter((i) => i.state === "running").length;
@@ -275,7 +277,7 @@ export async function listResourceDeployments(
   const backfilled = await backfillCommitMeta(input.resourceId, rows);
 
   const latestId = rows[0]?.id;
-  const latestBuildActive = await isBuildStillLogging(rows[0], tasksByDeployment);
+  const latest = await latestRowSignals(rows[0], tasksByDeployment);
   const restartMaxAttempts = resolveRestartMaxAttempts(found);
   // Paused services scale to zero deliberately; their latest deployment reads
   // "paused" rather than the stale last-known "running". Only services carry a
@@ -291,9 +293,8 @@ export async function listResourceDeployments(
     const stats = toDeploymentWithStats(
       meta ? { ...row, ...meta } : row,
       input.projectId,
-      row.id === latestId,
+      row.id === latestId ? latest : null,
       states,
-      row.id === latestId && latestBuildActive,
       restartMaxAttempts,
       paused,
     );

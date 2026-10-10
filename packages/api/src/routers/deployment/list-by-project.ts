@@ -46,7 +46,7 @@ import {
   loadTaskStatesByDeployment,
   resolveDeploymentServiceName,
 } from "../project/deployments-list";
-import { reconcileObservedSuccess } from "../project/deployments-reconcile";
+import { isOwnedInFlight, reconcileObservedSuccess } from "../project/deployments-reconcile";
 import { ProjectNotFoundError } from "../project/errors";
 import { getProjectInOrg } from "../project/queries";
 import { getResourceById, inEnvironmentScope } from "../project/queries/resource";
@@ -156,6 +156,7 @@ async function refineLatestStatuses(
         row.createdAt,
         buildActive,
         paused,
+        await isOwnedInFlight(row),
       );
       if (derived === "running" && (row.status === "building" || row.status === "pending")) {
         await reconcileObservedSuccess([row.id], row.resourceId);

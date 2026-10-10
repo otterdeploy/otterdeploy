@@ -15,14 +15,19 @@
  * Scans EVERY deploy lane queue (see lanes.ts), not just the default: a
  * build queued on a named lane is just as owned as one on the shared queue.
  * The union itself lives in in-flight-core.ts so it stays purely testable.
+ *
+ * Also scans the `service.rollout` queue: an image service's rollout runs
+ * there (jobs/service-rollout.ts) and owns its deployment row the same way a
+ * build does, so a list read must not settle that row mid-gate either.
  */
 import type { InFlightDeploys } from "./in-flight-core";
 
 import { collectInFlightDeploys } from "./in-flight-core";
-import { allDeployQueues } from "./queues";
+import { serviceRolloutJob } from "./jobs/service-rollout";
+import { allDeployQueues, getQueue } from "./queues";
 
 export type { InFlightDeploys } from "./in-flight-core";
 
 export async function inFlightDeploys(): Promise<InFlightDeploys> {
-  return collectInFlightDeploys(await allDeployQueues());
+  return collectInFlightDeploys([...(await allDeployQueues()), getQueue(serviceRolloutJob.name)]);
 }

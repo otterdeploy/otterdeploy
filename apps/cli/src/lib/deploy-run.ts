@@ -6,7 +6,8 @@
  *   dry-run? print plan and stop →
  *   deletes pending? confirm (skipped under --yes/--json) →
  *   applyChange → report applied/skipped →
- *   --wait? follow the changed services' deployments to running.
+ *   follow the image rollouts the apply started (always) and, under --wait,
+ *   every changed service's deployment, to running.
  */
 
 import { rmSync } from "node:fs";
@@ -173,13 +174,25 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
     });
   }
 
+  // Image services the apply started rolling. Their rollouts run in the
+  // background (the apply answers once each has a deployment, instead of
+  // timing out on a slow health gate), so `deploy` follows them to their
+  // outcome whether or not --wait was passed, and a failed rollout is a
+  // non-zero exit. --wait additionally follows builds and every changed
+  // service.
+  const rolloutTargets: WaitTarget[] = result.rollouts.map((r) => ({
+    resourceId: r.resourceId,
+    name: r.name,
+  }));
   let waitOutcomes: WaitOutcome[] = [];
-  if (opts.wait) {
+  const follow = opts.wait || rolloutTargets.length > 0;
+  if (follow) {
     // Include upload services explicitly: an unchanged one isn't in the diff,
     // but it was just rebuilt, so it should still be waited on.
-    const targets = await resolveWaitTargets(client, project.id, [
-      ...new Set([...waitNames, ...uploadNames]),
-    ]);
+    const waited = opts.wait
+      ? await resolveWaitTargets(client, project.id, [...new Set([...waitNames, ...uploadNames])])
+      : [];
+    const targets = uniqueTargets([...waited, ...rolloutTargets]);
     if (targets.length === 0) {
       if (!opts.json) note("No changed services to wait on.");
     } else {
@@ -196,9 +209,19 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   }
 
   if (opts.json) {
-    const payload = opts.wait ? { ...result, wait: waitOutcomes } : result;
+    const payload = follow ? { ...result, wait: waitOutcomes } : result;
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   }
+}
+
+/** One wait per resource, first mention kept. */
+function uniqueTargets(targets: WaitTarget[]): WaitTarget[] {
+  const seen = new Set<string>();
+  return targets.filter((t) => {
+    if (seen.has(t.resourceId)) return false;
+    seen.add(t.resourceId);
+    return true;
+  });
 }
 
 /** Tar the local project and push it to the server for each upload-sourced

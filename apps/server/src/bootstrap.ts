@@ -18,12 +18,18 @@ import {
 import { edgeLogPersistEnabled } from "@otterdeploy/api/lib/platform-runtime-settings";
 import { ensureServerIp, ensureServerIpv6 } from "@otterdeploy/api/lib/server-ip";
 import { runProvisionJob } from "@otterdeploy/api/routers/server/provision-runner";
+import { runServiceRollout } from "@otterdeploy/api/routers/service/rollout";
 import { finalizeUpdateRunOnBoot } from "@otterdeploy/api/routers/system/apply";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { reloadAuth } from "@otterdeploy/auth";
 import { runMigrations } from "@otterdeploy/db/migrate";
 import { env } from "@otterdeploy/env/server";
-import { createWorkers, jobs as allJobs, ProvisionServerPayload } from "@otterdeploy/jobs";
+import {
+  createWorkers,
+  jobs as allJobs,
+  ProvisionServerPayload,
+  ServiceRolloutPayload,
+} from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -247,17 +253,27 @@ async function bootstrap() {
         // toolchain). server.provision's real handler lives in @otterdeploy/api
         // (SSH + manager socket) and can't live in packages/jobs, so we swap it
         // in here: same override mechanism the builder uses for deploys.
+        // service.rollout (an image service's health-gated rollout, run off
+        // the request) is wired the same way: its handler drives the runtime.
         jobs: allJobs
           .filter((j) => j.name !== "deploy.triggered")
-          .map((j) =>
-            j.name === "server.provision"
-              ? {
-                  ...j,
-                  handler: (payload: unknown) =>
-                    runProvisionJob(ProvisionServerPayload.parse(payload)),
-                }
-              : j,
-          ),
+          .map((j) => {
+            if (j.name === "server.provision") {
+              return {
+                ...j,
+                handler: (payload: unknown) =>
+                  runProvisionJob(ProvisionServerPayload.parse(payload)),
+              };
+            }
+            if (j.name === "service.rollout") {
+              return {
+                ...j,
+                handler: (payload: unknown) =>
+                  runServiceRollout(ServiceRolloutPayload.parse(payload)),
+              };
+            }
+            return j;
+          }),
       }),
     catch: (cause) => new BootstrapError({ step: "workers", cause }),
   });

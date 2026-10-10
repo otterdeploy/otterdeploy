@@ -14,8 +14,6 @@ import { loadPreviewScope } from "../../lib/environment/load";
 import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
-import { markDeploymentFailed } from "../project/deployments";
-import { reconcileDeploySuccess } from "../project/deployments-reconcile";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
@@ -24,6 +22,7 @@ import {
   type ServiceRecord,
   updateServiceResourceStatus,
 } from "./queries";
+import { rollKey, serializeRoll } from "./roll-lock";
 import { buildSwarmSpec } from "./spec";
 import { sanitizeSlug } from "./views";
 /**
@@ -32,6 +31,17 @@ import { sanitizeSlug } from "./views";
  * for the create path. Returns the live runtime on success.
  */
 export async function provisionFresh(
+  projectId: ProjectId,
+  record: ServiceRecord,
+  projectSlug: string,
+  log?: RequestLogger,
+): Promise<Result<SwarmServiceRuntime, ResolveError>> {
+  return serializeRoll(rollKey(record.service.resourceId), () =>
+    provisionFreshNow(projectId, record, projectSlug, log),
+  );
+}
+
+async function provisionFreshNow(
   projectId: ProjectId,
   record: ServiceRecord,
   projectSlug: string,
@@ -119,7 +129,21 @@ export interface RedeployOptions {
   imageOverride?: string;
 }
 
+/** Roll one service (see redeployOneNow), after any roll of it already under
+ *  way in this process has finished (./roll-lock.ts). */
 export async function redeployOne(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+  projectSlug: string,
+  log?: RequestLogger,
+  opts?: RedeployOptions,
+): Promise<Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError>> {
+  return serializeRoll(rollKey(resourceId, opts?.previewId), () =>
+    redeployOneNow(projectId, resourceId, projectSlug, log, opts),
+  );
+}
+
+async function redeployOneNow(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,
@@ -269,27 +293,4 @@ export async function redeployDependents(
   }
 
   return Result.ok(true);
-}
-/**
- * Settle the row a create opened: the driver already waited for the container,
- * so flip pending → running (emits deploy.succeeded exactly once) or mark it
- * failed with the task's reason, never leave it dangling at "pending".
- * No-ops for git/upload creates, which have no row yet.
- */
-export async function settleCreateDeployment(
-  deploymentId: Parameters<typeof markDeploymentFailed>[0] | null,
-  resourceId: Parameters<typeof reconcileDeploySuccess>[1],
-  runtimeStatus: string,
-  runtimeError: string | null | undefined,
-): Promise<void> {
-  if (!deploymentId) return;
-
-  if (runtimeStatus === "error") {
-    await markDeploymentFailed(
-      deploymentId,
-      runtimeError ?? "runtime reported an error state",
-    ).catch(() => undefined);
-    return;
-  }
-  await reconcileDeploySuccess([deploymentId], resourceId);
 }

@@ -6,6 +6,7 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
+import type { DeploymentId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -35,7 +36,8 @@ import {
   replaceServicePorts,
   updateServiceRecord,
 } from "./queries";
-import { redeployAndFanOut, redeployDependents } from "./redeploy";
+import { redeployDependents } from "./redeploy";
+import { checkRolloutResolvable, startRollout } from "./rollout";
 import { serviceRuntimeName } from "./runtime-name";
 import { reclaimServiceHostArtifacts } from "./teardown";
 import {
@@ -44,10 +46,11 @@ import {
   normalizePorts,
   sanitizeSlug,
   type EnvVarView,
+  type ServiceMutationView,
   type ServiceView,
 } from "./views";
 
-export type { EnvVarView, ServiceView } from "./views";
+export type { EnvVarView, ServiceMutationView, ServiceView } from "./views";
 // `CreateServiceInput` is deliberately NOT re-exported here: `createService`
 // moved to ./create.ts, so this module is no longer where callers reach it.
 export type { RolloutTiming, UpdateServiceInput } from "./inputs";
@@ -103,7 +106,7 @@ export async function updateService(
   input: UpdateServiceInput,
   log: RequestLogger,
   rollout: RolloutTiming = "now",
-): Promise<Result<ServiceView, RedeployFailure>> {
+): Promise<Result<ServiceMutationView, RedeployFailure>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
@@ -113,11 +116,55 @@ export async function updateService(
     await replaceServicePorts(input.resourceId, normalizePorts(input.ports));
   }
 
-  const roll = rollout === "now" ? redeployAndFanOut : redeployDependents;
-  const redeployed = await roll(input.projectId, input.resourceId, ctx.value.project.slug, log);
-  if (redeployed.isErr()) return Result.err(redeployed.error);
+  if (rollout === "with-build") {
+    const redeployed = await redeployDependents(
+      input.projectId,
+      input.resourceId,
+      ctx.value.project.slug,
+      log,
+    );
+    if (redeployed.isErr()) return Result.err(redeployed.error);
+    return withDeployment(await getService(input), null);
+  }
 
-  return getService(input);
+  const imageChanged = input.image !== undefined && input.image !== ctx.value.record.service.image;
+  const started = await rollInBackground(input, imageChanged ? "image-change" : "redeploy", log);
+  if (started.isErr()) return Result.err(started.error);
+  return withDeployment(await getService(input), started.value);
+}
+
+/** The roll a write asks for, off the request (./rollout.ts): refuses an env
+ *  that cannot resolve, else records the deployment and returns its id. */
+export async function rollInBackground(
+  input: ResourceRef,
+  reason: "redeploy" | "image-change" | "restart" | "env-change",
+  log: RequestLogger,
+): Promise<Result<DeploymentId, RedeployFailure>> {
+  const resolvable = await checkRolloutResolvable(input.projectId, input.resourceId);
+  if (resolvable.isErr()) return Result.err(resolvable.error);
+  // Read after the write: the row records the image this roll puts in place.
+  const loaded = await loadResource(input);
+  if (loaded.isErr()) return Result.err(loaded.error);
+  const { record } = loaded.value;
+  const deploymentId = await startRollout({
+    kind: "roll",
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+    resourceId: input.resourceId,
+    reason,
+    image: record.service.image,
+    snapshot: { image: record.service.image, source: record.service.source },
+    fanOut: true,
+    log,
+  });
+  return Result.ok(deploymentId);
+}
+
+function withDeployment<E>(
+  view: Result<ServiceView, E>,
+  deploymentId: DeploymentId | null,
+): Result<ServiceMutationView, E> {
+  return view.map((v) => ({ ...v, deploymentId }));
 }
 
 export async function deleteService(
@@ -206,19 +253,13 @@ export async function deleteService(
 export async function restartService(
   input: ResourceRef,
   log: RequestLogger,
-): Promise<Result<ServiceView, RedeployFailure>> {
+): Promise<Result<ServiceMutationView, RedeployFailure>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
-  // redeployOne now bumps ForceUpdate unconditionally: no explicit bump
-  // needed here.
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
-  if (redeployed.isErr()) return Result.err(redeployed.error);
-
-  return getService(input);
+  // The roll bumps ForceUpdate unconditionally, so a restart with no spec
+  // change still replaces the container. Off the request, like an update.
+  const started = await rollInBackground(input, "restart", log);
+  if (started.isErr()) return Result.err(started.error);
+  return withDeployment(await getService(input), started.value);
 }

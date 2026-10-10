@@ -4,6 +4,7 @@
  * clicks. The per-field patch builders are shared by create + update.
  */
 import type {
+  DeploymentId,
   GitRepoId,
   OrganizationId,
   ProjectId,
@@ -21,6 +22,7 @@ import {
   bulkSetEnv,
   createService,
   exposeService,
+  rollInBackground,
   type RolloutTiming,
   updateService,
 } from "../service/handlers";
@@ -37,9 +39,16 @@ import {
 
 type OrgId = OrganizationId;
 
+/** What a service create/update landed: the resource, and the deployment its
+ *  rollout runs under when it started one (null: none of its own). */
+export interface ServiceApplied {
+  resourceId: ResourceId;
+  deploymentId: DeploymentId | null;
+}
+
 export async function createServiceFromManifest(
   args: CreateServiceArgs,
-): Promise<Result<{ resourceId: ResourceId }, ManifestApplySkipError>> {
+): Promise<Result<ServiceApplied, ManifestApplySkipError>> {
   const gitRepoId =
     args.spec.source === "git"
       ? await resolveManifestRepo(args.spec.repo, args.organizationId)
@@ -66,7 +75,10 @@ export async function createServiceFromManifest(
   }
   // ServiceView.id is a plain string on the wire shape; the row was minted by
   // createId, so branding it back through the boundary validator can't fail.
-  return Result.ok({ resourceId: idSchema.resource.parse(result.value.id) });
+  return Result.ok({
+    resourceId: idSchema.resource.parse(result.value.id),
+    deploymentId: result.value.deploymentId,
+  });
 }
 
 /**
@@ -224,7 +236,46 @@ export function buildUpdateServiceInput(
 
 export async function updateServiceFromManifest(
   args: UpdateServiceArgs,
-): Promise<Result<{ resourceId: ResourceId }, ManifestApplySkipError>> {
+): Promise<Result<ServiceApplied, ManifestApplySkipError>> {
+  // Declared-only: no (or empty) declared env means the live env editor owns
+  // the keys: skip the reconcile entirely. Passing `[]` here used to WIPE a
+  // service's whole live env (and roll the container) whenever any field
+  // update applied on a manifest that never declared env.
+  const reconcilesEnv = declaredEnvOf(args.spec.env) !== undefined;
+
+  // The env lands FIRST and rolls nothing of its own (only its dependents):
+  // the service's one roll below picks it up. The roll now runs in the
+  // background; an env write rolling it inline after would
+  // race that rollout on the same service.
+  if (reconcilesEnv) {
+    // Reconcile env wholesale: bulkSetEnv replaces the set with what we pass.
+    const envResult = await bulkSetEnv(
+      {
+        projectId: args.projectId,
+        organizationId: args.organizationId,
+        resourceId: args.resourceId,
+        vars: args.env,
+        // Without this the replace re-inserts every key unflagged, so an
+        // explicit "mark sensitive" survived only until the next apply (od-w2r).
+        secretKeys: args.spec.secrets,
+        // Stamps these rows as the manifest's, so a later diff prunes them and
+        // leaves an operator's `env set` keys alone (od-y64.8).
+        source: "manifest",
+        rollout: "with-build",
+      },
+      args.log,
+    );
+    if (envResult.isErr()) {
+      return Result.err(
+        new ManifestApplySkipError({
+          resource: "service",
+          name: args.name,
+          reason: `env reconcile failed: ${envResult.error.message}`,
+        }),
+      );
+    }
+  }
+
   if (!args.envOnly) {
     const gitRepoId =
       args.spec.source === "git"
@@ -244,41 +295,22 @@ export async function updateServiceFromManifest(
         }),
       );
     }
+    return Result.ok({ resourceId: args.resourceId, deploymentId: updated.value.deploymentId });
   }
 
-  // Declared-only: no (or empty) declared env means the live env editor owns
-  // the keys: skip the reconcile entirely. Passing `[]` here used to WIPE a
-  // service's whole live env (and roll the container) whenever any field
-  // update applied on a manifest that never declared env.
-  if (declaredEnvOf(args.spec.env) === undefined) {
-    return Result.ok({ resourceId: args.resourceId });
+  // Env-only: the roll the env write deferred, unless a build rolls it.
+  if (!reconcilesEnv || args.rollout === "with-build") {
+    return Result.ok({ resourceId: args.resourceId, deploymentId: null });
   }
-
-  // Reconcile env wholesale: bulkSetEnv replaces the set with what we pass.
-  const envResult = await bulkSetEnv(
-    {
-      projectId: args.projectId,
-      organizationId: args.organizationId,
-      resourceId: args.resourceId,
-      vars: args.env,
-      // Without this the replace re-inserts every key unflagged, so an
-      // explicit "mark sensitive" survived only until the next apply (od-w2r).
-      secretKeys: args.spec.secrets,
-      // Stamps these rows as the manifest's, so a later diff prunes them and
-      // leaves an operator's `env set` keys alone (od-y64.8).
-      source: "manifest",
-      rollout: args.rollout,
-    },
-    args.log,
-  );
-  if (envResult.isErr()) {
-    return Result.err(
-      new ManifestApplySkipError({
-        resource: "service",
-        name: args.name,
-        reason: `env reconcile failed: ${envResult.error.message}`,
-      }),
+  const rolled = await rollInBackground(args, "env-change", args.log);
+  return rolled
+    .map((deploymentId) => ({ resourceId: args.resourceId, deploymentId }))
+    .mapError(
+      (error) =>
+        new ManifestApplySkipError({
+          resource: "service",
+          name: args.name,
+          reason: `env reconcile failed: ${error.message}`,
+        }),
     );
-  }
-  return Result.ok({ resourceId: args.resourceId });
 }

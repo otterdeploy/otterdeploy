@@ -272,6 +272,27 @@ describe("reconcileInterruptedDeployments", () => {
     expect(triggerSpy).not.toHaveBeenCalled();
   });
 
+  test("(b2) pending owned by a service.rollout job (an image rollout still gating) → untouched", async () => {
+    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "pending", createdAt: 1 }]);
+    // Only the rollout queue holds the job: no deploy lane owns d1.
+    const getJobs = mock(async () => [{ data: { deploymentIds: ["d1"] } }]);
+    const none = mock(async () => []);
+    const getQueue = mock((name: string) => ({
+      getJobs: name === "service.rollout" ? getJobs : none,
+    }));
+
+    const summary = await reconcileInterruptedDeployments({
+      db,
+      getQueue,
+      listLanes: lanes,
+      acquireLock: acquire,
+      emit: false,
+    });
+
+    expect(summary.failed).toBe(0);
+    expect(firstRow(rows).status).toBe("pending");
+  });
+
   test("(c) pending with no job → failed", async () => {
     const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "pending", createdAt: 1 }]);
     const { getQueue } = makeGetQueue([]);

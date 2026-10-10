@@ -6,6 +6,8 @@
  * by the oRPC contract; `mapEnvVar` does the same for env-var rows.
  */
 
+import type { DeploymentId } from "@otterdeploy/shared/id";
+
 import { withPromotedPrimary } from "../../lib/primary-port";
 import { runtime as activeRuntime } from "../../runtime";
 import { type SwarmServiceRuntime } from "../../swarm";
@@ -78,6 +80,14 @@ export interface ServiceView {
 
   createdAt: string;
   updatedAt: string;
+}
+
+/** What `service.create` / `update` / `restart` answer: the service as saved,
+ *  plus the deployment its rollout records its outcome on. Null
+ *  when the change started no rollout of its own (a git/upload create waiting
+ *  for its first build, an update whose roll rides a build). */
+export interface ServiceMutationView extends ServiceView {
+  deploymentId: DeploymentId | null;
 }
 
 /**

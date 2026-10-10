@@ -130,6 +130,11 @@ const manifestApplyOutput = z.object({
     }),
   ),
   lastAppliedAt: z.string(),
+  /** Image services this apply started rolling. Each rollout continues in the
+   *  background: follow its deployment for the outcome. */
+  rollouts: z.array(
+    z.object({ name: z.string(), resourceId: z.string(), deploymentId: z.string() }),
+  ),
 });
 
 // discard: undo pending changes. Resets the saved manifest to the
@@ -212,6 +217,11 @@ const manifestApplyChangeOutput = z.object({
     }),
   ),
   lastAppliedAt: z.string(),
+  /** Image services this apply started rolling. Each rollout continues in the
+   *  background: follow its deployment for the outcome. */
+  rollouts: z.array(
+    z.object({ name: z.string(), resourceId: z.string(), deploymentId: z.string() }),
+  ),
 });
 
 const manifestExportInput = z.object({
