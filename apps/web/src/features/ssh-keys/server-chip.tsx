@@ -47,7 +47,7 @@ export function ServerStateMark({
   );
 }
 
-export function serverStateText(server: KeyServer): string {
+function serverStateText(server: KeyServer): string {
   if (!server.state) return server.role;
   return `${server.role} · ${server.state.label.toLowerCase()}, ${server.state.detail}`;
 }

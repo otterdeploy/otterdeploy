@@ -23,7 +23,7 @@ export interface SshHost {
 }
 
 /** The base64 blob of an OpenSSH public-key line (its second field). */
-export function publicKeyBlob(publicKeyLine: string): string {
+function publicKeyBlob(publicKeyLine: string): string {
   const blob = publicKeyLine.trim().split(/\s+/)[1] ?? "";
   // Interpolated into a shell script below: refuse anything that isn't plain
   // base64, rather than trusting that it came from our own ssh-keygen.
@@ -40,7 +40,7 @@ const AWK_HAS = `awk -v k="$1" '{ for (i = 1; i <= NF; i++) if ($i == k) f = 1 }
  * and the file (mode 700/600) when missing; never touches an existing file's
  * mode or owner.
  */
-export function appendKeyScript(publicKeyLine: string): string {
+function appendKeyScript(publicKeyLine: string): string {
   const blob = publicKeyBlob(publicKeyLine);
   const line = Buffer.from(publicKeyLine.trim(), "utf8").toString("base64");
   return `set -eu
@@ -64,7 +64,7 @@ has '${blob}'
  * through a temp file in the same directory and is moved into place, so an
  * interrupted run leaves the old file, never a truncated one.
  */
-export function removeKeyScript(removeLine: string, keepLine: string): string {
+function removeKeyScript(removeLine: string, keepLine: string): string {
   const remove = publicKeyBlob(removeLine);
   const keep = publicKeyBlob(keepLine);
   return `set -eu
