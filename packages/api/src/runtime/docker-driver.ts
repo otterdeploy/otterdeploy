@@ -44,6 +44,7 @@ import {
   serviceAliases,
   waitForContainer,
 } from "./docker-driver-helpers";
+import { moveToScopedNetwork } from "./docker-network-migration";
 import { rollOutContainer } from "./docker-rollout";
 import { createDockerRolloutHost } from "./docker-rollout-host";
 import { readinessPlan, readinessPort } from "./readiness";
@@ -126,13 +127,24 @@ export const dockerDriver: RuntimeDriver = {
   async provision(spec, log) {
     const docker = Docker.fromEnv();
     try {
-      const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
+      const networkName = await ensureBridgeNetwork(
+        docker,
+        spec.projectSlug,
+        spec.networkScopeSuffix,
+      );
       // replicas:0 = scaled to zero (stopped). Plain Docker has no replica
       // count, so honor it by ensuring no container runs.
       if (spec.replicas === 0) return await scaleToZero(docker, spec, networkName);
       // Idempotent: if it's already there, report it (mirrors provisionSwarmService).
       const existing = await findContainer(docker, spec.serviceName);
       if (existing && existing.State === "running") {
+        await moveToScopedNetwork(
+          docker,
+          existing.Id,
+          spec.projectSlug,
+          networkName,
+          serviceAliases(spec),
+        );
         return await waitForContainer(docker, spec.serviceName, networkName);
       }
       return await rollOut(docker, spec, networkName, log);
@@ -144,7 +156,11 @@ export const dockerDriver: RuntimeDriver = {
   async update(spec, log) {
     const docker = Docker.fromEnv();
     try {
-      const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
+      const networkName = await ensureBridgeNetwork(
+        docker,
+        spec.projectSlug,
+        spec.networkScopeSuffix,
+      );
       if (spec.replicas === 0) return await scaleToZero(docker, spec, networkName);
       return await rollOut(docker, spec, networkName, log);
     } finally {
@@ -162,8 +178,8 @@ export const dockerDriver: RuntimeDriver = {
 
   async inspect(input) {
     const docker = Docker.fromEnv();
-    const networkName = networkNameFor(input.projectSlug);
     const summary = await findContainer(docker, input.serviceName);
+    const networkName = inspectedNetworkName(summary, input);
     docker.destroy();
     return {
       serviceId: summary?.Id ?? null,
@@ -201,7 +217,7 @@ export const dockerDriver: RuntimeDriver = {
       result.set(input.serviceName, {
         serviceId: summary?.Id ?? null,
         serviceName: input.serviceName,
-        networkName: networkNameFor(input.projectSlug),
+        networkName: inspectedNetworkName(summary, input),
         status: mapStatus(summary),
         health: mapHealth(summary),
       });
@@ -234,8 +250,8 @@ export const dockerDriver: RuntimeDriver = {
 
   async inspectDatabase(input) {
     const docker = Docker.fromEnv();
-    const networkName = networkNameFor(input.projectSlug);
     const summary = await findContainer(docker, input.serviceName);
+    const networkName = inspectedNetworkName(summary, input);
     docker.destroy();
     return {
       serviceId: summary?.Id ?? null,
@@ -247,3 +263,16 @@ export const dockerDriver: RuntimeDriver = {
     };
   },
 };
+
+function inspectedNetworkName(
+  summary: Summary | null,
+  input: { projectSlug: string; networkScopeSuffix?: string },
+): string {
+  const expected = networkNameFor(input.projectSlug, input.networkScopeSuffix);
+  const networks = Object.keys(summary?.NetworkSettings?.Networks ?? {});
+  return (
+    networks.find((name) => name === expected) ??
+    networks.find((name) => name.startsWith(`${networkNameFor(input.projectSlug)}.`)) ??
+    expected
+  );
+}

@@ -7,7 +7,7 @@
 
 import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
 
-import { Docker } from "@otterdeploy/docker";
+import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
 import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { DatabaseSpec, DatabaseStatus } from "./types";
@@ -26,7 +26,11 @@ import {
 export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> {
   const docker = Docker.fromEnv();
   const adapter = getEngineAdapter(input.engine);
-  const networkName = await ensureBridgeNetwork(docker, input.projectSlug);
+  const networkName = await ensureBridgeNetwork(
+    docker,
+    input.projectSlug,
+    input.networkScopeSuffix,
+  );
   const image = input.image ?? adapter.defaultImage;
   const mount = resolveDatabaseMount(adapter, image);
 
@@ -96,6 +100,7 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     },
   };
 
+  const sharedNetworks = await previewAttachments(docker, input.serviceName, input.projectSlug);
   await removeContainerByName(docker, input.serviceName);
   // Mirror pull progress into the deployment's log channel. A multi-minute
   // image download otherwise looks like a hung deploy (container missing, no
@@ -113,6 +118,13 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     await deployLog.close();
   }
   const status = await createAndStart(docker, options, input.serviceName, networkName);
+  for (const [name, aliases] of sharedNetworks) {
+    if (name === networkName) continue;
+    const connected = await docker.networks
+      .getNetwork(name)
+      .connect({ Container: input.serviceName, EndpointConfig: { Aliases: aliases } });
+    if (connected.isErr()) throw connected.error;
+  }
   docker.destroy();
   return {
     serviceId: status.serviceId,
@@ -123,4 +135,22 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     health: status.health,
     wasCreated: true,
   };
+}
+
+/** A DB recreate retains the explicit preview grants already on that DB. */
+async function previewAttachments(
+  docker: Docker,
+  name: string,
+  projectSlug: string,
+): Promise<Array<[string, string[]]>> {
+  const old = await docker.containers.inspect(name);
+  if (old.isErr()) {
+    if (old.error instanceof DockerNotFoundError) return [];
+    throw old.error;
+  }
+  return Object.entries(old.value.NetworkSettings?.Networks ?? {}).flatMap(([network, endpoint]) =>
+    network.startsWith(`otterdeploy-${projectSlug}.preview-`)
+      ? [[network, endpoint.Aliases ?? []]]
+      : [],
+  );
 }

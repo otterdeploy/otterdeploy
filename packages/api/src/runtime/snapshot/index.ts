@@ -33,16 +33,6 @@ function setting(): "auto" | "zfs" | "copy" {
 }
 
 /**
- * Resolve the active snapshot driver for this process. Async because a real
- * probe (P3 zfs) touches the host; `copy` is a constant-true probe today.
- */
-export async function resolveSnapshotDriver(): Promise<SnapshotDriver> {
-  const mode = setting();
-  if (mode === "copy") return copyDriver;
-  return (await zfsDriver.probe()) ? zfsDriver : copyDriver;
-}
-
-/**
  * The driver to branch ONE database with.
  *
  * `copy` when the host has no pool, when the operator forced it, or. The case

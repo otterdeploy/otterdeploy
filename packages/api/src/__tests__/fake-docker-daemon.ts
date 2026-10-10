@@ -116,7 +116,7 @@ function summary(c: FakeContainer) {
     State: c.status,
     Status: c.status,
     Labels: c.labels,
-    ...(c.health ? { Health: { Status: c.health } } : {}),
+    // Like the real Engine list response, health is available only via inspect.
   };
 }
 

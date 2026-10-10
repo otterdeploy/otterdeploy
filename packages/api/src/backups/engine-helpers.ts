@@ -109,7 +109,7 @@ function mysqlFamilyExec(tool: { mariadb: string; mysql: string }, args: string)
   return `if command -v ${tool.mariadb} >/dev/null 2>&1; then exec ${tool.mariadb} ${args}; else exec ${tool.mysql} ${args}; fi`;
 }
 
-export function shellQuote(s: string): string {
+function shellQuote(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 

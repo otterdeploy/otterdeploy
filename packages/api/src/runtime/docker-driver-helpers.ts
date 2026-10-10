@@ -15,15 +15,13 @@ import { setTimeout as sleep } from "node:timers/promises";
 import type { RegistryAuth } from "../swarm";
 import type { ContainerSpec, RuntimeStatus } from "./types";
 
-import { connectCaddyToNetwork } from "../swarm/client";
 import { streamImagePull } from "../swarm/image-pull";
 import { toHealthcheckTest } from "../swarm/internals";
-import { projectNetworkName } from "../swarm/network-name";
 import { createPullLineSummarizer } from "../swarm/pull-progress";
 import { connectExtraNetworks } from "./docker-driver-networks";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
-export const networkNameFor = (projectSlug: string) => projectNetworkName(projectSlug);
+export { dockerNetworkName as networkNameFor } from "./docker-network-migration";
 
 export const otterLabels = (
   spec: { resourceId: string; projectSlug: string; deploymentId?: string | null },
@@ -59,33 +57,7 @@ function toRestartPolicy(restart: ContainerSpec["restart"]): {
   return { Name: "unless-stopped" };
 }
 
-/** Ensure the project's user-defined bridge network exists (idempotent). On a
- *  single-node host this replaces the swarm overlay: containers on it resolve
- *  each other by name/alias. */
-export async function ensureBridgeNetwork(docker: Docker, projectSlug: string): Promise<string> {
-  const name = networkNameFor(projectSlug);
-  const list = await docker.networks.list({ filters: { name: [name] } });
-  if (!(list.isOk() && list.value.some((n) => n.Name === name))) {
-    const created = await docker.networks.create({
-      Name: name,
-      Driver: "bridge",
-      Attachable: true,
-      Labels: { "otterdeploy.managed": "true", "otterdeploy.project": projectSlug },
-    });
-    // A racing create can 409 if another deploy just made it. Only re-throw if
-    // it's genuinely still missing after the race.
-    if (created.isErr()) {
-      const recheck = await docker.networks.list({ filters: { name: [name] } });
-      if (!(recheck.isOk() && recheck.value.some((n) => n.Name === name))) {
-        throw created.error;
-      }
-    }
-  }
-  // Attach the edge so exposed services are reachable by container name. The
-  // plain-Docker equivalent of the overlay path's caddy-connect.
-  await connectCaddyToNetwork(docker, name);
-  return name;
-}
+export { ensureBridgeNetwork } from "./docker-network-migration";
 
 /** Repo namespace the builder tags locally-built images under (see
  *  apps/builder/src/load.ts). These are loaded straight into the daemon and
@@ -130,6 +102,7 @@ export interface Summary {
   State: string;
   Id: string;
   Health?: { Status?: string };
+  NetworkSettings?: { Networks?: Record<string, unknown> };
 }
 
 export async function findContainer(docker: Docker, name: string): Promise<Summary | null> {
@@ -186,6 +159,14 @@ export function mapHealth(summary: Summary | null): RuntimeStatus["health"] {
   return null;
 }
 
+/** Docker list omits Health; inspect prevents racing database initdb. */
+async function inspectHealth(docker: Docker, name: string, summary: Summary | null) {
+  if (summary?.State !== "running") return mapHealth(summary);
+  const inspected = await docker.containers.inspect(name);
+  if (inspected.isErr()) throw inspected.error;
+  return mapHealth({ ...summary, Health: inspected.value.State?.Health });
+}
+
 /** Poll until the container settles (running + health resolved, or errored). */
 export async function waitForContainer(
   docker: Docker,
@@ -195,7 +176,7 @@ export async function waitForContainer(
   for (let attempt = 0; attempt < 60; attempt++) {
     const summary = await findContainer(docker, name);
     const status = mapStatus(summary);
-    const health = mapHealth(summary);
+    const health = await inspectHealth(docker, name, summary);
     const settled =
       status === "error" || status === "stopped" || (status === "running" && health !== "starting");
     if (settled) {

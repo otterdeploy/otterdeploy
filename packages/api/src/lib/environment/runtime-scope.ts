@@ -13,13 +13,13 @@
  * environment takes a suffix, which is why turning this on cannot rename
  * anything currently deployed.
  */
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, PreviewId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { environment, project } from "@otterdeploy/db/schema/project";
+import { environment, project, preview } from "@otterdeploy/db/schema/project";
 import { eq } from "drizzle-orm";
 
-import { BASE, environmentScope, type Scope } from "./scoping";
+import { BASE, environmentScope, previewScope, type Scope } from "./scoping";
 
 /**
  * The scope for a resource row, by its environment.
@@ -31,7 +31,13 @@ import { BASE, environmentScope, type Scope } from "./scoping";
 export async function resolveRuntimeScope(row: {
   projectId: ProjectId;
   environmentId: EnvironmentId | null;
+  previewId?: PreviewId | null;
 }): Promise<Scope> {
+  if (row.previewId) {
+    const [scope] = await db.select().from(preview).where(eq(preview.id, row.previewId)).limit(1);
+    if (!scope) throw new Error(`Preview ${row.previewId} no longer exists`);
+    return previewScope(scope);
+  }
   // Unstamped rows predate scoping and belong to main, which renders as base.
   if (!row.environmentId) return BASE;
 
