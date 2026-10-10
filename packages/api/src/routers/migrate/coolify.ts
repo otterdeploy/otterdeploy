@@ -16,7 +16,7 @@
  * import writes them (od-3pp7) — plaintext never lands in our DB.
  */
 import { Docker } from "@otterdeploy/docker";
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
 import * as z from "zod";
 
 import type { CoolifyPlan, PlannedDatabase } from "./coolify-plan";
@@ -159,8 +159,27 @@ async function readRows(
         .map((line) => line.trim())
         .filter((line) => line.startsWith("{"))
         .map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line))),
-    catch: () => new Error(`unexpected psql output: ${out.slice(0, 300)}`),
+    // Not the output itself: it is Coolify's own rows (env values included),
+    // and this message reaches the caller.
+    catch: () => new Error("coolify-db answered with output that is not one JSON row per line"),
   });
+}
+
+/**
+ * No Coolify to import from: the daemon runs no coolify + coolify-db pair. A
+ * precondition the operator can act on, kept apart from a Coolify that is
+ * there but could not be read (both were an evlog error oRPC does
+ * not recognise, an untyped 502).
+ */
+export class CoolifyNotFoundError extends TaggedError("CoolifyNotFoundError")<{
+  message: string;
+}>() {
+  constructor() {
+    super({
+      message:
+        "No running Coolify install found on this docker daemon (need coolify + coolify-db).",
+    });
+  }
 }
 
 interface CoolifyContainers {
@@ -168,17 +187,13 @@ interface CoolifyContainers {
   db: RunningContainer;
 }
 
-async function findCoolify(docker: Docker): Promise<Result<CoolifyContainers, Error>> {
+async function findCoolify(
+  docker: Docker,
+): Promise<Result<CoolifyContainers, CoolifyNotFoundError>> {
   const containers = await listRunning(docker);
   const app = containers.find((c) => c.image.includes("coollabsio/coolify:"));
   const db = containers.find((c) => c.name.startsWith("coolify-db"));
-  if (!app || !db) {
-    return Result.err(
-      new Error(
-        "No running Coolify install found on this docker daemon (need coolify + coolify-db).",
-      ),
-    );
-  }
+  if (!app || !db) return Result.err(new CoolifyNotFoundError());
   return Result.ok({ app, db });
 }
 
@@ -203,7 +218,9 @@ const DB_TABLES: Array<{ table: string; engine: PlannedDatabase["engine"] }> = [
 ];
 
 /** Read Coolify's DB and shape the import plan. Read-only end to end. */
-export async function planCoolifyImport(): Promise<Result<CoolifyPlan, Error>> {
+export async function planCoolifyImport(): Promise<
+  Result<CoolifyPlan, CoolifyNotFoundError | Error>
+> {
   const docker = Docker.fromEnv();
   try {
     const containers = await findCoolify(docker);

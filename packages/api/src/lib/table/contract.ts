@@ -10,6 +10,11 @@
 
 import * as z from "zod";
 
+/** The last millisecond of year 9999: past it a timestamp binds as an
+ *  expanded-year ISO string ("+227785-08-10T…") that Postgres rejects. A
+ *  cursor is a stored row's time, so it is never before the epoch. */
+const MAX_CURSOR_MS = 253_402_300_799_999;
+
 /**
  * What the client sends.
  *
@@ -22,8 +27,10 @@ import * as z from "zod";
 export const feedInput = z.object({
   filters: z.record(z.string(), z.unknown()).default({}),
   sort: z.object({ key: z.string(), desc: z.boolean() }).nullish(),
-  /** Epoch millis of the last row on the previous page. */
-  cursor: z.number().nullish(),
+  /** Epoch millis of the last row on the previous page. Bounded to what a
+   *  timestamp can hold: past it the value became an Invalid Date (a
+   *  RangeError) or a year Postgres cannot parse, an untyped 500 either way. */
+  cursor: z.number().int().min(0).max(MAX_CURSOR_MS).nullish(),
   direction: z.enum(["next", "prev"]).default("next"),
   size: z.number().int().min(1).max(200).default(50),
   /**
