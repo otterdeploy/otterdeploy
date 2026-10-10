@@ -67,7 +67,9 @@ otterdeploy/
 
 - `apps/www` deploys through **Cloudflare Workers Builds** on push to `main`
   (build: `bun run build --filter=www`, deploy: `cd apps/www && bunx wrangler deploy`).
-  There is no deploy job in GitHub Actions; CI only runs checks.
+  There is no deploy job in GitHub Actions; CI only runs checks. The full set of
+  dashboard build settings (root directory, non-production command,
+  `BUN_VERSION`, API token) is in `apps/www/README.md` under "Deploy".
 
 ## Common Commands
 
