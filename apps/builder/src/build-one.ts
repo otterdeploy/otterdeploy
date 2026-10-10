@@ -18,6 +18,7 @@ import { deployment } from "@otterdeploy/db/schema/project";
 import { idSchema } from "@otterdeploy/shared/id";
 import { log } from "evlog";
 
+import { inBuildScope } from "./build-scope";
 import { runBuildPipeline } from "./pipeline";
 import { createPublisher } from "./redis";
 
@@ -62,7 +63,9 @@ async function main(): Promise<never> {
 
   await warmUpClients();
   const publisher = createPublisher();
-  const result = await runBuildPipeline({ deploymentId, publisher });
+  // A statement that never answers fails the build instead of draining the
+  // loop into a silent exit 1 (./build-scope.ts).
+  const result = await inBuildScope(() => runBuildPipeline({ deploymentId, publisher }));
   publisher.close();
 
   if (result.isErr()) {
