@@ -7,8 +7,12 @@
  * Auth model:
  *   - installation-backed gitRepo → mint a short-lived install token, use it as
  *     Bearer for Contents API calls. 5000 req/hr.
- *   - public-URL gitRepo (installationId is null) → anonymous request,
- *     60 req/hr per source IP.
+ *   - public-URL gitRepo (installationId is null) → read with git itself (one
+ *     shallow blob-less clone: ../../git/git-snapshot.ts), which spends none
+ *     of GitHub's API budget. Only when git cannot reach the repo does it fall
+ *     back to the REST API: with GITHUB_API_TOKEN when one is configured,
+ *     else anonymous, 60 req/hr per source IP, shared with every other public
+ *     read and with tenant builds, which is why git goes first.
  *
  * All outbound HTTP goes through `ghFetch` (packages/api/src/git/github-app.ts),
  * which routes every request through the shared SSRF-hardened egress policy
@@ -23,7 +27,12 @@ import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 import * as z from "zod";
 
+import { configuredGithubToken } from "../../git/github-api-budget";
 import { getInstallationToken, ghFetch } from "../../git/github-app";
+import { gitFile, gitTree } from "./inspect-git-source";
+import { isRateLimited, rateLimitReset } from "./inspect-rate-limit";
+
+export { isRateLimited, rateLimitReset };
 
 // Tagged so the oRPC handler can dispatch via `matchError`, same shape
 // as ProjectNotFoundError etc. in routers/project/errors.ts.
@@ -155,41 +164,11 @@ export async function ghHeaders(
   if (installationGithubId) {
     const tok = await getInstallationToken(installationGithubId);
     headers.Authorization = `Bearer ${tok.token}`;
+  } else {
+    const configured = configuredGithubToken();
+    if (configured) headers.Authorization = `Bearer ${configured}`;
   }
   return headers;
-}
-
-/**
- * Minimal response shape shared by both the real DOM `Response` and
- * `ghFetch`'s egress-policy-wrapped return value. Just enough for the
- * rate-limit checks below, so callers on either side of the SSRF-hardened
- * `ghFetch` migration can use these helpers unchanged.
- */
-interface RateLimitResponseLike {
-  status: number;
-  headers: { get(name: string): string | null };
-}
-
-/**
- * Detect a GitHub rate-limit response. The strongest signal is the
- * `X-RateLimit-Remaining: 0` header on a 403; we fall back to a body
- * substring match for older edge cases.
- */
-export function isRateLimited(res: RateLimitResponseLike, body: string): boolean {
-  if (res.status === 403 || res.status === 429) {
-    const remaining = res.headers.get("X-RateLimit-Remaining");
-    if (remaining === "0") return true;
-    if (body.toLowerCase().includes("api rate limit exceeded")) return true;
-    if (body.toLowerCase().includes("secondary rate limit")) return true;
-  }
-  return false;
-}
-
-export function rateLimitReset(res: RateLimitResponseLike): number | null {
-  const v = res.headers.get("X-RateLimit-Reset");
-  if (!v) return null;
-  const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) ? n : null;
 }
 
 /** Only the fields the snapshot derivation reads; deliberately tolerant of
@@ -206,6 +185,8 @@ const ghTreeResponseSchema = z.object({
 async function fetchFullTree(
   binding: RepoBinding,
 ): Promise<Result<TreeSnapshot, InspectRepoUpstreamError | InspectRepoRateLimitedError>> {
+  const viaGit = await gitTree(binding, Date.now() + CACHE_TTL_MS);
+  if (viaGit) return Result.ok(viaGit);
   const url = new URL(
     `https://api.github.com/repos/${binding.owner}/${binding.repo}/git/trees/${binding.defaultBranch}`,
   );
@@ -278,6 +259,12 @@ const pkgJsonSchema: z.ZodType<PkgJson> = z.object({
   scripts: z.record(z.string(), z.string()).optional(),
 });
 
+function parsePackageJson(text: string): PkgJson | null {
+  const json = Result.try((): unknown => JSON.parse(text));
+  const checked = pkgJsonSchema.safeParse(json.isOk() ? json.value : null);
+  return checked.success ? checked.data : null;
+}
+
 export async function fetchPackageJson(
   binding: RepoBinding,
   path: string,
@@ -286,6 +273,13 @@ export async function fetchPackageJson(
   const key = `${gitRepoId}:${path}`;
   const cached = pkgCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const viaGit = await gitFile(binding, path);
+  if (viaGit) {
+    const parsed = viaGit.status === "ok" ? parsePackageJson(viaGit.text) : null;
+    pkgCache.set(key, { value: parsed, expiresAt: Date.now() + CACHE_TTL_MS });
+    return parsed;
+  }
 
   const url = new URL(
     `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
@@ -298,16 +292,15 @@ export async function fetchPackageJson(
     pkgCache.set(key, { value: null, expiresAt: Date.now() + CACHE_TTL_MS });
     return null;
   }
-  const text = await res.text();
-  const json = Result.try((): unknown => JSON.parse(text));
-  const checked = pkgJsonSchema.safeParse(json.isOk() ? json.value : null);
-  const parsed = checked.success ? checked.data : null;
+  const parsed = parsePackageJson(await res.text());
   pkgCache.set(key, { value: parsed, expiresAt: Date.now() + CACHE_TTL_MS });
   return parsed;
 }
 
 /** Raw text read of a single file (no JSON parse), mirroring fetchPackageJson. */
 export async function fetchTextFile(binding: RepoBinding, path: string): Promise<string | null> {
+  const viaGit = await gitFile(binding, path);
+  if (viaGit) return viaGit.status === "ok" ? viaGit.text : null;
   const url = new URL(
     `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
   );

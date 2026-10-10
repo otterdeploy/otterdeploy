@@ -22,12 +22,25 @@ vi.mock("../../lib/egress-options", () => ({
   egressAllowlist: () => [],
 }));
 
+// Public-repo reads try git first (../../git/git-snapshot.ts). Unless a test
+// says otherwise git "cannot reach the repo", so the cases below keep proving
+// the API fallback goes through the egress policy.
+vi.mock("../../git/git-snapshot", async (importOriginal) => {
+  const real: Record<string, unknown> = await importOriginal();
+  return {
+    ...real,
+    gitTreeEntries: vi.fn().mockResolvedValue(null),
+    gitReadFile: vi.fn().mockResolvedValue({ status: "unavailable" }),
+  };
+});
+
 import {
   EgressPolicyError,
   egressFetch,
   type EgressResponse,
 } from "@otterdeploy/shared/egress-policy";
 
+import { gitReadFile, gitTreeEntries } from "../../git/git-snapshot";
 import {
   fetchPackageJson,
   fetchTextFile,
@@ -133,5 +146,83 @@ describe("inspect-github fetch helpers → routed through the shared egress poli
     await expect(getTreeSnapshot(binding, "repo-tree-2")).rejects.toThrow(
       /GitHub API request blocked by outbound egress policy/,
     );
+  });
+});
+
+describe("inspect-github on a public repo: git first, the API only as a fallback", () => {
+  const fetchMock = vi.mocked(egressFetch);
+  const treeViaGit = vi.mocked(gitTreeEntries);
+  const fileViaGit = vi.mocked(gitReadFile);
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    treeViaGit.mockReset().mockResolvedValue(null);
+    fileViaGit.mockReset().mockResolvedValue({ status: "unavailable" });
+  });
+
+  it("reads the tree with git and spends no GitHub API request", async () => {
+    treeViaGit.mockResolvedValueOnce([
+      { path: "src", type: "dir" },
+      { path: "src/index.ts", type: "file" },
+    ]);
+
+    const snap = await getTreeSnapshot(binding, "repo-git-tree-1");
+
+    expect(snap.isOk()).toBe(true);
+    if (snap.isErr()) return;
+    expect(snap.value.paths).toEqual(["src", "src/index.ts"]);
+    expect(snap.value.pathTypes.get("src")).toBe("dir");
+    expect(snap.value.pathTypes.get("src/index.ts")).toBe("file");
+    expect(treeViaGit).toHaveBeenCalledWith("https://github.com/acme/widgets.git", "main");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("still inspects a repo while the anonymous API budget is spent", async () => {
+    treeViaGit.mockResolvedValueOnce([{ path: "package.json", type: "file" }]);
+    fileViaGit.mockResolvedValueOnce({
+      status: "ok",
+      text: JSON.stringify({ dependencies: { next: "^15" } }),
+    });
+    // Every API request would be refused: the budget is gone.
+    fetchMock.mockResolvedValue(jsonResponse({ message: "API rate limit exceeded" }, false, 403));
+
+    const snap = await getTreeSnapshot(binding, "repo-git-tree-2");
+    const pkg = await fetchPackageJson(binding, "package.json", "repo-git-pkg-2");
+
+    expect(snap.isOk()).toBe(true);
+    expect(pkg).toEqual({ dependencies: { next: "^15" } });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a file git says is not in the repo is absent without asking the API", async () => {
+    fileViaGit.mockResolvedValue({ status: "missing" });
+
+    expect(await fetchPackageJson(binding, "apps/api/package.json", "repo-git-pkg-3")).toBeNull();
+    expect(await fetchTextFile(binding, ".env.example")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reads a text file with git", async () => {
+    fileViaGit.mockResolvedValueOnce({ status: "ok", text: "KEY=\n" });
+
+    expect(await fetchTextFile(binding, ".env.example")).toBe("KEY=\n");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the API when git cannot reach the repo", async () => {
+    fetchMock.mockResolvedValueOnce(textResponse("KEY=\n"));
+
+    expect(await fetchTextFile(binding, ".env.example")).toBe("KEY=\n");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("never reads an installation-backed repo with anonymous git", async () => {
+    // The API token path is how private repos are read; git has no credentials.
+    const installed: RepoBinding = { ...binding, installationGithubId: "42" };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ tree: [] }));
+    // The token mint is a DB + JWT affair; this only needs to prove git is skipped.
+    await getTreeSnapshot(installed, "repo-git-tree-3").catch(() => undefined);
+
+    expect(treeViaGit).not.toHaveBeenCalled();
   });
 });

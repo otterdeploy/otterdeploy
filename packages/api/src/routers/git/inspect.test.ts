@@ -70,6 +70,18 @@ vi.mock("../../lib/egress-options", () => ({
   egressAllowlist: () => [],
 }));
 
+// Public-repo reads try git first (../../git/git-snapshot.ts); these cases are
+// about the API fallback, so git "cannot reach the repo" (and the suite never
+// touches the network).
+vi.mock("../../git/git-snapshot", async (importOriginal) => {
+  const real: Record<string, unknown> = await importOriginal();
+  return {
+    ...real,
+    gitTreeEntries: vi.fn().mockResolvedValue(null),
+    gitReadFile: vi.fn().mockResolvedValue({ status: "unavailable" }),
+  };
+});
+
 import { EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 
 import { inspectRepoTree, listRepoBranches } from "./inspect";

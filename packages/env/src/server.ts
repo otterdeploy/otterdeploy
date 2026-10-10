@@ -328,6 +328,15 @@ export const env = createEnv({
     WORKBENCH_USER: z.string().min(1).optional(),
     WORKBENCH_PASS: z.string().min(1).optional(),
 
+    // A GitHub personal access token (no scopes needed) the control plane uses
+    // for its PUBLIC-repo reads: the head-commit lookup and repo inspection.
+    // Without one those calls are anonymous, and GitHub gives an anonymous
+    // caller 60 requests an hour per IP. Everything that can be answered with
+    // git itself (ls-remote, a shallow clone) never touches the API; this only
+    // raises the ceiling for what is left (commit message/author, and the
+    // fallback when git cannot reach the repo). Sent to api.github.com only.
+    GITHUB_API_TOKEN: z.string().min(1).optional(),
+
     // Social sign-in (SSO). All optional — a provider is only registered when
     // BOTH its client id + secret are set, so leaving these unset is a clean
     // no-op. Distinct from the GitHub *App* used for git providers (that's
