@@ -85,7 +85,7 @@ function toProviderView(row: PlatformRow | undefined, id: SocialProviderId): Soc
   return {
     id,
     enabled: row?.[col.enabled] ?? null,
-    clientId: row?.[col.clientId] ?? null,
+    clientId: row?.[col.clientId]?.trim() || null,
     secretConfigured: Boolean(row?.[col.secret]),
     issuer: id === "gitlab" ? (row?.gitlabOauthIssuer ?? env.GITLAB_OAUTH_ISSUER ?? null) : null,
     envConfigured: Boolean(seed.clientId && seed.clientSecret),
