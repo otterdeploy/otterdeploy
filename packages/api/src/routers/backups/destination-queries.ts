@@ -52,16 +52,19 @@ async function getDestinationForOrg(input: {
 
 /** Type + managed flag only: the guard read for update/delete/disable, which
  *  must not pull a secret into memory just to check whether a row is ours. */
-export async function getDestinationGuardFields(input: {
-  organizationId: OrganizationId;
-  id: BackupDestinationId;
-}): Promise<{
+export async function getDestinationGuardFields(
+  input: {
+    organizationId: OrganizationId;
+    id: BackupDestinationId;
+  },
+  exec: Pick<typeof db, "select"> = db,
+): Promise<{
   type: "s3" | "local" | "sftp" | "azblob" | "gcs";
   managed: boolean;
   status: string;
   usedForBackups: boolean;
 } | null> {
-  const [row] = await db
+  const [row] = await exec
     .select({
       type: backupDestination.type,
       managed: backupDestination.managed,
@@ -76,12 +79,15 @@ export async function getDestinationGuardFields(input: {
 
 /** Flip operator intent on a destination. `disabled` makes the scheduler skip
  *  it on future runs; existing snapshots stay readable and restorable. */
-export async function setDestinationStatusRecord(input: {
-  organizationId: OrganizationId;
-  id: BackupDestinationId;
-  status: "active" | "disabled";
-}): Promise<DestinationView | null> {
-  const [row] = await db
+export async function setDestinationStatusRecord(
+  input: {
+    organizationId: OrganizationId;
+    id: BackupDestinationId;
+    status: "active" | "disabled";
+  },
+  exec: Pick<typeof db, "update"> = db,
+): Promise<DestinationView | null> {
+  const [row] = await exec
     .update(backupDestination)
     .set({ status: input.status })
     .where(destinationScope(input))
@@ -91,17 +97,38 @@ export async function setDestinationStatusRecord(input: {
 
 /** Opt a destination into (or out of) being written to by the scheduler. The
  *  one write path for `usedForBackups`; see the column's own note. */
-export async function setDestinationUsedForBackupsRecord(input: {
-  organizationId: OrganizationId;
-  id: BackupDestinationId;
-  usedForBackups: boolean;
-}): Promise<DestinationView | null> {
-  const [row] = await db
+export async function setDestinationUsedForBackupsRecord(
+  input: {
+    organizationId: OrganizationId;
+    id: BackupDestinationId;
+    usedForBackups: boolean;
+  },
+  exec: Pick<typeof db, "update"> = db,
+): Promise<DestinationView | null> {
+  const [row] = await exec
     .update(backupDestination)
     .set({ usedForBackups: input.usedForBackups })
     .where(destinationScope(input))
     .returning(DESTINATION_VIEW);
   return row ?? null;
+}
+
+/** A transaction, as handed to `db.transaction`'s callback. */
+export type DestinationTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Serialise every flip of one org's destination flags for the rest of `tx`.
+ * The last-destination guard is a read of OTHER rows, so a row lock on the
+ * row being flipped cannot protect it: two disables of the last two
+ * destinations each saw the other as the surviving peer.
+ */
+export async function lockDestinationFlags(
+  tx: DestinationTx,
+  organizationId: OrganizationId,
+): Promise<void> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`backup-destination-flags:${organizationId}`}, 0))`,
+  );
 }
 
 /** Includes the encrypted secret + config: for the `test`/engine decrypt path only. */
