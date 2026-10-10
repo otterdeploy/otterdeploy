@@ -28,7 +28,7 @@ import { createLogger } from "evlog";
 import type { ParsedComposeService } from "../../stack/compose";
 import type { SwarmServiceRuntime } from "../../swarm";
 
-import { setPrimaryRouteUpstreamProtocol } from "../../caddy/queries";
+import { listProxyRoutesByResourceId, setPrimaryRouteUpstreamProtocol } from "../../caddy/queries";
 import {
   insertDeployment,
   markDeploymentFailed,
@@ -36,8 +36,14 @@ import {
 } from "../project/deployments";
 import { normalizePublicHostInput } from "../service/domain-rules";
 import { exposeService } from "../service/expose";
-import { getServiceRecord, setServicePublicDomain } from "../service/queries";
+import {
+  getPrimaryHttpPort,
+  getServiceRecord,
+  replaceServicePorts,
+  setServicePublicDomain,
+} from "../service/queries";
 import { provisionFresh, redeployOne } from "../service/redeploy";
+import { setExposedSeedPending } from "./exposed-seed";
 import { friendlyServiceCollisionMessage } from "./queries";
 
 /**
@@ -83,11 +89,16 @@ export function describeReconcileFailure(e: unknown, svcName: string): string {
  * applies ONCE, the moment a compose service is first materialized as a real
  * service_resource: via the exact same `exposeService` primitive the
  * child's own Settings toggle calls, so it lands in the single per-service
- * source of truth instead of a stack-level shadow record. Callers only fire
- * this when `isCreate` is true, so it never re-fires on a later reconcile and
- * never undoes an operator's own expose/unexpose. Best-effort: an exposure
- * failure is logged to the deploy progress but never fails the service's
- * otherwise-successful rollout.
+ * source of truth instead of a stack-level shadow record. Best-effort: an
+ * exposure failure is logged to the deploy progress but never fails the
+ * service's otherwise-successful rollout.
+ *
+ * A seed that failed is not dropped: its entry is marked
+ * `seedPending`, and every later deploy of the stack tries it again until it
+ * lands. Only a pending seed re-fires, and only while the child has no route
+ * at all, so a landed seed never re-fires and never undoes an operator's own
+ * expose/unexpose (unexpose keeps the routes; an operator who exposed the
+ * child by hand meanwhile has routes too, and the pending mark is cleared).
  */
 export async function seedServiceExposure(
   ctx: RolloutContext,
@@ -100,9 +111,17 @@ export async function seedServiceExposure(
   log: RequestLogger | undefined,
   progress: (line: string) => void,
 ): Promise<void> {
-  if (!isCreate) return;
   const seed = ctx.exposedSeeds.get(svcName);
   if (seed === undefined) return;
+  if (!isCreate) {
+    if (seed.seedPending !== true) return;
+    if ((await listProxyRoutesByResourceId(resourceId)).length > 0) {
+      // The operator published (or unpublished) the child themselves.
+      await setExposedSeedPending(ctx.stackResourceId, svcName, false);
+      return;
+    }
+    await ensureSeedPort(ctx.projectId, resourceId, seed.port);
+  }
   const seedDomain = seed.domain;
   const seedLog = log ?? createLogger({ operation: "compose.seed-expose" });
 
@@ -142,6 +161,40 @@ export async function seedServiceExposure(
     );
     await applyUpstreamProtocol(svcName, resourceId, labels, progress);
   }
+  // Landed: never again. Failed: the next deploy of the stack retries it.
+  const landed = seeded.isOk() && seeded.value.isOk();
+  if (landed === (seed.seedPending === true)) {
+    await setExposedSeedPending(ctx.stackResourceId, svcName, !landed);
+  }
+}
+
+/**
+ * A pending seed's port, made the child's primary http port when it has none.
+ *
+ * A child created before the seed's port was declared on create (see
+ * `withExposedPort` in ./reconcile-map.ts) came up with no port, which is
+ * exactly why its expose failed ("has no HTTP port to expose"). Retrying the
+ * expose alone would fail the same way forever. A child that already has an
+ * http port keeps it: that is the operator's (or the file's) choice.
+ */
+async function ensureSeedPort(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+  seedPort: number,
+): Promise<void> {
+  const record = await getServiceRecord(projectId, resourceId);
+  if (!record || getPrimaryHttpPort(record.ports)) return;
+  // A udp/tcp entry at that port is left alone: the edge cannot front it.
+  if (record.ports.some((p) => p.containerPort === seedPort)) return;
+  await replaceServicePorts(resourceId, [
+    ...record.ports.map((p) => ({
+      containerPort: p.containerPort,
+      protocol: p.protocol,
+      appProtocol: p.appProtocol,
+      isPrimary: false,
+    })),
+    { containerPort: seedPort, protocol: "tcp", appProtocol: "http", isPrimary: true },
+  ]);
 }
 
 /**
