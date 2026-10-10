@@ -116,8 +116,9 @@ export const serviceContract = {
     .input(getServiceInput)
     .output(serviceMutationSchema),
 
-  // Roll a service back to a prior deployment's image (image-only, current
-  // env/config is kept). Records a new reason="rollback" deployment.
+  // Roll a service back to a prior deployment's image and the ports, health
+  // check and command it ran with (current env is kept). Records a new
+  // reason="rollback" deployment; one rollback of a service at a time.
   rollback: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
