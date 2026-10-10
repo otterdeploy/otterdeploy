@@ -34,15 +34,21 @@ export function codeTone(statusCode: number | null): string {
   return "text-red-600 dark:text-red-500";
 }
 
-/** curl invocation for the inbound success screen. The signature is over the
- * exact request body, so the snippet computes it inline with openssl. */
+/** curl invocation for the inbound success screen. The signature is over
+ * `<webhook-id>.<webhook-timestamp>.<body>` (a fresh id and the
+ * current time per call, so a captured request cannot be replayed), so the
+ * snippet computes all three inline with openssl. */
 export function curlSnippet(url: string, secret: string): string {
   return [
     `BODY='{"event":"trigger"}'`,
-    `SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "${secret}" | sed 's/^.* //')`,
+    `ID=$(openssl rand -hex 16)`,
+    `TS=$(date +%s)`,
+    `SIG=$(printf '%s' "$ID.$TS.$BODY" | openssl dgst -sha256 -hmac "${secret}" -binary | base64)`,
     `curl -X POST ${url} \\`,
     `  -H "Content-Type: application/json" \\`,
-    `  -H "X-Otterdeploy-Signature: sha256=$SIG" \\`,
+    `  -H "webhook-id: $ID" \\`,
+    `  -H "webhook-timestamp: $TS" \\`,
+    `  -H "webhook-signature: v1,$SIG" \\`,
     `  -d "$BODY"`,
   ].join("\n");
 }
