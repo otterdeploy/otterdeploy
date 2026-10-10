@@ -21,7 +21,6 @@ import { revealInboundSecretHandler, rotateInboundSecretHandler } from "./inboun
 import {
   deleteInboundEndpoint,
   deleteWebhook,
-  getInboundRow,
   getInboundView,
   getWebhookRow,
   hostOf,
@@ -33,6 +32,8 @@ import {
   listWebhookRows,
   serviceBelongsToOrg,
   statsByWebhook,
+  toggleInboundEndpointStatus,
+  toggleWebhookStatus,
   toWebhookView,
   updateInboundEndpoint,
   updateWebhook,
@@ -95,16 +96,10 @@ export const webhooksRouter = {
       notificationChannel: ["update"],
     }).webhooks.outbound.pause.handler(async ({ input, context, errors }) => {
       context.log.set({ target: { type: "webhook", id: input.id } });
-      const current = await getWebhookRow({
+      const row = await toggleWebhookStatus({
         organizationId: context.activeOrganizationId,
         id: input.id,
       });
-      if (!current) throw errors.NOT_FOUND();
-      const status = current.status === "active" ? ("paused" as const) : ("active" as const);
-      const row = await updateWebhook(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        { status },
-      );
       if (!row) throw errors.NOT_FOUND();
       const stats = await statsByWebhook(context.activeOrganizationId);
       return toWebhookView(row, stats.get(row.id));
@@ -241,16 +236,10 @@ export const webhooksRouter = {
       notificationChannel: ["update"],
     }).webhooks.inbound.pause.handler(async ({ input, context, errors }) => {
       context.log.set({ target: { type: "inboundEndpoint", id: input.id } });
-      const current = await getInboundRow({
+      const row = await toggleInboundEndpointStatus({
         organizationId: context.activeOrganizationId,
         id: input.id,
       });
-      if (!current) throw errors.NOT_FOUND();
-      const status = current.status === "active" ? ("paused" as const) : ("active" as const);
-      const row = await updateInboundEndpoint(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        { status },
-      );
       if (!row) throw errors.NOT_FOUND();
       const view = await getInboundView({
         organizationId: context.activeOrganizationId,

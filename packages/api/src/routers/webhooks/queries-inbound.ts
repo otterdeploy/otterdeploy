@@ -15,6 +15,8 @@ import {
 } from "@otterdeploy/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 
+import { toggleWithRetry } from "../../lib/toggle-status";
+
 export interface InboundView {
   id: InboundEndpointId;
   name: string;
@@ -140,6 +142,34 @@ export async function updateInboundEndpoint(
     )
     .returning();
   return row ?? null;
+}
+
+/** Pause an active endpoint, resume a paused one (see lib/toggle-status.ts). */
+export async function toggleInboundEndpointStatus(input: {
+  organizationId: OrganizationId;
+  id: InboundEndpointId;
+}): Promise<InboundEndpointRow | null> {
+  const scope = and(
+    eq(inboundEndpoint.id, input.id),
+    eq(inboundEndpoint.organizationId, input.organizationId),
+  );
+  const read = async () => {
+    const [row] = await db.select().from(inboundEndpoint).where(scope).limit(1).$withCache(false);
+    return row ?? null;
+  };
+  return toggleWithRetry({
+    current: read,
+    attempt: async () => {
+      const current = await read();
+      if (!current) return null;
+      const [row] = await db
+        .update(inboundEndpoint)
+        .set({ status: current.status === "active" ? "paused" : "active" })
+        .where(and(scope, eq(inboundEndpoint.status, current.status)))
+        .returning();
+      return row ?? "lost";
+    },
+  });
 }
 
 export async function deleteInboundEndpoint(input: {

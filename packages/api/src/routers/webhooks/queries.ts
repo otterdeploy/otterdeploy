@@ -11,6 +11,8 @@ import { type WebhookRow, webhook, webhookDelivery } from "@otterdeploy/db/schem
  */
 import { and, desc, eq, sql } from "drizzle-orm";
 
+import { toggleWithRetry } from "../../lib/toggle-status";
+
 export * from "./queries-inbound";
 export * from "./queries-inbound-rotate";
 
@@ -127,6 +129,31 @@ export async function updateWebhook(
     .where(and(eq(webhook.id, input.id), eq(webhook.organizationId, input.organizationId)))
     .returning();
   return row ?? null;
+}
+
+/** Pause an active webhook, resume a paused one (see lib/toggle-status.ts). */
+export async function toggleWebhookStatus(input: {
+  organizationId: OrganizationId;
+  id: WebhookId;
+}): Promise<WebhookRow | null> {
+  const scope = and(eq(webhook.id, input.id), eq(webhook.organizationId, input.organizationId));
+  const read = async () => {
+    const [row] = await db.select().from(webhook).where(scope).limit(1).$withCache(false);
+    return row ?? null;
+  };
+  return toggleWithRetry({
+    current: read,
+    attempt: async () => {
+      const current = await read();
+      if (!current) return null;
+      const [row] = await db
+        .update(webhook)
+        .set({ status: current.status === "active" ? "paused" : "active" })
+        .where(and(scope, eq(webhook.status, current.status)))
+        .returning();
+      return row ?? "lost";
+    },
+  });
 }
 
 export async function deleteWebhook(input: {

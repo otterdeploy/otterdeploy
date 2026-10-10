@@ -24,6 +24,7 @@ import {
   removeSubscription,
   statsByChannel,
   toChannelView,
+  toggleChannelStatus,
   updateChannel,
 } from "./queries";
 
@@ -108,17 +109,11 @@ export const notificationsRouter = {
       notificationChannel: ["update"],
     }).notifications.channels.pause.handler(async ({ input, context, errors }) => {
       context.log.set({ target: { type: "notificationChannel", id: input.id } });
-      const current = await getChannelRow({
+      // Resume from paused/disconnected, otherwise pause: one atomic UPDATE.
+      const row = await toggleChannelStatus({
         organizationId: context.activeOrganizationId,
         id: input.id,
       });
-      if (!current) throw errors.NOT_FOUND();
-      // Resume from paused/disconnected, otherwise pause.
-      const status = current.status === "active" ? "paused" : "active";
-      const row = await updateChannel(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        { status },
-      );
       if (!row) throw errors.NOT_FOUND();
       const stats = await statsByChannel(context.activeOrganizationId);
       return toChannelView(row, stats.get(row.id));

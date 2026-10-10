@@ -16,6 +16,7 @@ import {
  */
 import { and, eq, sql } from "drizzle-orm";
 
+import { toggleWithRetry } from "../../lib/toggle-status";
 import { maskChannelTarget } from "./mask-target";
 
 type ChannelKind = NotificationChannelRow["kind"];
@@ -163,6 +164,39 @@ export async function updateChannel(
     )
     .returning();
   return row ?? null;
+}
+
+/** Pause an active channel; resume a paused or disconnected one (see lib/toggle-status.ts). */
+export async function toggleChannelStatus(input: {
+  organizationId: OrganizationId;
+  id: NotificationChannelId;
+}): Promise<NotificationChannelRow | null> {
+  const scope = and(
+    eq(notificationChannel.id, input.id),
+    eq(notificationChannel.organizationId, input.organizationId),
+  );
+  const read = async () => {
+    const [row] = await db
+      .select()
+      .from(notificationChannel)
+      .where(scope)
+      .limit(1)
+      .$withCache(false);
+    return row ?? null;
+  };
+  return toggleWithRetry({
+    current: read,
+    attempt: async () => {
+      const current = await read();
+      if (!current) return null;
+      const [row] = await db
+        .update(notificationChannel)
+        .set({ status: current.status === "active" ? "paused" : "active" })
+        .where(and(scope, eq(notificationChannel.status, current.status)))
+        .returning();
+      return row ?? "lost";
+    },
+  });
 }
 
 export async function deleteChannel(input: {
