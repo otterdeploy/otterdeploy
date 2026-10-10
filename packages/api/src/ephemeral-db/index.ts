@@ -141,6 +141,14 @@ export async function revokeEphemeralCredential(input: {
   resourceId: ResourceId;
   credentialId: DatabaseEphemeralCredentialId;
 }): Promise<boolean> {
+  // The credential table has no organization column: the database it belongs
+  // to is the tenant boundary, so it is resolved inside the organization
+  // BEFORE any credential row is read. A database that is not the caller's
+  // answers the same as one that does not exist, whatever the credential's
+  // state.
+  const target = await getTarget(input);
+  if (!target) throw new EphemeralDbError("database not found");
+
   const [cred] = await db
     .select()
     .from(databaseEphemeralCredential)
@@ -153,9 +161,6 @@ export async function revokeEphemeralCredential(input: {
     .limit(1);
   if (!cred) throw new EphemeralDbError("credential not found");
   if (cred.revokedAt) return false;
-
-  const target = await getTarget(input);
-  if (!target) throw new EphemeralDbError("database not found");
 
   await dropRole(target, cred.roleName);
   await db

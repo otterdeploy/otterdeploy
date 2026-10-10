@@ -1,10 +1,7 @@
-import { idSchema } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import { DatabaseHostingError } from "../../database-hosting";
 import { requirePermission } from "../../index";
-import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
-import { scopeSuffix } from "../../lib/environment/scoping";
 import {
   createPostgresResourceStream,
   restartDatabaseResource,
@@ -14,8 +11,7 @@ import {
   unsetPostgresExtraEnvKey,
   validatePostgresCreate,
 } from "./handlers";
-import { deriveInternalDbCredentials } from "./postgres/credentials";
-import { ensureDraftCredentialPassword, getProjectInOrg } from "./queries";
+import { postgresDraftCredentialsHandler } from "./router-resource-postgres-draft";
 import { postgresSetPlacementHandler } from "./router-resource-postgres-placement";
 
 export const postgresResourceRouter = {
@@ -82,46 +78,7 @@ export const postgresResourceRouter = {
     },
   ),
 
-  // Mints (and persists) the password the database about to be created will
-  // use, so it needs what that create needs, not just membership: a
-  // read-only key must not write it.
-  draftCredentials: requirePermission({
-    database: ["create"],
-  }).project.resource.database.postgres.draftCredentials.handler(
-    async ({ input, context, errors }) => {
-      const project = await getProjectInOrg({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (!project) throw errors.NOT_FOUND();
-      // Mint (or read) the stable password, then derive the rest.
-      const password = await ensureDraftCredentialPassword(input.projectId, input.name);
-      // The SAME scope the create will apply, so what the pending panel shows
-      // is what deploys (od-jwx). BASE for main and for a caller that sends no
-      // environment, which is every pre-environment client.
-      const suffix = scopeSuffix(
-        await resolveRuntimeScope({
-          projectId: input.projectId,
-          environmentId: idSchema.environment.safeParse(input.environmentId).data ?? null,
-        }),
-      );
-      const creds = deriveInternalDbCredentials({
-        engine: input.engine,
-        projectSlug: project.slug,
-        resourceName: input.name,
-        password,
-        scopeSuffix: suffix,
-      });
-      return {
-        username: creds.username,
-        password: creds.password,
-        databaseName: creds.databaseName,
-        internalHostname: creds.internalHostname,
-        internalPort: creds.internalPort,
-        internalConnectionString: creds.internalConnectionString,
-      };
-    },
-  ),
+  draftCredentials: postgresDraftCredentialsHandler,
 
   setPublic: requirePermission({
     database: ["update"],

@@ -31,6 +31,16 @@ export const ephemeralDatabaseHandlers = {
         ephemeralDb: { action: "create", scope: input.scope, ttlMinutes: input.ttlMinutes },
       });
       await enforceResourceScope(context, input.resourceId);
+      // Same boundary as the list and revoke: a database that is not the
+      // caller's is a 404 before anything is minted against it.
+      if (
+        !(await getDatabaseConnInfo({
+          organizationId: context.activeOrganizationId,
+          resourceId: input.resourceId,
+        }))
+      ) {
+        throw errors.NOT_FOUND();
+      }
 
       if (input.scope === "read-write") {
         // API-key actors have no session for better-auth's role check. Same
