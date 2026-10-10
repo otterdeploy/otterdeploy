@@ -6,6 +6,10 @@
  * client (no server-only fields involved).
  */
 import { oc } from "@orpc/contract";
+import {
+  API_KEY_MAX_EXPIRES_IN_SECONDS,
+  API_KEY_MIN_EXPIRES_IN_SECONDS,
+} from "@otterdeploy/shared/api-key-expiry";
 import * as z from "zod";
 
 const tag = "apiKeys";
@@ -28,8 +32,15 @@ const limitedPermissionsSchema = z
 
 export const createApiKeyInput = z.object({
   name: z.string().min(1).max(64),
-  /** Seconds until expiry, or null for a key that never expires. */
-  expiresIn: z.number().int().positive().nullable(),
+  /** Seconds until expiry, or null for a key that never expires. Bounded to
+   *  the range the key store accepts (one day to a year): outside it the
+   *  plugin refused with an untyped 500. */
+  expiresIn: z
+    .number()
+    .int()
+    .min(API_KEY_MIN_EXPIRES_IN_SECONDS, "A key must live at least one day (86400 seconds).")
+    .max(API_KEY_MAX_EXPIRES_IN_SECONDS, "A key can live at most 365 days (31536000 seconds).")
+    .nullable(),
   /**
    * What the key may do, stated explicitly: `"full"` (everything the member
    * role may do, the cap every key is held to) or a non-empty
