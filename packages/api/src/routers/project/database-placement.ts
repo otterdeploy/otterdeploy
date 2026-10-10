@@ -28,6 +28,7 @@ import type { RequestLogger } from "evlog";
 
 import { Result, TaggedError } from "better-result";
 
+import { resolvePlacementSeed, type UnknownPlacementServerError } from "../../lib/placement-seed";
 import { setResourcePlacement } from "../service/queries";
 import { ProjectNotFoundError } from "./errors";
 import { restartDatabaseResource } from "./postgres";
@@ -78,7 +79,10 @@ export async function setDatabasePlacement(
 ): Promise<
   Result<
     { placementServerId: string | null; restarted: boolean },
-    ProjectNotFoundError | DatabaseResourceNotFoundError | DatabaseMoveDataLossError
+    | ProjectNotFoundError
+    | DatabaseResourceNotFoundError
+    | DatabaseMoveDataLossError
+    | UnknownPlacementServerError
   >
 > {
   // The project must be the caller's: the record lookup below is scoped to the
@@ -94,8 +98,16 @@ export async function setDatabasePlacement(
     return Result.err(new DatabaseResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
+  // The target must be a server of the caller's own organization; an id that
+  // is not a server, is another organization's, or does not exist fail alike.
+  const target = await resolvePlacementSeed({
+    serverId: input.serverId,
+    organizationId: input.organizationId,
+  });
+  if (target.isErr()) return Result.err(target.error);
+
   const current = record.resource.placementServerId ?? null;
-  if (current === input.serverId) {
+  if (current === target.value) {
     return Result.ok({ placementServerId: current, restarted: false });
   }
 
@@ -112,12 +124,12 @@ export async function setDatabasePlacement(
     );
   }
 
-  await setResourcePlacement(input.resourceId, input.serverId);
+  await setResourcePlacement(input.resourceId, target.value);
   log.set({
     databasePlacement: {
       resource: record.resource.name,
       from: current,
-      to: input.serverId,
+      to: target.value,
       deployed,
       acknowledged: input.acknowledgeDataLoss ?? false,
     },
@@ -126,7 +138,7 @@ export async function setDatabasePlacement(
   // A draft has no running service to restart. The pin applies on its first
   // deploy. Restarting one would just fail against a service that isn't there.
   if (!deployed) {
-    return Result.ok({ placementServerId: input.serverId, restarted: false });
+    return Result.ok({ placementServerId: target.value, restarted: false });
   }
 
   const restarted = await restartDatabaseResource(
@@ -144,5 +156,5 @@ export async function setDatabasePlacement(
     return Result.err(new DatabaseResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  return Result.ok({ placementServerId: input.serverId, restarted: true });
+  return Result.ok({ placementServerId: target.value, restarted: true });
 }

@@ -34,7 +34,7 @@ import { project, resource, serviceResource } from "@otterdeploy/db/schema/proje
 import { server } from "@otterdeploy/db/schema/server";
 import { DEFAULT_DEPLOY_LANE, isDeployLaneName } from "@otterdeploy/jobs/lanes";
 import { laneHasConsumer } from "@otterdeploy/jobs/queues";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 
 export interface BuildTarget {
   /** The dedicated build server, or null when building on the default lane. */
@@ -55,6 +55,18 @@ const DEFAULT_TARGET: BuildTarget = {
 };
 
 /**
+ * "The organization that owns this project", as a subquery. A build server
+ * assignment is only honoured when the server belongs to that organization:
+ * the setters check it (service/build-server.ts, project update), and this
+ * is the same rule at the point of use, so an assignment written before the
+ * check existed, or by any future writer, still cannot send one tenant's
+ * build to another tenant's machine.
+ */
+function organizationOfProject(projectId: ProjectId) {
+  return sql`(select ${project.organizationId} from ${project} where ${project.id} = ${projectId})`;
+}
+
+/**
  * Resolve the build target for one service's deployment.
  *
  * `resourceId` is optional so callers that only know the project (a whole-
@@ -67,7 +79,7 @@ export async function resolveBuildTarget(
   try {
     const assigned = await resolveAssignedServer(projectId, resourceId);
     if (assigned) {
-      const target = await targetForServer(assigned.serverId, assigned.reason);
+      const target = await targetForServer(assigned.serverId, assigned.reason, projectId);
       if (target) return target;
       // Assigned to a server that is missing, not a build server, or has no
       // usable lane. Fall through: a stale assignment must not wedge builds.
@@ -109,6 +121,7 @@ async function resolveAssignedServer(
 async function targetForServer(
   serverId: ServerId,
   reason: BuildTarget["reason"],
+  projectId: ProjectId,
 ): Promise<BuildTarget | null> {
   const [row] = await db
     .select({
@@ -118,7 +131,9 @@ async function targetForServer(
       isBuild: server.buildServer,
     })
     .from(server)
-    .where(eq(server.id, serverId))
+    .where(
+      and(eq(server.id, serverId), eq(server.organizationId, organizationOfProject(projectId))),
+    )
     .limit(1);
   if (!row || !row.isBuild) return null;
   // A build server with no lane drains the default queue, which is still a
@@ -141,6 +156,7 @@ async function resolveByPlacement(projectId: ProjectId): Promise<BuildTarget> {
     .where(
       and(
         eq(resource.projectId, projectId),
+        eq(server.organizationId, organizationOfProject(projectId)),
         eq(server.buildServer, true),
         isNotNull(server.buildLane),
       ),

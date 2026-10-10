@@ -16,6 +16,7 @@ import {
 interface StepUpErrors {
   TWO_FACTOR_CODE_REQUIRED: () => Error;
   PASSWORD_REQUIRED: () => Error;
+  EMAIL_CODE_REQUIRED: () => Error;
   INVALID_STEP_UP: () => Error;
   /** Takes the server's message: it names the two ways out, so the client does
    *  not have to know them. */
@@ -29,6 +30,7 @@ async function requireEnrollmentStepUp(
     role: EnrollmentRole;
     totpCode?: string;
     password?: string;
+    emailCode?: string;
     managerConfirmation?: string;
   },
   errors: StepUpErrors,
@@ -48,18 +50,26 @@ async function requireEnrollmentStepUp(
   const verified = await verifyStepUpCredential(context, user, {
     totpCode: input.totpCode,
     password: input.password,
+    emailCode: input.emailCode,
   });
   if (verified.isErr()) {
-    const { reason } = verified.error;
-    if (reason === "two_factor_code_required") throw errors.TWO_FACTOR_CODE_REQUIRED();
-    if (reason === "password_required") throw errors.PASSWORD_REQUIRED();
-    // The comment above claims this asks for whichever credential the account
-    // actually HAS. That was true only for accounts that had one; an invited,
-    // passkey-only or social account has neither and could never enrol a node.
-    if (reason === "no_credential") {
-      throw errors.STEP_UP_UNAVAILABLE({ message: verified.error.message });
+    // Every reason mapped, as terminal step-up does: an invited, passkey-only
+    // or social account has no password and no authenticator, and steps up
+    // with an emailed code. Its `email_code_required` used to fall through to
+    // INVALID_STEP_UP ("That code or password is incorrect") though nothing
+    // had been sent, so such an admin could never enrol a node.
+    switch (verified.error.reason) {
+      case "two_factor_code_required":
+        throw errors.TWO_FACTOR_CODE_REQUIRED();
+      case "password_required":
+        throw errors.PASSWORD_REQUIRED();
+      case "email_code_required":
+        throw errors.EMAIL_CODE_REQUIRED();
+      case "no_credential":
+        throw errors.STEP_UP_UNAVAILABLE({ message: verified.error.message });
+      default:
+        throw errors.INVALID_STEP_UP();
     }
-    throw errors.INVALID_STEP_UP();
   }
 }
 

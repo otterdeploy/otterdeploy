@@ -131,6 +131,8 @@ export const serviceRuntimeRouter = {
           ServiceNotFoundError: () => errors.NOT_FOUND(),
           // The mounts ride along so the UI can name exactly what gets left
           // behind instead of asking the operator to confirm in the abstract.
+          // A server that is not the caller's reads as one that does not exist.
+          UnknownPlacementServerError: () => errors.NOT_FOUND(),
           PlacementVolumeLossError: (e) =>
             errors.PLACEMENT_VOLUME_LOSS({ message: e.message, data: { mounts: e.mounts } }),
           RefMissingResourceError: (e) => new Error(e.message),

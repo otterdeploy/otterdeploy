@@ -34,6 +34,8 @@ export const postgresSetPlacementHandler = requirePermission({
     throw matchError(result.error, {
       ProjectNotFoundError: () => errors.NOT_FOUND(),
       DatabaseResourceNotFoundError: () => errors.NOT_FOUND(),
+      // A server that is not the caller's reads as one that does not exist.
+      UnknownPlacementServerError: () => errors.NOT_FOUND(),
       DatabaseMoveDataLossError: (e) => errors.DATABASE_MOVE_DATA_LOSS({ message: e.message }),
     });
   }

@@ -1,7 +1,7 @@
 import type { TerminalTicketClaims } from "@otterdeploy/api/routers/terminal/tickets";
 import type { ServerWebSocket } from "bun";
 import type { MiddlewareHandler } from "hono";
-import type { WSEvents } from "hono/ws";
+import type { WSContext, WSEvents } from "hono/ws";
 
 import { recordTerminalShellAudit } from "@otterdeploy/api/audit/terminal";
 import { consumeTerminalTicket, ticketBindingIp } from "@otterdeploy/api/routers/terminal/tickets";
@@ -9,6 +9,7 @@ import { env } from "@otterdeploy/env/server";
 import { log } from "evlog";
 import { upgradeWebSocket } from "hono/bun";
 
+import { watchTerminalMembership } from "./membership";
 import { isTrustedOrigin } from "./origin";
 import {
   decodeClientMessage,
@@ -49,13 +50,43 @@ interface PtySessionState {
   cols: number;
   rows: number;
   opened: boolean;
+  /** Stops the membership re-check; null until the shell runs. */
+  stopMembershipWatch: (() => void) | null;
+}
+
+/** Membership was checked when the ticket was minted; a shell then lives as
+ *  long as the tab. End it once the user is no longer a member,
+ *  the same way a shell that exits ends it. Returns the watch's stop. */
+function endOnMembershipLoss(
+  claims: TerminalTicketClaims,
+  state: PtySessionState,
+  ws: WSContext<ServerWebSocket<unknown>>,
+  intervalMs: number | undefined,
+): () => void {
+  return watchTerminalMembership({
+    userId: claims.userId,
+    organizationId: claims.organizationId,
+    intervalMs,
+    onRevoked: () => {
+      state.backend?.dispose();
+      state.backend = null;
+      ws.close(1000, "session ended");
+    },
+  });
 }
 
 // The events are typed over Bun's ServerWebSocket: that's what hono/bun hands
 // back as `ws.raw`, so `raw` comes out correctly typed instead of being cast.
-function ptyEvents(
+/** Seams for tests: the shell launcher and the membership re-check period. */
+export interface PtyEventDeps {
+  startShell: typeof startShell;
+  membershipRecheckMs?: number;
+}
+
+export function ptyEvents(
   claims: TerminalTicketClaims,
   target: Target,
+  deps: PtyEventDeps = { startShell },
 ): WSEvents<ServerWebSocket<unknown>> {
   const state: PtySessionState = {
     backend: null,
@@ -64,6 +95,7 @@ function ptyEvents(
     // Recorded once: a real backend either started (open worth auditing) or
     // never did (nothing to audit a close for).
     opened: false,
+    stopMembershipWatch: null,
   };
 
   return {
@@ -109,11 +141,17 @@ function ptyEvents(
         },
       };
 
-      const backend = await startShell(args, target);
+      const backend = await deps.startShell(args, target);
       backend.match({
         ok: (b) => {
           state.backend = b;
           state.opened = true;
+          state.stopMembershipWatch = endOnMembershipLoss(
+            claims,
+            state,
+            ws,
+            deps.membershipRecheckMs,
+          );
           void recordTerminalShellAudit({
             action: "terminal.open",
             organizationId: claims.organizationId,
@@ -186,6 +224,8 @@ function ptyEvents(
 
     onClose() {
       log.info({ pty: { event: "ws-close" } });
+      state.stopMembershipWatch?.();
+      state.stopMembershipWatch = null;
       state.backend?.dispose();
       state.backend = null;
       if (state.opened) {
@@ -203,6 +243,8 @@ function ptyEvents(
 
     onError() {
       log.info({ pty: { event: "ws-error" } });
+      state.stopMembershipWatch?.();
+      state.stopMembershipWatch = null;
       state.backend?.dispose();
       state.backend = null;
     },

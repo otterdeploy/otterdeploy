@@ -16,24 +16,26 @@
  * rather than discovered after a green build and a stuck deploy.
  */
 
-import type { ServerId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { serviceResource } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
-import { ID_PREFIX, hasPrefix } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
 import { buildTargetBlocker } from "../../lib/build-target";
+import { resolvePlacementSeed } from "../../lib/placement-seed";
 import { loadResource } from "./context";
 import { BuildServerInvalidError, ServiceNotFoundError } from "./errors";
 import { getService } from "./handlers";
 import { type ResourceRef } from "./inputs";
 import { type ServiceView } from "./views";
+
+const UNKNOWN_BUILD_SERVER = "That server no longer exists.";
 
 type SetBuildServerError = ProjectNotFoundError | ServiceNotFoundError | BuildServerInvalidError;
 
@@ -54,17 +56,25 @@ export async function setServiceBuildServer(
   // Idempotent: saving the form unchanged shouldn't write.
   if (current === input.serverId) return getService(input);
 
-  // Recover the brand with a real check rather than a cast: a non-server id
-  // here is caller error, and the same idiom setResourcePlacement uses.
-  if (input.serverId !== null && !hasPrefix(input.serverId, ID_PREFIX.server)) {
-    return Result.err(
-      new BuildServerInvalidError({ message: `${input.serverId} is not a server id` }),
-    );
+  // The server must be one of the caller's own organization: a build server
+  // runs this service's build, so another organization's would run it on
+  // someone else's machine. An id that is not a server, is another
+  // organization's, or does not exist all read as "no longer exists".
+  const resolved = await resolvePlacementSeed({
+    serverId: input.serverId,
+    organizationId: input.organizationId,
+  });
+  if (resolved.isErr()) {
+    return Result.err(new BuildServerInvalidError({ message: UNKNOWN_BUILD_SERVER }));
   }
-  const serverId = input.serverId;
+  const serverId = resolved.value;
 
   if (serverId !== null) {
-    const invalid = await validateBuildServer(serverId, record.service.imageRepository);
+    const invalid = await validateBuildServer(
+      serverId,
+      input.organizationId,
+      record.service.imageRepository,
+    );
     if (invalid) return Result.err(new BuildServerInvalidError({ message: invalid }));
   }
 
@@ -91,14 +101,15 @@ export async function setServiceBuildServer(
  */
 async function validateBuildServer(
   serverId: ServerId,
+  organizationId: OrganizationId,
   imageRepository: string | null,
 ): Promise<string | null> {
   const [row] = await db
     .select({ id: server.id, name: server.name, isBuild: server.buildServer })
     .from(server)
-    .where(eq(server.id, serverId))
+    .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
     .limit(1);
-  if (!row) return "That server no longer exists.";
+  if (!row) return UNKNOWN_BUILD_SERVER;
   if (!row.isBuild) {
     return (
       `"${row.name}" isn't marked as a build server, so nothing is set up to build there. ` +

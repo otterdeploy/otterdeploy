@@ -14,6 +14,7 @@ import {
 import { classifyScheduleSources, getScheduleRunTarget } from "../../backups/schedule-db";
 import { executeSchedulePass } from "../../backups/scheduler";
 import { runBackgroundPass } from "../../lib/background-pass";
+import { getProjectInOrg } from "../project/queries/project";
 import { presentSchedule } from "./presenters";
 import { listSchedules, scheduleDestinationNames } from "./service";
 
@@ -58,6 +59,17 @@ export const backupSchedulesRouter = {
   create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
     async ({ input, context, errors }) => {
       enforceProjectScope(context, input.projectId);
+      // A schedule scoped to a project must name one of THIS organization's:
+      // a project of another org (or none) answers the same not-found.
+      if (
+        input.projectId &&
+        !(await getProjectInOrg({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        }))
+      ) {
+        throw errors.NOT_FOUND();
+      }
       const destinationIds = await requireActiveDestinations(
         context.activeOrganizationId,
         input.destinationIds,

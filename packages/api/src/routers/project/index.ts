@@ -2,6 +2,7 @@ import { matchError } from "better-result";
 
 import { scopedProjectIds } from "../../authz/api-key-scope";
 import { orgScopedProcedure, requirePermission } from "../../index";
+import { resolvePlacementSeed } from "../../lib/placement-seed";
 import { streamProjectEvents, validateProjectEventsStream } from "./events-stream";
 import {
   createProject,
@@ -89,6 +90,16 @@ export const projectRouter = {
   update: requirePermission({ project: ["update"] }).project.update.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.id } });
+      // A build server runs this project's builds, so it must be one of the
+      // caller's own organization. An id that is not a server, is another
+      // organization's, or does not exist all fail the same way.
+      const buildServer = await resolvePlacementSeed({
+        serverId: input.buildServerId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (buildServer.isErr()) {
+        throw errors.NOT_FOUND({ message: "That server no longer exists." });
+      }
       const result = await updateProject({
         ...input,
         organizationId: context.activeOrganizationId,

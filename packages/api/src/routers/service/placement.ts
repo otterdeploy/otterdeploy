@@ -25,6 +25,7 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
+import { resolvePlacementSeed, type UnknownPlacementServerError } from "../../lib/placement-seed";
 import { loadResource } from "./context";
 import { PlacementVolumeLossError, type ResolveError, ServiceNotFoundError } from "./errors";
 import { getService } from "./handlers";
@@ -33,7 +34,7 @@ import { setResourcePlacement } from "./queries";
 import { redeployOne } from "./redeploy";
 import { type ServiceView } from "./views";
 
-type NotFound = ProjectNotFoundError | ServiceNotFoundError;
+type NotFound = ProjectNotFoundError | ServiceNotFoundError | UnknownPlacementServerError;
 
 export interface SetPlacementInput extends ResourceRef {
   /** Server to pin to, or null to let the scheduler place it anywhere. */
@@ -54,10 +55,19 @@ export async function setServicePlacement(
   if (ctx.isErr()) return Result.err(ctx.error);
   const { record, project } = ctx.value;
 
+  // The target must be a server of the caller's own organization. An id that
+  // is not a server, belongs to another organization, or does not exist all
+  // fail the same way, so the answer says nothing about other tenants.
+  const target = await resolvePlacementSeed({
+    serverId: input.serverId,
+    organizationId: input.organizationId,
+  });
+  if (target.isErr()) return Result.err(target.error);
+
   const current = record.resource.placementServerId ?? null;
   // Idempotent: re-pinning to the same node would otherwise cause a pointless
   // rollout every time the settings form is saved.
-  if (current === input.serverId) return getService(input);
+  if (current === target.value) return getService(input);
 
   // Named volumes are node-local. Moving is still allowed. Sometimes the old
   // node is gone and an empty start is the only way forward, but never
@@ -69,12 +79,12 @@ export async function setServicePlacement(
     );
   }
 
-  await setResourcePlacement(input.resourceId, input.serverId);
+  await setResourcePlacement(input.resourceId, target.value);
   log.set({
     placement: {
       service: record.service.serviceName,
       from: current,
-      to: input.serverId,
+      to: target.value,
       volumeMountsAbandoned: volumeMounts.length,
     },
   });

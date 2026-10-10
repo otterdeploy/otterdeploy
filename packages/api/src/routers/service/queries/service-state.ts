@@ -6,11 +6,10 @@
  * surface that `updateServiceRecord` owns. They are written by the runtime
  * and edge paths instead.
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId, ServerId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
-import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { eq, sql } from "drizzle-orm";
 
 import type { ServiceResourceRow } from ".";
@@ -59,17 +58,16 @@ export async function setServiceReplicaState(
  * Pin a resource to a server, or clear the pin. Writes the `resource` row (not
  * `service_resource`) because placement applies to databases and compose
  * members too: every resource type is scheduled the same way.
+ *
+ * Takes a `ServerId`, not a string: the caller has resolved the operator's
+ * input to a server of the resource's own organization first
+ * (lib/placement-seed.ts `resolvePlacementSeed`), so an id that is not a
+ * server, or belongs to another organization, never gets as far as the row.
  */
 export async function setResourcePlacement(
   resourceId: ResourceId,
-  serverId: string | null,
+  serverId: ServerId | null,
 ): Promise<void> {
-  // Callers hand this a plain string; recover the brand with a real check
-  // rather than a cast. A non-server id here is caller error, and would have
-  // failed the FK on write anyway.
-  if (serverId !== null && !hasPrefix(serverId, ID_PREFIX.server)) {
-    throw new Error(`setResourcePlacement: ${serverId} is not a server id`);
-  }
   await db.update(resource).set({ placementServerId: serverId }).where(eq(resource.id, resourceId));
 }
 
