@@ -34,12 +34,20 @@ function runtimeStageInstructions(): string[] {
   return start === -1 ? [] : end === -1 ? rest : rest.slice(0, end);
 }
 
-/** Packages every `apk add` in the runtime stage installs. */
-function runtimeApkPackages(): string[] {
+/** Packages every `apt-get install` in the runtime stage installs. */
+function runtimeAptPackages(): string[] {
   return runtimeStageInstructions()
-    .filter((line) => line.startsWith("RUN apk add"))
-    .flatMap((line) => line.replace(/^RUN apk add/, "").split(/\s+/))
+    .flatMap((line) => line.split("&&").map((part) => part.trim()))
+    .map((part) => part.replace(/^RUN\s+/, ""))
+    .filter((part) => part.startsWith("apt-get install"))
+    .flatMap((part) => part.replace(/^apt-get install/, "").split(/\s+/))
     .filter((word) => word.length > 0 && !word.startsWith("-"));
+}
+
+/** The runtime stage's base image, e.g. `oven/bun:${BUN_VERSION}-slim`. */
+function runtimeBaseImage(): string {
+  const joined = readFileSync(DOCKERFILE, "utf8");
+  return /^FROM\s+(\S+)\s+AS\s+runtime$/im.exec(joined)?.[1] ?? "";
 }
 
 describe("builder image (apps/server/Dockerfile runtime stage)", () => {
@@ -54,12 +62,27 @@ describe("builder image (apps/server/Dockerfile runtime stage)", () => {
   // image every Python app failed at `railpack prepare` with
   // `env: can't execute 'bash'`.
   test("ships bash for mise's python-build during railpack prepare", () => {
-    expect(runtimeApkPackages()).toContain("bash");
+    expect(runtimeAptPackages()).toContain("bash");
+  });
+
+  // railpack always runs the musl mise, and mise only lists builds
+  // for the libc it detects. On alpine a JDK with no musl build (Railpack's
+  // default java@21) resolved to nothing, so every Java app without a pinned JDK
+  // failed at prepare with "Failed to resolve version 21 of java". Prepare must
+  // run on glibc, the libc of the image Railpack builds in.
+  test("runs railpack prepare on a glibc (Debian) base, not alpine", () => {
+    const base = runtimeBaseImage();
+    expect(base).toMatch(/^oven\/bun:\$\{BUN_VERSION\}-(slim|debian)$/);
+    expect(base).not.toContain("alpine");
+    expect(runtimeStageInstructions().some((line) => line.startsWith("RUN apk"))).toBe(false);
   });
 
   test("keeps the tools the builder shells out to", () => {
-    expect(runtimeApkPackages()).toEqual(
-      expect.arrayContaining(["git", "docker-cli", "docker-cli-buildx", "tar"]),
-    );
+    expect(runtimeAptPackages()).toEqual(expect.arrayContaining(["git", "tar"]));
+    const steps = runtimeStageInstructions();
+    expect(steps.some((line) => line.includes("/usr/local/bin/docker "))).toBe(true);
+    expect(
+      steps.some((line) => line.includes("/usr/local/lib/docker/cli-plugins/docker-buildx")),
+    ).toBe(true);
   });
 });

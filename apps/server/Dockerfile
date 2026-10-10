@@ -33,9 +33,17 @@ ARG RUSTIC_VERSION=0.11.3
 # node_modules. Prune output is version-tolerant; this tracks the ecosystem
 # rather than any one repo's pin.
 ARG TURBO_VERSION=2.9.14
+# Docker CLI + buildx plugin (builder role). Static binaries, pinned + SHA-verified
+# like the tools above: Debian's own packages trail far behind (trixie ships buildx
+# 0.13), and Docker's apt repo would add a keyring + second source for two files.
+ARG DOCKER_VERSION=29.8.2
+ARG BUILDX_VERSION=0.34.1
 
 # ── build stage: full toolchain, discarded from the final image ───────────────
-FROM oven/bun:${BUN_VERSION}-alpine AS build
+# Same libc as the runtime stage: the scoped production node_modules built here
+# are copied across, and a native optional dep resolved for musl would not load
+# on the glibc runtime.
+FROM oven/bun:${BUN_VERSION}-slim AS build
 WORKDIR /app
 # COPY the whole repo so both the web (vite) and server (tsdown) builds resolve
 # every workspace package; .dockerignore keeps node_modules + build output out.
@@ -61,42 +69,71 @@ RUN find . -type d -name node_modules -prune -exec rm -rf {} + \
 RUN bun run scripts/prune-bun-store.ts /app
 
 # ── runtime stage: bun + docker CLI + buildx + railpack; serves BOTH roles ────
-FROM oven/bun:${BUN_VERSION}-alpine AS runtime
+# Debian slim (glibc), NOT alpine: `railpack prepare` runs HERE (builder role +
+# per-build helpers) and resolves every toolchain version through mise. Railpack
+# always downloads the musl mise build, and mise filters what it can install to
+# the libc it DETECTS at runtime: on alpine that meant musl-only, so a JDK with no
+# musl build (Railpack's default java@21 = openjdk 21.0.2) resolved to nothing and
+# every Java app without a pinned JDK failed with "Failed to resolve version 21 of
+# java". Railpack scrubs the env of its mise calls, so MISE_LIBC
+# cannot reach it. The image Railpack BUILDS in is glibc Debian; planning on the
+# same libc means mise only picks what that build can install. The built app
+# images are unaffected: they come from Railpack's own builder/runtime images.
+FROM oven/bun:${BUN_VERSION}-slim AS runtime
 ARG RAILPACK_VERSION
-# curl: server healthcheck + the pinned railpack/rustic downloads below.
+# curl: server healthcheck + the pinned railpack/rustic/docker downloads below.
 # git: builder clones repos.
-# openssh-client: ssh-keygen + the in-app PTY. docker CLI + buildx: the builder
-# shells out to `docker buildx build` / `docker run` (helper containers), the
-# server ignores them, driving docker over the socket via @otterdeploy/docker.
+# openssh-client: ssh-keygen + the in-app PTY.
 #
-# Alpine carries the docker CLI and the buildx plugin in its community repo, so
-# this replaces the debian path's keyring + sources.list + second apt-get update
-# with one apk call and no network round-trip to Docker's own repo.
-#
-# bash: `railpack prepare` runs HERE (builder role + per-build helpers), and for
-# a Python app it resolves the version through mise's pyenv plugin, whose
-# `python-build --definitions` is a `#!/usr/bin/env bash` script. Busybox ash
-# cannot run it, so every Python build died at prepare with
-# `env: can't execute 'bash'`. Pinned by
+# bash: for a Python app, prepare resolves the version through mise's pyenv
+# plugin, whose `python-build --definitions` is a `#!/usr/bin/env bash` script
+#. Debian ships it; listed so the dependency is explicit. Pinned by
 # apps/builder/src/__tests__/builder-image.test.ts.
-RUN apk add --no-cache \
+RUN apt-get update -qq \
+ && apt-get install -qq -y --no-install-recommends \
       bash ca-certificates curl git openssh-client tar \
-      docker-cli docker-cli-buildx
+ && rm -rf /var/lib/apt/lists/*
+# docker CLI + buildx: the builder shells out to `docker buildx build` / `docker
+# run` (helper containers); the server ignores them, driving docker over the
+# socket via @otterdeploy/docker. Both are static binaries: only the `docker`
+# client is taken from Docker's static bundle (no daemon), and buildx goes where
+# the CLI looks for plugins.
+ARG TARGETARCH
+ARG DOCKER_VERSION
+ARG BUILDX_VERSION
+RUN case "${TARGETARCH}" in \
+      amd64) DOCKER_ARCH=x86_64  DOCKER_SHA=995d1ef289677f74fd58d8d2c35727b6a4ee389c69db8638a3e42d0487aa5b0f \
+             BUILDX_ARCH=amd64   BUILDX_SHA=f1332ddb9010bd0b72628266c3a906d9a6979848033df4c8d9bd2cd113bae12b ;; \
+      arm64) DOCKER_ARCH=aarch64 DOCKER_SHA=76a624e4a8e5da654d1150e808175125efb5a6f1b6aa1cbd9caee18f51047a50 \
+             BUILDX_ARCH=arm64   BUILDX_SHA=c34e32dd6ea2653d960d6c099c9f09b9077e4a37504d2d31e5066eccc3904231 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL --max-time 600 -o /tmp/docker.tgz \
+      "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VERSION}.tgz" \
+ && echo "${DOCKER_SHA}  /tmp/docker.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/docker.tgz -C /tmp docker/docker \
+ && install -m 0755 /tmp/docker/docker /usr/local/bin/docker \
+ && curl -fsSL --max-time 600 -o /tmp/docker-buildx \
+      "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${BUILDX_ARCH}" \
+ && echo "${BUILDX_SHA}  /tmp/docker-buildx" | sha256sum -c - \
+ && install -D -m 0755 /tmp/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx \
+ && rm -rf /tmp/docker.tgz /tmp/docker /tmp/docker-buildx \
+ && docker --version \
+ && /usr/local/lib/docker/cli-plugins/docker-buildx version
 # Railpack CLI (builder role): `railpack prepare` emits a BuildKit plan that
 # `docker buildx build` executes via the railpack-frontend image.
 #
 # Installed from the pinned tarball rather than `curl https://railpack.com/
-# install.sh | sh`: that installer is `#!/usr/bin/env bash`, and alpine ships
-# busybox ash with no bash at all. Fetching the asset directly also makes the
+# install.sh | sh`: fetching the asset directly also makes the
 # layer reproducible and checksum-verified, the same way rustic is handled
-# below: upstream only publishes MUSL builds, so alpine is its native target.
-ARG TARGETARCH
+# below. Upstream only publishes MUSL builds; they are static, so they run on
+# this glibc base unchanged.
 RUN case "${TARGETARCH}" in \
       amd64) RAILPACK_ARCH=x86_64 RAILPACK_SHA=d039785dd926ba059031c9c463c51f1462f344c844f828ac872c1f6d46fed7f1 ;; \
       arm64) RAILPACK_ARCH=arm64  RAILPACK_SHA=ad147486812f2d17c7fd2a6965c580e5e1fa4f7e51f5c9e458ad2c3a5f6a3f79 ;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
- && curl -fsSL -o /tmp/railpack.tar.gz \
+ && curl -fsSL --max-time 600 -o /tmp/railpack.tar.gz \
       "https://github.com/railwayapp/railpack/releases/download/v${RAILPACK_VERSION}/railpack-v${RAILPACK_VERSION}-${RAILPACK_ARCH}-unknown-linux-musl.tar.gz" \
  && echo "${RAILPACK_SHA}  /tmp/railpack.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/railpack.tar.gz -C /tmp railpack \
@@ -105,7 +142,7 @@ RUN case "${TARGETARCH}" in \
  && railpack --version
 # rustic backup engine: MUSL asset, SHA256-verified, per-arch. The `rustic`
 # binary sits at the archive root; install it to /usr/local/bin (matches the
-# runtime default RUSTIC_BIN). curl + ca-certificates come from the apk layer
+# runtime default RUSTIC_BIN). curl + ca-certificates come from the apt layer
 # above. TARGETARCH is provided by BuildKit (the images workflow builds each
 # arch natively), so we pick the matching rustic target + checksum, the old
 # hardcoded x86_64 asset installed a non-executable binary on arm64 (exit 126).
@@ -115,7 +152,7 @@ RUN case "${TARGETARCH}" in \
       arm64) RUSTIC_ARCH=aarch64 RUSTIC_SHA=6727624891521af77ea9ffde8204db3e3bddd3e0bf6db2767ff788cb206ae704 ;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
- && curl -fsSL -o /tmp/rustic.tar.gz \
+ && curl -fsSL --max-time 600 -o /tmp/rustic.tar.gz \
       "https://github.com/rustic-rs/rustic/releases/download/v${RUSTIC_VERSION}/rustic-v${RUSTIC_VERSION}-${RUSTIC_ARCH}-unknown-linux-musl.tar.gz" \
  && echo "${RUSTIC_SHA}  /tmp/rustic.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/rustic.tar.gz -C /tmp rustic \
@@ -130,7 +167,7 @@ RUN case "${TARGETARCH}" in \
 # Installed from the pinned npm platform package rather than the `turbo`
 # wrapper: we want the bare binary, not a node_modules tree. Both published
 # Linux builds are STATICALLY linked (verified: `static-pie`/`statically
-# linked`), so they run on this musl/alpine base with no libc6-compat shim.
+# linked`), so they run on any libc with no compat shim.
 # Same pinned + SHA-verified shape as railpack and rustic above.
 ARG TURBO_VERSION
 RUN case "${TARGETARCH}" in \
@@ -138,7 +175,7 @@ RUN case "${TARGETARCH}" in \
       arm64) TURBO_PKG=linux-arm64 TURBO_DIR=turbo-linux-arm64 TURBO_SHA=7cee908303bfd8ff3372b1cada7b4378a0476b9f59642014188ab62abdd99b39 ;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
- && curl -fsSL -o /tmp/turbo.tgz \
+ && curl -fsSL --max-time 600 -o /tmp/turbo.tgz \
       "https://registry.npmjs.org/@turbo/${TURBO_PKG}/-/${TURBO_PKG}-${TURBO_VERSION}.tgz" \
  && echo "${TURBO_SHA}  /tmp/turbo.tgz" | sha256sum -c - \
  && tar -xzf /tmp/turbo.tgz -C /tmp "${TURBO_DIR}/bin/turbo" \
