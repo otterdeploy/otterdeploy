@@ -19,6 +19,7 @@ import { streamImagePull } from "../swarm/image-pull";
 import { toHealthcheckTest } from "../swarm/internals";
 import { createPullLineSummarizer } from "../swarm/pull-progress";
 import { connectExtraNetworks } from "./docker-driver-networks";
+import { stopConfig, stopContainerGracefully } from "./stop-policy";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
 export { dockerNetworkName as networkNameFor } from "./docker-network-migration";
@@ -116,13 +117,13 @@ export async function findContainer(docker: Docker, name: string): Promise<Summa
   return found ?? null;
 }
 
-export async function removeContainerByName(docker: Docker, name: string): Promise<void> {
+export async function removeContainerByName(docker: Docker, name: string, graceS?: number) {
   const existing = await findContainer(docker, name);
   if (!existing) return;
   const container = docker.containers.getContainer(existing.Id);
   // Stop may legitimately fail (already exited / never started). The forced
   // remove below is what matters.
-  await container.stop({ t: 10 });
+  await stopContainerGracefully(docker, existing.Id, graceS);
   const removed = await container.remove({ force: true, v: false });
   if (removed.isErr()) {
     // Swallowing this used to let the follow-up create run head-first into a
@@ -242,6 +243,7 @@ export function buildContainerOptions(
     Env: env,
     ...(spec.entrypoint && spec.entrypoint.length > 0 ? { Entrypoint: spec.entrypoint } : {}),
     ...(spec.command && spec.command.length > 0 ? { Cmd: spec.command } : {}),
+    ...stopConfig(spec),
     Labels: labels,
     Hostname: spec.internalHostname,
     ...(spec.healthcheck
@@ -283,7 +285,7 @@ export async function startContainer(
   // deploy (or a racing one) owns the name. Remove it and retry, instead of
   // surfacing docker's "you have to remove that container" at the operator.
   if (created.isErr() && /container name .* already in use/i.test(created.error.message)) {
-    await removeContainerByName(docker, name);
+    await removeContainerByName(docker, name, options.StopTimeout);
     created = await docker.containers.create(options);
   }
   if (created.isErr()) throw created.error;

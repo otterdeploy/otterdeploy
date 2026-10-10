@@ -22,6 +22,7 @@ import {
   pullImage,
   removeContainerByName,
 } from "./docker-driver-helpers";
+import { DATABASE_STOP_GRACE_S } from "./stop-policy";
 
 export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> {
   const docker = Docker.fromEnv();
@@ -70,6 +71,10 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     Image: image,
     Env: [...userEnv, ...identityEnv, ...mount.env],
     ...(cmd ? { Cmd: cmd } : {}),
+    // A database stopped mid-checkpoint restarts into crash recovery; give its
+    // shutdown the time it needs (stop-policy.ts). Also what the
+    // docker daemon honours when the host itself shuts down.
+    StopTimeout: DATABASE_STOP_GRACE_S,
     Labels: labels,
     // A container's UTS hostname is set via Linux `sethostname`, which caps the
     // whole string at 64 bytes. The internal FQDN alias can exceed that for long
@@ -101,7 +106,7 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   };
 
   const sharedNetworks = await previewAttachments(docker, input.serviceName, input.projectSlug);
-  await removeContainerByName(docker, input.serviceName);
+  await removeContainerByName(docker, input.serviceName, DATABASE_STOP_GRACE_S);
   // Mirror pull progress into the deployment's log channel. A multi-minute
   // image download otherwise looks like a hung deploy (container missing, no
   // output anywhere), and recent log lines keep the zero-task stale check

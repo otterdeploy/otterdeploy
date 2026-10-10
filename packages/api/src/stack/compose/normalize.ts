@@ -29,6 +29,7 @@ export const isObj: (v: unknown) => v is Obj = isJsonObject;
 
 import { parseEnvironment, parseKeyValueList } from "./kv-list";
 import { normalizeLabels } from "./labels";
+import { normalizeStop } from "./stop-signal";
 
 export function normalizeService(name: string, svc: Obj, warnings: string[]): ParsedComposeService {
   const deploy = isObj(svc.deploy) ? svc.deploy : {};
@@ -54,6 +55,7 @@ export function normalizeService(name: string, svc: Obj, warnings: string[]): Pa
     replicas: typeof deploy.replicas === "number" ? deploy.replicas : 1,
     resources: normalizeResources(limits),
     restart: normalizeRestart(svc.restart, deploy.restart_policy),
+    ...normalizeStop(svc),
     dependsOn: toNameList(svc.depends_on),
     labels: normalizeLabels(svc.labels),
   };

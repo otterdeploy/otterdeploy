@@ -16,6 +16,7 @@ import { dockerDriver } from "../docker-driver";
 import { candidateName } from "../docker-rollout";
 import { createDockerRolloutHost } from "../docker-rollout-host";
 import { probeEdgePort } from "../edge-probe";
+import { STATEFUL_STOP_GRACE_S } from "../stop-policy";
 
 const socketPath = vi.hoisted(() => {
   const path = `/tmp/otterdeploy-rollout-${process.pid}.sock`;
@@ -63,6 +64,8 @@ afterAll(() => {
 beforeEach(() => {
   dockerd.state.containers = [];
   dockerd.state.failing.clear();
+  dockerd.state.seen = [];
+  dockerd.state.stops = [];
   dockerd.state.networks = new Set([NETWORK]);
   dockerd.state.onCreate = () => undefined;
   lines.length = 0;
@@ -196,6 +199,42 @@ describe("cutover steps", () => {
     expect(c).toMatchObject({ name: "web", status: "running" });
   });
 
+  test("a stop waits for the container's own grace, and for the new version's if longer", async () => {
+    // A database child stopped with a fixed 10 s was killed mid-checkpoint.
+    const graceful = createDockerRolloutHost(docker, {
+      networkName: NETWORK,
+      extraNetworks: [],
+      deployLog: { line: () => undefined, close: async () => undefined },
+      stopGraceS: 60,
+    });
+    dockerd.addContainer({ name: "made-before" });
+    dockerd.addContainer({ name: "long-grace", stopTimeout: 300 });
+    dockerd.addContainer({ name: "short-grace", stopTimeout: 5 });
+    await graceful.stop("made-before");
+    await graceful.stop("long-grace");
+    await graceful.stop("short-grace");
+    await host.stop("made-before");
+    expect(dockerd.state.stops).toEqual([
+      { name: "made-before", t: 60 },
+      { name: "long-grace", t: 300 },
+      { name: "short-grace", t: 60 },
+      { name: "made-before", t: 10 },
+    ]);
+  });
+
+  test("remove stops with the same grace before deleting", async () => {
+    const graceful = createDockerRolloutHost(docker, {
+      networkName: NETWORK,
+      extraNetworks: [],
+      deployLog: { line: () => undefined, close: async () => undefined },
+      stopGraceS: 60,
+    });
+    dockerd.addContainer({ name: "web--prev", stopTimeout: 120 });
+    await graceful.remove("web--prev");
+    expect(dockerd.state.stops).toEqual([{ name: "web--prev", t: 120 }]);
+    expect(dockerd.state.containers).toHaveLength(0);
+  });
+
   test("stop parks, remove stops gracefully then deletes; both no-op when absent", async () => {
     const c = dockerd.addContainer({ name: "web" });
     await host.stop("web");
@@ -258,6 +297,13 @@ const spec = (image: string) => ({
   deploymentId: null,
 });
 
+const dataVolume = {
+  Type: "volume" as const,
+  Source: "otterdeploy-vol-acme-web-data",
+  Target: "/var/lib/postgresql/data",
+  ReadOnly: false,
+};
+
 describe("dockerDriver.update", () => {
   test("a version that crashes on boot is removed; the previous one keeps name and aliases", async () => {
     const previous = addServing();
@@ -274,6 +320,35 @@ describe("dockerDriver.update", () => {
     expect(dockerd.state.containers.map((c) => c.name).toSorted()).toEqual(["acme-web", "caddy"]);
     expect(previous.networks[NETWORK]?.aliases).toEqual(["acme-web", "acme-web.internal", "web"]);
   });
+
+  test("a redeploy of a service that keeps a volume stops the old version with time to flush", async () => {
+    // The Postgres child of a compose stack: stopped with docker's default 10 s
+    // it panicked on restart ("could not locate a valid checkpoint record").
+    // Made before the policy existed, the old container carries no StopTimeout.
+    addServing();
+    addEdge((target, port) => target === "acme-web" && port === "3000");
+    const status = await dockerDriver.update({
+      ...spec("otterdeploy-local/acme-web:v2"),
+      mounts: [dataVolume],
+    });
+    expect(status.status).toBe("running");
+    const stop = dockerd.state.stops.find((s) => s.name === "acme-web");
+    expect(stop?.t).toBeGreaterThanOrEqual(STATEFUL_STOP_GRACE_S);
+    const web = dockerd.state.containers.find((c) => c.name === "acme-web");
+    expect(web?.stopTimeout).toBe(STATEFUL_STOP_GRACE_S);
+  }, 30_000);
+
+  test("the compose file's stop_grace_period and stop_signal reach the container", async () => {
+    addEdge(() => true);
+    await dockerDriver.update({
+      ...spec("otterdeploy-local/acme-web:v2"),
+      mounts: [dataVolume],
+      stopGracePeriodMs: 180_000,
+      stopSignal: "SIGINT",
+    });
+    const web = dockerd.state.containers.find((c) => c.name === "acme-web");
+    expect(web).toMatchObject({ stopTimeout: 180, stopSignal: "SIGINT" });
+  }, 30_000);
 
   test("a version the edge reaches for the whole hold takes over", async () => {
     const previous = addServing();

@@ -48,6 +48,7 @@ import { rollOutContainer } from "./docker-rollout";
 import { createDockerRolloutHost } from "./docker-rollout-host";
 import { exclusiveRollout } from "./exclusive-rollout";
 import { readinessPlan, readinessPort } from "./readiness";
+import { DATABASE_STOP_GRACE_S, serviceStopGraceSeconds } from "./stop-policy";
 
 function deployLogFor(spec: ContainerSpec, phase: "build" | "deploy") {
   // `ContainerSpec.deploymentId` is a plain string; recover the brand with a
@@ -75,7 +76,7 @@ async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<v
 
 /** Remove the service's container: replicas 0 means scaled to zero. */
 async function scaleToZero(docker: Docker, spec: ContainerSpec, networkName: string) {
-  await removeContainerByName(docker, spec.serviceName);
+  await removeContainerByName(docker, spec.serviceName, serviceStopGraceSeconds(spec));
   return {
     serviceId: null,
     serviceName: spec.serviceName,
@@ -104,6 +105,7 @@ async function rollOut(
       extraNetworks: spec.extraNetworks ?? [],
       deployLog,
       log,
+      stopGraceS: serviceStopGraceSeconds(spec),
     });
     return await rollOutContainer(host, {
       options: buildContainerOptions(spec, networkName),
@@ -236,7 +238,7 @@ export const dockerDriver: RuntimeDriver = {
     const log = asStepLogger(rlog);
     const docker = Docker.fromEnv();
     log.info({ runtime: { step: "remove-db-container", service: input.serviceName } });
-    await removeContainerByName(docker, input.serviceName);
+    await removeContainerByName(docker, input.serviceName, DATABASE_STOP_GRACE_S);
     docker.destroy();
   },
 

@@ -15,6 +15,8 @@ import * as z from "zod";
 const execBody = z.object({ Cmd: z.array(z.string()).optional() });
 const createBody = z.object({
   Image: z.string().optional(),
+  StopTimeout: z.number().optional(),
+  StopSignal: z.string().optional(),
   Labels: z.record(z.string(), z.string()).optional(),
   NetworkingConfig: z
     .object({
@@ -52,6 +54,9 @@ export interface FakeContainer {
   exec: (cmd: string[]) => ExecAnswer;
   /** The state `start` puts it in: `exited` for a version that dies at once. */
   startsAs: FakeContainer["status"];
+  /** Config.StopTimeout / Config.StopSignal it was created with (null: unset). */
+  stopTimeout: number | null;
+  stopSignal: string | null;
 }
 
 export interface FakeService {
@@ -78,6 +83,9 @@ export interface FakeDockerDaemonState {
   /** Endpoints (`METHOD /path` after the version prefix) that answer 500. */
   failing: Set<string>;
   seen: string[];
+  /** Every container stop, with the `t` (grace seconds) the caller asked for
+   *  (null: it left the daemon to use the container's own StopTimeout). */
+  stops: Array<{ name: string; t: number | null }>;
 }
 
 export interface FakeDockerDaemon {
@@ -136,7 +144,12 @@ function inspect(c: FakeContainer) {
         ? { Health: { Status: c.health, Log: c.healthLog.map((Output) => ({ Output })) } }
         : {}),
     },
-    Config: { Image: c.image, Labels: c.labels },
+    Config: {
+      Image: c.image,
+      Labels: c.labels,
+      ...(c.stopTimeout != null ? { StopTimeout: c.stopTimeout } : {}),
+      ...(c.stopSignal ? { StopSignal: c.stopSignal } : {}),
+    },
     NetworkSettings: {
       Networks: Object.fromEntries(
         Object.entries(c.networks).map(([name, n]) => [name, { Aliases: n.aliases }]),
@@ -157,6 +170,7 @@ export function startFakeDockerDaemon(socketPath: string): FakeDockerDaemon {
     services: [],
     failing: new Set(),
     seen: [],
+    stops: [],
   };
   let ids = 0;
   const execs = new Map<string, { container: FakeContainer; cmd: string[]; answer?: ExecAnswer }>();
@@ -176,6 +190,8 @@ export function startFakeDockerDaemon(socketPath: string): FakeDockerDaemon {
       logs: [],
       exec: () => ({ exitCode: 0 }),
       startsAs: "running",
+      stopTimeout: null,
+      stopSignal: null,
       ...c,
     };
     state.containers.push(container);
@@ -219,9 +235,12 @@ export function startFakeDockerDaemon(socketPath: string): FakeDockerDaemon {
         c.status = c.startsAs;
         if (c.startsAs === "exited") c.exitCode = 1;
         return noContent();
-      case "POST stop":
+      case "POST stop": {
+        const t = url.searchParams.get("t");
+        state.stops.push({ name: c.name, t: t === null ? null : Number(t) });
         c.status = "exited";
         return noContent();
+      }
       case "POST rename": {
         const to = url.searchParams.get("name") ?? "";
         if (byRef(to)) return Response.json({ message: "name in use" }, { status: 409 });
@@ -288,6 +307,8 @@ export function startFakeDockerDaemon(socketPath: string): FakeDockerDaemon {
       labels: body.Labels ?? {},
       status: "created",
       networks,
+      stopTimeout: body.StopTimeout ?? null,
+      stopSignal: body.StopSignal ?? null,
     });
     state.onCreate(c);
     return Response.json({ Id: c.id, Warnings: [] }, { status: 201 });

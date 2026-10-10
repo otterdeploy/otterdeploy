@@ -138,6 +138,8 @@ export async function buildSwarmSpec(
       maxAttempts: record.service.restartMaxAttempts,
       delayMs: record.service.restartDelayMs,
     },
+    stopGracePeriodMs: record.service.stopGracePeriodMs,
+    stopSignal: record.service.stopSignal,
     healthcheck: record.service.healthcheckCmd
       ? {
           cmd: record.service.healthcheckCmd,
