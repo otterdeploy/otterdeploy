@@ -14,7 +14,7 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
   const { orgSlug, projectSlug } = useParams({ strict: false });
 
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/_shell/$projectSlug",
+    from: "/_app/$orgSlug/_shell/projects/$projectSlug",
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;

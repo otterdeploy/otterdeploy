@@ -8,7 +8,7 @@ import {
   useMatch,
   useNavigate,
   useRouteContext,
-  useSearch,
+  useParams,
 } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +24,7 @@ import {
   type NavLists,
 } from "@/features/shell/components/header-nav-items";
 import { resolveDefaultEnvironment } from "@/features/shell/environment-default";
+import { useSwitchEnvironment } from "@/features/shell/use-switch-environment";
 import { authClient } from "@/lib/auth-client";
 import { invalidateAuth } from "@/lib/auth-queries";
 import {
@@ -77,7 +78,7 @@ export function HeaderNav() {
   const { organizations } = useRouteContext({ from: "/_app" });
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/_shell/$projectSlug",
+    from: "/_app/$orgSlug/_shell/projects/$projectSlug",
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;
@@ -105,15 +106,15 @@ export function HeaderNav() {
     [project?.id],
   );
 
-  // `strict: false`: this nav also renders on org-level routes, which have no
-  // `env` search param in their schema at all.
-  const search: { env?: string } = useSearch({ strict: false });
+  // `strict: false`: this nav also renders on org-level routes and project
+  // pages with no environment segment; those show the default.
+  const { envSlug } = useParams({ strict: false });
   // The project's own pointer decides which environment is main. Deriving it
   // from list position is what made a newly added environment look like the
   // main one; see environment-default.ts.
   const mainEnvironmentId = project?.environmentId ?? null;
   const defaultEnv = resolveDefaultEnvironment(environments, mainEnvironmentId);
-  const currentEnvSlug = search.env ?? defaultEnv?.slug;
+  const currentEnvSlug = envSlug ?? defaultEnv?.slug;
   const currentEnv = environments.find((e) => e.slug === currentEnvSlug) ?? defaultEnv;
 
   const selectOrg = async (org: { id: string; slug: string }) => {
@@ -133,12 +134,8 @@ export function HeaderNav() {
     void navigate({ to: "/$orgSlug", params: { orgSlug: org.slug } });
   };
 
-  // `to: "."` = stay on the current route, only the search changes.
-  const selectEnv = (slug: string) =>
-    void navigate({
-      to: ".",
-      search: (prev) => ({ ...prev, env: slug }),
-    });
+  // The environment is a path segment: same page, other environment.
+  const selectEnv = useSwitchEnvironment();
 
   const lists = {
     orgs: organizations,

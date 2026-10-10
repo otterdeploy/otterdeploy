@@ -1,9 +1,10 @@
 /**
  * Shared tab resolution for the resource detail panels.
  *
- * The `?tab=` search param on /graph/$resourceId is the source of truth for
- * which panel tab is open, so a panel is a *controlled* component: it derives
- * its active tab from the URL and reports clicks back up. That is what makes a
+ * The route under `/projects/$p/$env/r/$resourceId` (`/logs`, `/settings`, …)
+ * is the source of truth for which panel tab is open, so a panel is a
+ * *controlled* component: it derives its active tab from the URL and reports
+ * clicks back up (see ./panel-location and ./panel-routes). That is what makes a
  * tab reloadable, shareable and reachable by back/forward.
  *
  * Each panel kind owns its own tab union, its own default, and its own subset
@@ -46,8 +47,9 @@ export const PANEL_TAB_BODY_CLASS = "relative pb-12";
 export type LogSource = "runtime" | "build" | "deploy";
 
 /**
- * The deployment focus the URL carries alongside `?tab=`: which deployment
- * row is expanded, and which log the Logs tab shows. Deployments used to open
+ * The deployment focus the URL carries alongside the tab: which deployment
+ * row is expanded (`/deployments/$deploymentId`), and which log the Logs tab
+ * shows (`/logs/build?deployment=…`). Deployments used to open
  * a third overlay over the panel with its own tab strip; they expand in place
  * now, and "View logs" is a tab switch with this focus set.
  */

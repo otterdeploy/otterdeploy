@@ -113,7 +113,7 @@ export async function mintInstallationToken(
           // carries the `build step "token" failed:` prefix step() added, so
           // reusing it would double the prefix.
           cause: new Error(
-            `couldn't mint a GitHub token for this installation. It may have been removed or suspended; reconnect GitHub in Settings → Git (${
+            `couldn't mint a GitHub token for this installation. It may have been removed or suspended; reconnect GitHub in Workspace → Git providers (${
               err.cause instanceof Error ? err.cause.message : String(err.cause)
             })`,
           ),

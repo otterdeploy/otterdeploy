@@ -212,7 +212,7 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     if (!inst) {
       throw new PipelineLoadError(
         "installation",
-        `git_installation ${repo.installationId} not found. Reconnect GitHub in Settings → Git Providers`,
+        `git_installation ${repo.installationId} not found. Reconnect GitHub in Workspace → Git providers`,
       );
     }
     githubInstallationId = inst.installationId;

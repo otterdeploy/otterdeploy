@@ -14,12 +14,14 @@ import { organization } from "@otterdeploy/db/schema/auth";
 import { gitRepo } from "@otterdeploy/db/schema/git";
 import {
   deployment,
+  environment,
   preview,
   project,
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
 import { env as serverEnv } from "@otterdeploy/env/server";
+import { previewDeploymentUrl } from "@otterdeploy/shared/dashboard-links";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import type { PreviewCommentRow } from "./preview-comment";
@@ -61,7 +63,12 @@ async function dashboardBase(): Promise<string> {
 /** One comment row per git service the PR rebuilds in this preview's project. */
 async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<PreviewCommentRow[]> {
   const [proj] = await db
-    .select({ name: project.name, slug: project.slug, orgSlug: organization.slug })
+    .select({
+      name: project.name,
+      slug: project.slug,
+      orgSlug: organization.slug,
+      mainEnvironmentId: project.environmentId,
+    })
     .from(project)
     .innerJoin(organization, eq(organization.id, project.organizationId))
     .where(eq(project.id, row.projectId))
@@ -69,7 +76,7 @@ async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<Prev
   if (!proj) return [];
 
   const services = await db
-    .select({ resourceId: resource.id, name: resource.name })
+    .select({ resourceId: resource.id, name: resource.name, environmentId: resource.environmentId })
     .from(resource)
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .where(
@@ -104,6 +111,14 @@ async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<Prev
 
   const routes = await listProxyRoutesByPreview(row.id);
   const base = await dashboardBase();
+  // The dashboard addresses a resource by its environment. An unstamped
+  // resource belongs to the project's main one.
+  const envs = await db
+    .select({ id: environment.id, slug: environment.slug })
+    .from(environment)
+    .where(eq(environment.projectId, row.projectId));
+  const envSlugOf = (environmentId: string | null): string | undefined =>
+    envs.find((e) => e.id === (environmentId ?? proj.mainEnvironmentId))?.slug;
 
   return services.map((svc) => {
     const dep = latestByResource.get(svc.resourceId);
@@ -113,7 +128,15 @@ async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<Prev
       serviceName: svc.name,
       status: rowStatusFromDeployment(dep?.status),
       inspectUrl: dep
-        ? `${base}/${proj.orgSlug}/${proj.slug}/graph/${svc.resourceId}/deployment/${dep.id}`
+        ? previewDeploymentUrl({
+            base,
+            orgSlug: proj.orgSlug,
+            projectSlug: proj.slug,
+            envSlug: envSlugOf(svc.environmentId) ?? "production",
+            resourceId: svc.resourceId,
+            deploymentId: dep.id,
+            previewId: row.id,
+          })
         : null,
       previewUrl: route ? `https://${route.domain}` : null,
       updatedAt: dep ? (dep.completedAt ?? dep.updatedAt) : null,

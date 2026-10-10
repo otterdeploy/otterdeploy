@@ -155,7 +155,7 @@ function ManagedRow({
             {cert.projects.map((p) => (
               <Link
                 key={p.id}
-                to="/$orgSlug/$projectSlug"
+                to="/$orgSlug/projects/$projectSlug"
                 // Route param is the branded ProjectSlug; the wire type is a
                 // plain string (same pragmatic cast as git-providers/app-detail).
                 params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(p.slug) }}

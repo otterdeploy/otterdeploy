@@ -116,7 +116,6 @@ export function DeleteKeyButton({ sshKey, servers }: { sshKey: SshKey; servers: 
                     <Link
                       to="/$orgSlug/servers/$serverId"
                       params={{ orgSlug, serverId: s.serverId }}
-                      search={{ tab: "overview" }}
                     />
                   }
                 >

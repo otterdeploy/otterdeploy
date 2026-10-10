@@ -20,6 +20,10 @@ export const serverSchema = createSelectSchema(server).extend({
   id: serverIdField,
   // labels is a string[] in DB, jsonb in pg, drizzle-zod widens it; pin it.
   labels: z.array(z.string()),
+  /** Where the server can be reached, for display: the install's public IP
+   *  for the control plane (whose `host` is loopback), else `host`. Set by
+   *  `server.list`; see server-address.ts. */
+  address: z.string().nullable().optional(),
 });
 
 // GET input must be object/any/unknown for the OpenAPI generator; optional

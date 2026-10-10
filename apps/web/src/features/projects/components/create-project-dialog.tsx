@@ -134,7 +134,7 @@ export function CreateProjectDialog({
       }
       setOpen(false);
       void navigate({
-        to: "/$orgSlug/$projectSlug",
+        to: "/$orgSlug/projects/$projectSlug",
         params: { orgSlug, projectSlug: projectSlugSchema.parse(value.slug) },
       });
     },

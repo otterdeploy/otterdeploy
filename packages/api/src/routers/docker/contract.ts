@@ -41,6 +41,21 @@ const containerSchema = z.object({
    *  project). False marks strays the operator started by hand: on a
    *  raw-daemon view those are exactly what you came to find. */
   managed: z.boolean(),
+  /** Whose container this is (see ./container-owner): a project's resource,
+   *  the install's own platform, or neither. Names are resolved server-side
+   *  so the Containers tab can group without a per-project fetch. */
+  owner: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("resource"),
+      resourceId: z.string(),
+      resourceName: z.string().nullable(),
+      projectSlug: z.string().nullable(),
+      projectName: z.string().nullable(),
+      environmentSlug: z.string().nullable(),
+    }),
+    z.object({ kind: z.literal("platform"), role: z.string().nullable() }),
+    z.object({ kind: z.literal("unmanaged") }),
+  ]),
 });
 
 const imageSchema = z.object({

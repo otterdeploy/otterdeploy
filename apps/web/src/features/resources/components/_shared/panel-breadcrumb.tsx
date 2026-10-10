@@ -15,6 +15,8 @@ import { Link } from "@tanstack/react-router";
 
 import { orpc } from "@/shared/server/orpc";
 
+import { panelTabPath, usePanelRouteContext } from "./panel-routes";
+
 export interface PanelCrumb {
   orgSlug: string;
   projectSlug: ProjectSlug;
@@ -29,6 +31,8 @@ export interface PanelCrumb {
 }
 
 export function PanelBreadcrumb({ crumb }: { crumb: PanelCrumb }) {
+  // Back up to the stack, on the same tab.
+  const { tab, envSlug } = usePanelRouteContext();
   // Same query key the graph page already warmed, so resolving the parent's
   // name costs a cache read rather than a request. `enabled` keeps a panel
   // with no parent from fetching at all.
@@ -49,13 +53,13 @@ export function PanelBreadcrumb({ crumb }: { crumb: PanelCrumb }) {
         <>
           <span className="shrink-0 opacity-50">/</span>
           <Link
-            to="/$orgSlug/$projectSlug/graph/$resourceId"
+            to={panelTabPath(tab)}
             params={{
               orgSlug: crumb.orgSlug,
               projectSlug: crumb.projectSlug,
+              envSlug,
               resourceId: crumb.parentResourceId,
             }}
-            search={(prev) => ({ tab: prev.tab })}
             replace
             className="-mx-1 min-w-0 truncate rounded px-1 py-0.5 hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
           >

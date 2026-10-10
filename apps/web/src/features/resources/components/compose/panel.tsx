@@ -20,7 +20,6 @@ import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { ID_PREFIX, hasPrefix } from "@otterdeploy/shared/id";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
@@ -34,6 +33,7 @@ import { orpc } from "@/shared/server/orpc";
 import type { StackMember } from "../_shared/use-stack-members";
 import type { ComposeService } from "./panel-parts";
 
+import { useOpenResource } from "../_shared/panel-routes";
 import { resolvePanelTab } from "../_shared/panel-tab";
 import { StackMemberStrip } from "../_shared/stack-member-strip";
 import { useStackMembers } from "../_shared/use-stack-members";
@@ -144,7 +144,7 @@ export function ComposeResourcePanel({
   focus,
 }: ComposeResourcePanelProps) {
   const tab = resolvePanelTab(tabParam, pending ? COMPOSE_PENDING_TABS : COMPOSE_TABS, "overview");
-  const navigate = useNavigate();
+  const openResource = useOpenResource();
 
   // The stack and its members, with each member's state, from the SAME
   // collections the graph node reads (see use-stack-members). Null while
@@ -157,14 +157,8 @@ export function ComposeResourcePanel({
 
   // Open a member. `replace`: the drawer is already open, and one history
   // entry per open is the rule. The tab is kept (Logs → Logs).
-  const openMember = (resourceId: string) => {
-    void navigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId",
-      params: { orgSlug, projectSlug, resourceId },
-      search: (prev) => ({ tab: prev.tab }),
-      replace: true,
-    });
-  };
+  const openMember = (resourceId: string) =>
+    openResource(resourceId, { keepTab: true, replace: true });
 
   // The raw compose file (inline source) for the read-only viewer. Skipped
   // while pending: there's no resourceId yet to fetch it by.

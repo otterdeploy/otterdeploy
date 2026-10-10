@@ -231,7 +231,7 @@ function buildFailureMessage(exitCode: number, tail: string): string {
   if (OOM_SIGNATURE.test(tail)) {
     return (
       `railpack build failed (exit ${exitCode}): the server ran out of memory during the build. ` +
-      "Free up memory (Instance → Server health → Reclaim space), add 2–4 GB of swap, " +
+      "Free up memory (Servers → the build server → Storage → Reclaim), add 2–4 GB of swap, " +
       "or build heavy apps on a bigger machine. The build itself was killed by the kernel, " +
       "not by a code error."
     );

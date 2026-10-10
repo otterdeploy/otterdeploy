@@ -21,7 +21,7 @@ describe("previewCapMessage", () => {
     // an action. Both escape routes have to be in the text.
     const message = previewCapMessage({ cap: 5, current: 5 });
     expect(message.toLowerCase()).toContain("free a slot");
-    expect(message).toContain("Settings → Instance");
+    expect(message).toContain("Instance settings");
   });
 
   it("leads with the outcome, not the explanation", () => {

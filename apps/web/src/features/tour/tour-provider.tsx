@@ -30,13 +30,14 @@ import { useTranslation } from "react-i18next";
 
 import { projectCollection } from "@/features/projects/data/project";
 import { serverCollection } from "@/features/servers/data/server";
+import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
 
 import { buildTourSteps, resolveRouteParams, type TourContext, type TourStep } from "./steps";
-import { markTourCompleted, markTourDismissed } from "./storage";
 
 import "driver.js/dist/driver.css";
 
 import "./tour.css";
+import { markTourCompleted, markTourDismissed } from "./storage";
 
 interface TourApi {
   /** Start (or restart) the tour from the first step. */
@@ -60,7 +61,10 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const { activeOrgSlug, isInstallAdmin } = useRouteContext({ from: "/_app" });
   // `strict: false`: the tour is mounted above the routes that own these
   // params, so it reads whichever are present on the current match.
-  const params: { orgSlug?: string; projectSlug?: string } = useParams({ strict: false });
+  const params: { orgSlug?: string; projectSlug?: string; envSlug?: string } = useParams({
+    strict: false,
+  });
+  const envSlugFor = useEnvSlugResolver();
 
   // Both collections are preloaded by the layouts below this one, so these are
   // cheap subscriptions rather than fetches. They decide which chapters apply:
@@ -78,14 +82,17 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     return sorted[0]?.slug ?? null;
   }, [params.projectSlug, projects]);
 
+  const envSlug = projectSlug === null ? null : (params.envSlug ?? envSlugFor({ projectSlug }));
+
   const ctx: TourContext = useMemo(
     () => ({
       orgSlug,
       projectSlug,
+      envSlug,
       hasServers: servers.length > 0,
       isInstallAdmin,
     }),
-    [orgSlug, projectSlug, servers.length, isInstallAdmin],
+    [orgSlug, projectSlug, envSlug, servers.length, isInstallAdmin],
   );
 
   // The live driver instance. Held in a ref so `start` is stable and a
@@ -113,10 +120,10 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     /** Navigate to a step's route, when it names one and we aren't there. */
     const goToStepRoute = async (step: TourStep | undefined): Promise<void> => {
       if (step?.route === undefined) return;
-      await navigate({
-        to: step.route.to,
-        params: resolveRouteParams(step.route, ctx),
-      });
+      // Typed at the step's definition; widened here, where one call site
+      // serves every step and the union defeats param inference.
+      const to: string = step.route.to;
+      await navigate({ to, params: resolveRouteParams(step.route, ctx) });
     };
 
     const driveSteps: DriveStep[] = steps.map((step, index) => ({

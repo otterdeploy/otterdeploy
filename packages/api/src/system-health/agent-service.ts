@@ -49,6 +49,7 @@ async function sampleLocalHost(): Promise<void> {
       organizationId: server.organizationId,
       cpuTotal: server.cpuTotal,
       memTotalGb: server.memTotalGb,
+      daemonVersion: server.daemonVersion,
     })
     .from(server)
     .where(eq(server.host, "127.0.0.1"));

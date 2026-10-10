@@ -234,7 +234,7 @@ export function ServiceExtraNetworksCard({ resource }: { resource: NetworksResou
   return (
     <SettingsCard
       title="Networks"
-      description="Docker networks this service is attached to. The project network is always on; extra networks (created in Servers → Docker) are joined on the next deploy."
+      description="Docker networks this service is attached to. The project network is always on; extra networks (created on the control plane's Containers › Networks) are joined on the next deploy."
     >
       {serviceQuery.data ? (
         // Key on the stored list so a save elsewhere reseeds the staged state.

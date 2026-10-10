@@ -10,6 +10,7 @@ import * as z from "zod";
 
 import { isSwarmRuntime } from "../../runtime";
 import { docker, type Listed } from "./client";
+import { type ContainerOwner, containerOwner } from "./container-owner";
 import { USER_NETWORK_LABEL } from "./networks-admin";
 
 export * from "./networks-admin";
@@ -32,6 +33,7 @@ export interface ListedContainer {
   ports: string[];
   createdAt: number;
   managed: boolean;
+  owner: ContainerOwner;
 }
 
 /** Platform-created vs operator stray, from the labels the platform stamps:
@@ -132,6 +134,7 @@ export async function listContainers(opts: { all?: boolean }): Promise<Listed<Li
       ports: formatPorts(c.Ports),
       createdAt: c.Created,
       managed: isManagedContainer(c.Labels),
+      owner: containerOwner(c.Labels),
     })),
   };
 }

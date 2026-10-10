@@ -47,11 +47,18 @@ const SEARCH_PLACEHOLDER: Record<FirewallTab, string> = {
 /** The batch block endpoint caps a call at 100 IPs. */
 const BLOCK_MANY_LIMIT = 100;
 
-export function FirewallView() {
+export function FirewallView({
+  tab,
+  onTabChange,
+}: {
+  /** The open segment. Each is a route (`/edge/firewall`, `/flagged`,
+   *  `/sources`), so the page owns it. */
+  tab: FirewallTab;
+  onTabChange: (tab: FirewallTab) => void;
+}) {
   const queryClient = useQueryClient();
   const status = useQuery(statusQuery());
 
-  const [tab, setTab] = useState<FirewallTab>("blocked");
   const [range, setRange] = useState<BlockedRange>("now");
   const [state, setState] = useState<BlockedState>("all");
   const [flaggedWindow, setFlaggedWindow] = useState<FirewallWindow>("all");
@@ -133,7 +140,7 @@ export function FirewallView() {
 
       <FirewallToolbar
         tab={tab}
-        onTabChange={setTab}
+        onTabChange={onTabChange}
         counts={{ blocked: blocked.liveCount, flagged: flaggedRows.length }}
         filters={
           <FirewallFilters

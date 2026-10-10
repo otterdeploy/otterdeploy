@@ -5,6 +5,7 @@ import { buildTourSteps, resolveRouteParams, type TourContext } from "./steps";
 const base: TourContext = {
   orgSlug: "acme",
   projectSlug: "storefront",
+  envSlug: "production",
   hasServers: true,
   isInstallAdmin: true,
 };
@@ -21,7 +22,7 @@ describe("buildTourSteps", () => {
   });
 
   it("drops the project chapter when the org has no project to walk through", () => {
-    const steps = buildTourSteps({ ...base, projectSlug: null });
+    const steps = buildTourSteps({ ...base, projectSlug: null, envSlug: null });
     const ids = steps.map((s) => s.id);
     // Highlighting an empty canvas teaches nothing, so the whole chapter goes.
     expect(ids).not.toContain("projectGraph");
@@ -66,7 +67,7 @@ describe("resolveRouteParams", () => {
 
   it("supplies projectSlug only when the context has one", () => {
     const withProject = resolveRouteParams(
-      { to: "/$orgSlug/$projectSlug/graph", params: {} },
+      { to: "/$orgSlug/projects/$projectSlug/$envSlug", params: {} },
       base,
     );
     expect(withProject.projectSlug).toBe("storefront");
@@ -76,6 +77,7 @@ describe("resolveRouteParams", () => {
       {
         ...base,
         projectSlug: null,
+        envSlug: null,
       },
     );
     expect(without).not.toHaveProperty("projectSlug");

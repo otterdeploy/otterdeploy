@@ -88,3 +88,12 @@ export function isMainEnvironment(
 ): boolean {
   return mainEnvironmentId != null && env.id === mainEnvironmentId;
 }
+
+/**
+ * The environment segment a link uses when nothing better is known yet (the
+ * environment list still loading, a project with none). It is the convention,
+ * not a lookup: every project page resolves an unknown slug to the project's
+ * main environment, and the resource route moves the operator to a resource's
+ * real environment in place.
+ */
+export const FALLBACK_ENV_SLUG = "production";

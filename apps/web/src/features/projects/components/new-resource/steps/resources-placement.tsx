@@ -129,11 +129,7 @@ export function PlacementSection() {
                     variant="outline"
                     className="h-7"
                     render={() => (
-                      <Link
-                        to="/$orgSlug/servers"
-                        params={{ orgSlug }}
-                        search={{ tab: "overview" }}
-                      >
+                      <Link to="/$orgSlug/servers" params={{ orgSlug }}>
                         Register a server
                       </Link>
                     )}

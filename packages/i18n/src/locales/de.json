@@ -64,7 +64,7 @@
       "noAccount": "Noch kein Konto?",
       "createAccount": "Jetzt erstellen",
       "dividerContinue": "oder weiter mit",
-      "noMethods": "Auf dieser Installation ist keine Anmeldemethode aktiviert. Eine Administratorin oder ein Administrator muss unter Einstellungen → Instanz → Anmeldemethoden wieder eine aktivieren."
+      "noMethods": "Auf dieser Installation ist keine Anmeldemethode aktiviert. Eine Administratorin oder ein Administrator muss unter Instanz → Zugang wieder eine aktivieren."
     },
     "signUp": {
       "title": "Konto erstellen",
@@ -206,6 +206,8 @@
     "apiKeys": "API-Schlüssel",
     "webhooks": "Webhooks",
     "instance": "Instanz",
+    "instanceAccess": "Zugang",
+    "instanceMigration": "Migration",
     "groups": {
       "infrastructure": "Infrastruktur",
       "workspace": "Workspace",
@@ -233,6 +235,8 @@
     "secureEnrollment": "Sichere Aufnahme",
     "nodeDescription_one": "{{count}} Node in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
     "nodeDescription_other": "{{count}} Nodes in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
+    "nodeDescriptionDocker_one": "{{count}} Server · einfaches Docker: alle Dienste laufen auf der Control Plane",
+    "nodeDescriptionDocker_other": "{{count}} Server · einfaches Docker: alle Dienste laufen auf der Control Plane",
     "addServerTitle": "Server hinzufügen",
     "form": {
       "host": "Host / IP",
@@ -703,7 +707,7 @@
     "clientSecret": "Client-Secret",
     "clientSecretHint": "Wird verschlüsselt gespeichert und nie wieder angezeigt. Zum Rotieren den Anbieter entfernen und neu anlegen.",
     "deriveHint": "Leer lassen, um sie aus dem Issuer abzuleiten.",
-    "instanceDisabled": "Enterprise SSO ist für diese Installation deaktiviert. Diese Anbieter erscheinen daher nicht auf der Anmeldeseite und können niemanden anmelden. Eine Installationsadministration kann es unter Einstellungen → Instanz → Anmeldemethoden wieder aktivieren. Hier registrierte Anbieter bleiben in jedem Fall erhalten.",
+    "instanceDisabled": "Enterprise SSO ist für diese Installation deaktiviert. Diese Anbieter erscheinen daher nicht auf der Anmeldeseite und können niemanden anmelden. Eine Installationsadministration kann es unter Instanz → Zugang wieder aktivieren. Hier registrierte Anbieter bleiben in jedem Fall erhalten.",
     "methodsTitle": "Anmeldemethoden",
     "methodsDescription": "Wie Personen auf dieser Installation ihre Identität nachweisen. Die Anmeldeseite zeigt genau das, was hier aktiviert ist.",
     "methodsSaved": "Anmeldemethoden aktualisiert",

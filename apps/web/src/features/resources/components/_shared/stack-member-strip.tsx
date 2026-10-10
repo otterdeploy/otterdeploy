@@ -27,7 +27,6 @@ import { useEffect, useState } from "react";
 
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useNavigate } from "@tanstack/react-router";
 
 import type { ResourceState } from "@/features/resources/lib/resource-state";
 
@@ -37,6 +36,7 @@ import { cn } from "@/shared/lib/utils";
 
 import type { StackView } from "./use-stack-members";
 
+import { useOpenResource } from "./panel-routes";
 import { ResourceSwitcher } from "./resource-switcher";
 
 export interface StripCurrent {
@@ -74,19 +74,12 @@ export function StackMemberStrip({
    *  a standalone resource: the strip is then just the switcher. */
   stack: StackView | null;
 }) {
-  const navigate = useNavigate();
+  const openResource = useOpenResource();
   const [open, setOpen] = useState(false);
 
   // Move sideways, keeping the tab. `replace`: the drawer is already open, and
   // one history entry per open is the rule.
-  const go = (resourceId: string) => {
-    void navigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId",
-      params: { orgSlug, projectSlug, resourceId },
-      search: (prev) => ({ tab: prev.tab }),
-      replace: true,
-    });
-  };
+  const go = (resourceId: string) => openResource(resourceId, { keepTab: true, replace: true });
 
   const ring = stack
     ? [stack.resourceId, ...stack.members.flatMap((m) => (m.resourceId ? [m.resourceId] : []))]

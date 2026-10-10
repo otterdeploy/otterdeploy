@@ -60,7 +60,7 @@ export function CliCard({ orgSlug }: { orgSlug: string }) {
           size="sm"
           variant="ghost"
           className="shrink-0"
-          render={<Link to="/$orgSlug/settings/workspace/api-keys" params={{ orgSlug }} />}
+          render={<Link to="/$orgSlug/workspace/api-keys" params={{ orgSlug }} />}
         >
           Open API keys
         </Button>

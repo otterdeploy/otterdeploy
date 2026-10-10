@@ -23,7 +23,7 @@ export interface AttentionItem {
   title: string;
   detail: string;
   /** The tab on the server page that acts on it. */
-  tab: "overview" | "storage" | "services" | "settings";
+  tab: "overview" | "storage" | "containers" | "settings";
 }
 
 /** The slice of a server row the ranking reads. Structural on purpose so a
@@ -57,7 +57,7 @@ function stateItem(server: AttentionServer, entry: AttentionHealth | null): Atte
         severity: "crit",
         title: `${server.name} is down`,
         detail: state.detail,
-        tab: "services",
+        tab: "containers",
       };
     case "failed":
       return {

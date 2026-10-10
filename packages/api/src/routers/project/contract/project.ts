@@ -4,6 +4,7 @@ import { project } from "@otterdeploy/db/schema";
  * Project CRUD: schemas + contract slice.
  */
 import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
+import { reservedSlugConflict } from "@otterdeploy/shared/reserved-slugs";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
@@ -41,6 +42,22 @@ export const projectSchema = createSelectSchema(project)
     // drizzle-zod infers jsonb loosely; pin the wire shape explicitly so the
     // graph reads a typed `Record<nodeId, {x,y}>`.
     graphLayout: graphLayoutSchema,
+  });
+
+/**
+ * A slug chosen at create or rename: normalized, bounded, and not one the
+ * dashboard already answers beside it (`@otterdeploy/shared/reserved-slugs`).
+ * Reading an existing slug uses `zSlug` instead, which must keep accepting
+ * slugs taken before a word was reserved.
+ */
+const projectSlugInput = z
+  .string()
+  .slugify()
+  .min(2)
+  .max(48)
+  .refine((slug) => reservedSlugConflict("project", slug) === null, {
+    error: (issue) =>
+      reservedSlugConflict("project", String(issue.input)) ?? "Reserved project slug",
   });
 
 export const projectListItemSchema = projectSchema.extend({
@@ -84,7 +101,7 @@ const createProjectInput = z.object({
    */
   environmentId: environmentIdField.optional(),
   name: z.string().min(1),
-  slug: z.string().slugify().min(2).max(48),
+  slug: projectSlugInput,
 });
 
 export const getProjectInput = z.object({
@@ -98,7 +115,7 @@ const getProjectBySlugInput = z.object({
 const updateProjectInput = z.object({
   id: projectIdField,
   name: z.string().min(1).optional(),
-  slug: z.string().slugify().min(2).max(48).optional(),
+  slug: projectSlugInput.optional(),
   // Per-project custom domain. Setting this changes where the project's
   // services land (web.<customDomain> instead of falling through to the
   // org's baseDomain). Writing the column clears any previous

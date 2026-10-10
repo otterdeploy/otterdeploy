@@ -93,7 +93,7 @@ export async function sendEmail(options: SendEmailOptions) {
     throw createError({
       message: "Email isn't configured",
       status: 503,
-      why: "No email provider is set. Configure Resend or SMTP in Settings → Email, or set RESEND_API_KEY.",
+      why: "No email provider is set. Set RESEND_API_KEY (and RESEND_FROM_EMAIL) in the server environment.",
     });
   }
 

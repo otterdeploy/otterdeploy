@@ -1,10 +1,10 @@
 import { ID_PREFIX, createId, idSchema } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { envCollection, newPersistentEnvRow } from "@/features/projects/data/env";
+import { useSwitchEnvironment } from "@/features/shell/use-switch-environment";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -33,7 +33,7 @@ interface Props {
 
 export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const switchEnvironment = useSwitchEnvironment();
 
   const form = useForm({
     defaultValues: { name: "", slug: "" },
@@ -53,12 +53,8 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
         }),
       );
 
-      // Switch the URL to the freshly-created env so the user lands on it.
-      // `to: "."` = stay on the current route, only the search changes.
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, env: slug }),
-      });
+      // Land the user on the freshly-created env, on the same page.
+      switchEnvironment(slug);
       setOpen(false);
       tx.isPersisted.promise.catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Failed to create environment"),

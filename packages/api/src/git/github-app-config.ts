@@ -53,7 +53,7 @@ export class GithubAppNotConfiguredError extends TaggedError("GithubAppNotConfig
 }>() {
   constructor(reason?: string) {
     super({
-      message: `GitHub App not configured${reason ? ` (${reason})` : ""}: create one via the manifest flow in Settings → Git Providers`,
+      message: `GitHub App not configured${reason ? ` (${reason})` : ""}: create one via the manifest flow in Workspace → Git providers`,
     });
   }
 }

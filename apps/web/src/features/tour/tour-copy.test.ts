@@ -15,6 +15,7 @@ import { buildTourSteps } from "./steps";
 const allSteps = buildTourSteps({
   orgSlug: "acme",
   projectSlug: "storefront",
+  envSlug: "production",
   hasServers: true,
   isInstallAdmin: true,
 });

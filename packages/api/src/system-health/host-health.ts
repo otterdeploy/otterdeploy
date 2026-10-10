@@ -124,6 +124,9 @@ export interface HostHealth {
   /** Per interface (loopback excluded). */
   network: HostNetworkInterface[] | null;
   docker: DockerUsage | null;
+  /** The Docker engine's version (`docker info` ServerVersion), or null when
+   *  the daemon did not answer. Written to the server row on ingest. */
+  dockerVersion: string | null;
   /** ZFS database-branching pool, when this install provisioned one. */
   branchPool: BranchPoolHealth | null;
   recommendations: HealthRecommendation[];
@@ -249,27 +252,52 @@ async function readDockerUsage(): Promise<DockerUsage | null> {
   }
 }
 
+/** The engine version, from the same socket the usage numbers come from. */
+async function readDockerVersion(): Promise<string | null> {
+  const docker = Docker.fromEnv();
+  try {
+    const info = await docker.system.info();
+    return info.isOk() && info.value.ServerVersion ? info.value.ServerVersion : null;
+  } finally {
+    docker.destroy();
+  }
+}
+
 export async function getHostHealth(): Promise<HostHealth> {
-  const [memory, disk, filesystems, telemetry, dockerUsage, branchPool, buildSandbox] =
-    await Promise.all([
-      readMemory(),
-      readDisk(),
-      readFilesystems(),
-      readProcTelemetry(),
-      withTimeout(
-        Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
-          r.isOk() ? r.value : null,
-        ),
-        DOCKER_USAGE_TIMEOUT_MS,
+  const [
+    memory,
+    disk,
+    filesystems,
+    telemetry,
+    dockerUsage,
+    branchPool,
+    buildSandbox,
+    dockerVersion,
+  ] = await Promise.all([
+    readMemory(),
+    readDisk(),
+    readFilesystems(),
+    readProcTelemetry(),
+    withTimeout(
+      Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
+        r.isOk() ? r.value : null,
       ),
-      withTimeout(
-        Result.tryPromise({ try: () => getBranchPoolHealth(), catch: () => null }).then((r) =>
-          r.isOk() ? r.value : null,
-        ),
-        DOCKER_USAGE_TIMEOUT_MS,
+      DOCKER_USAGE_TIMEOUT_MS,
+    ),
+    withTimeout(
+      Result.tryPromise({ try: () => getBranchPoolHealth(), catch: () => null }).then((r) =>
+        r.isOk() ? r.value : null,
       ),
-      readBuildSandboxStatus(),
-    ]);
+      DOCKER_USAGE_TIMEOUT_MS,
+    ),
+    readBuildSandboxStatus(),
+    withTimeout(
+      Result.tryPromise({ try: () => readDockerVersion(), catch: () => null }).then((r) =>
+        r.isOk() ? r.value : null,
+      ),
+      DOCKER_USAGE_TIMEOUT_MS,
+    ),
+  ]);
   return {
     memory,
     disk,
@@ -279,6 +307,7 @@ export async function getHostHealth(): Promise<HostHealth> {
     diskIo: telemetry.diskIo,
     network: telemetry.network,
     docker: dockerUsage,
+    dockerVersion,
     branchPool,
     recommendations: [
       ...buildSandboxRecommendations(buildSandbox),

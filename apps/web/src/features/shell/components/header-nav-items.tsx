@@ -91,7 +91,7 @@ export function ProjectItems({ orgSlug, projects, activeProjectId, onCreateProje
             key={p.id}
             render={
               <Link
-                to="/$orgSlug/$projectSlug"
+                to="/$orgSlug/projects/$projectSlug"
                 params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(p.slug) }}
               />
             }

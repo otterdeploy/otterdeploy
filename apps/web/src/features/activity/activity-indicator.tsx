@@ -24,6 +24,7 @@ import type { DeployActivityItem } from "@/features/activity/use-deploy-activity
 
 import { useDeployActivity } from "@/features/activity/use-deploy-activity";
 import { CancelDeploymentButton } from "@/features/deployments/components/cancel-deployment-button";
+import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
 import { Button } from "@/shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { cn } from "@/shared/lib/utils";
@@ -62,6 +63,7 @@ function ActivityRow({
   orgSlug: string;
 }) {
   const building = item.status === "building";
+  const envSlugFor = useEnvSlugResolver();
 
   return (
     <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent">
@@ -78,27 +80,21 @@ function ActivityRow({
       />
 
       <Link
-        to="/$orgSlug/$projectSlug/graph/$resourceId"
-        params={{
-          orgSlug,
-          projectSlug: item.projectSlug,
-          resourceId: item.resourceId,
-        }}
         // Straight to the build log. Every row here is a build you are waiting
         // on, and "what is it doing right now" is the only reason to click.
         //
-        // `env` SWITCHES environment, it does not merely preserve one. This
-        // list spans every environment in the org, so a row is routinely for a
-        // resource that does not exist in the one currently being viewed —
-        // clicking a staging build from production landed on "Resource not
-        // found" for a build the same popover was showing as running. Main is
-        // represented by omitting the param.
-        search={{
-          tab: "logs",
-          deployment: item.id,
-          logSource: "build",
-          ...(item.environmentSlug === null ? {} : { env: item.environmentSlug }),
+        // The environment SWITCHES, it is not merely preserved. This list
+        // spans every environment in the org, so a row is routinely for a
+        // resource that does not exist in the one currently being viewed. An
+        // unstamped row belongs to the project's main environment.
+        to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId/logs/build"
+        params={{
+          orgSlug,
+          projectSlug: item.projectSlug,
+          envSlug: item.environmentSlug ?? envSlugFor({ projectSlug: item.projectSlug }),
+          resourceId: item.resourceId,
         }}
+        search={{ deployment: item.id }}
         className="flex min-w-0 flex-1 flex-col gap-0.5"
       >
         <span className="flex items-baseline justify-between gap-2">

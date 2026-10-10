@@ -14,6 +14,8 @@ import { toast } from "sonner";
 
 import { orpc } from "@/shared/server/orpc";
 
+import { usePanelRouteContext } from "../_shared/panel-routes";
+
 export function useServiceRuntimeActions({
   resourceId,
   orgSlug,
@@ -24,17 +26,19 @@ export function useServiceRuntimeActions({
   projectSlug: ProjectSlug;
 }) {
   const navigate = useNavigate();
+  const { envSlug } = usePanelRouteContext();
   // Straight into the panel's Logs tab with the new deployment focused: the
   // build/deploy log is a log SOURCE of the panel now, not an overlay route.
   const toDeployment = (deploymentId: string, logSource: "build" | "deploy") =>
     navigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId",
-      params: { orgSlug, projectSlug, resourceId },
-      // Spread, don't replace: the active environment rides the URL as `?env=`
-      // (see use-active-environment), so a literal search object silently
-      // dropped it and bounced the operator from Staging back to the default
-      // environment on every Deploy or Restart (od-asc.7).
-      search: (prev) => ({ ...prev, tab: "logs", deployment: deploymentId, logSource }),
+      // The environment is a path segment and stays put: Deploy or Restart on
+      // Staging lands on Staging's log, never the default environment's.
+      to:
+        logSource === "build"
+          ? "/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId/logs/build"
+          : "/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId/logs/deploy",
+      params: { orgSlug, projectSlug, envSlug, resourceId },
+      search: { deployment: deploymentId },
       replace: true,
     });
 

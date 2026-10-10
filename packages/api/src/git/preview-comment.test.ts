@@ -11,7 +11,8 @@ function row(overrides: Partial<PreviewCommentRow> = {}): PreviewCommentRow {
     projectName: "somnara",
     serviceName: "web",
     status: "building",
-    inspectUrl: "https://panel.example.com/acme/somnara/graph/res_1/deployment/dep_1",
+    inspectUrl:
+      "https://panel.example.com/acme/projects/somnara/production/r/res_1/deployments/dep_1?previewId=prv_1",
     previewUrl: "https://web-pr-13-somnara.apps.example.com",
     updatedAt: at,
     ...overrides,
@@ -30,7 +31,7 @@ describe("renderPreviewComment", () => {
     expect(body).toContain("**The latest updates on your preview environment.**");
     expect(body).toContain("| Service | Status | Preview | Updated (UTC) |");
     expect(body).toContain(
-      "| **web** | 🟠 Building ([Inspect](https://panel.example.com/acme/somnara/graph/res_1/deployment/dep_1)) | [Visit Preview](https://web-pr-13-somnara.apps.example.com) | Jul 6, 2026 3:38pm |",
+      "| **web** | 🟠 Building ([Inspect](https://panel.example.com/acme/projects/somnara/production/r/res_1/deployments/dep_1?previewId=prv_1)) | [Visit Preview](https://web-pr-13-somnara.apps.example.com) | Jul 6, 2026 3:38pm |",
     );
     expect(body).toContain("`abcdef1`");
   });

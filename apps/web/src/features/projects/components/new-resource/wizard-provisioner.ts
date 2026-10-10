@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { setPendingFramework } from "@/features/projects/components/graph/pending-framework-store";
+import { usePanelRouteContext } from "@/features/resources/components/_shared/panel-routes";
 import { orpc } from "@/shared/server/orpc";
 
 import type { Port } from "./form-fields/ports-field";
@@ -110,6 +111,7 @@ export function useResourceProvisioner({
     successToast: "Resource staged. Review and Apply.",
   });
   const navigate = useNavigate();
+  const { envSlug: canvasEnvSlug } = usePanelRouteContext();
 
   // After a create stages, close the dialog and drop the operator on the
   // graph: that's where the new node lives (as a pending "ghost" until
@@ -120,8 +122,10 @@ export function useResourceProvisioner({
   const finish = () => {
     onComplete?.();
     void navigate({
-      to: "/$orgSlug/$projectSlug/graph",
-      params: { orgSlug, projectSlug },
+      // The canvas of the environment on screen (its default on a page that
+      // has none): that is where the new node lives, as a pending ghost.
+      to: "/$orgSlug/projects/$projectSlug/$envSlug",
+      params: { orgSlug, projectSlug, envSlug: canvasEnvSlug },
     });
   };
 

@@ -64,7 +64,7 @@
       "noAccount": "Don't have an account?",
       "createAccount": "Create one",
       "dividerContinue": "or continue with",
-      "noMethods": "No sign-in method is enabled on this installation. An administrator has to re-enable one in Settings → Instance → Sign-in methods."
+      "noMethods": "No sign-in method is enabled on this installation. An administrator has to re-enable one in Instance → Access."
     },
     "signUp": {
       "title": "Create an account",
@@ -206,6 +206,8 @@
     "apiKeys": "API keys",
     "webhooks": "Webhooks",
     "instance": "Instance",
+    "instanceAccess": "Access",
+    "instanceMigration": "Migration",
     "groups": {
       "infrastructure": "Infrastructure",
       "workspace": "Workspace",
@@ -233,6 +235,8 @@
     "secureEnrollment": "Secure enrollment",
     "nodeDescription_one": "{{count}} node in this swarm · replicas placed via Docker Stack rolling updates",
     "nodeDescription_other": "{{count}} nodes in this swarm · replicas placed via Docker Stack rolling updates",
+    "nodeDescriptionDocker_one": "{{count}} server · plain Docker: every service runs on the control plane",
+    "nodeDescriptionDocker_other": "{{count}} servers · plain Docker: every service runs on the control plane",
     "addServerTitle": "Add server",
     "form": {
       "host": "Host / IP",
@@ -703,7 +707,7 @@
     "clientSecret": "Client secret",
     "clientSecretHint": "Stored encrypted and never shown again. To rotate it, remove the provider and add it back.",
     "deriveHint": "Leave blank to derive it from the issuer.",
-    "instanceDisabled": "Enterprise SSO is switched off for this installation, so these providers do not appear on the sign-in page and cannot sign anyone in. An install administrator can turn it back on in Settings → Instance → Sign-in methods. Providers registered here are kept either way.",
+    "instanceDisabled": "Enterprise SSO is switched off for this installation, so these providers do not appear on the sign-in page and cannot sign anyone in. An install administrator can turn it back on in Instance → Access. Providers registered here are kept either way.",
     "methodsTitle": "Sign-in methods",
     "methodsDescription": "How people prove who they are on this installation. The sign-in page shows exactly what is enabled here.",
     "methodsSaved": "Sign-in methods updated",

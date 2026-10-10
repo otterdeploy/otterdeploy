@@ -1,6 +1,6 @@
 /**
- * Settings-zone navigation: the Linear-style takeover under
- * `/$orgSlug/settings/*`: Account / Workspace / Instance.
+ * Settings-zone navigation: the Linear-style takeover over
+ * `/$orgSlug/{account,workspace,instance}`: Account / Workspace / Instance.
  *
  * Split from `nav-manifest.ts` on the seam that module's own header already
  * describes: two chromes that never coexist. The operational shell and the
@@ -15,7 +15,9 @@ import type { TranslationKey } from "@otterdeploy/i18n";
 
 import {
   DeviceAccessIcon,
+  Download01Icon,
   Key02Icon,
+  LockKeyIcon,
   ServerStack01Icon,
   Settings01Icon,
   ShieldKeyIcon,
@@ -42,21 +44,21 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
       {
         title: "Profile",
         i18nKey: "nav.profile",
-        to: "/$orgSlug/settings/account/profile",
+        to: "/$orgSlug/account",
         icon: UserCircleIcon,
         keywords: ["account", "avatar", "name", "email"],
       },
       {
         title: "Security",
         i18nKey: "nav.security",
-        to: "/$orgSlug/settings/account/security",
+        to: "/$orgSlug/account/security",
         icon: ShieldKeyIcon,
         keywords: ["password", "2fa", "two-factor", "totp"],
       },
       {
         title: "Sessions",
         i18nKey: "nav.sessions",
-        to: "/$orgSlug/settings/account/sessions",
+        to: "/$orgSlug/account/sessions",
         icon: DeviceAccessIcon,
         keywords: ["devices", "sign out", "cli", "revoke"],
       },
@@ -67,52 +69,50 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
     labelI18nKey: "nav.groups.workspace",
     items: [
       {
-        // Label-only rename (od-u63.7): path is unchanged. "General" was
-        // ambiguous with Instance → General; this page is base domain +
-        // Cloudflare, so "Domains" says what it actually does.
+        // Base domain + Cloudflare. The path said "general" while the label
+        // said Domains; both say Domains now.
         title: "Domains",
         i18nKey: "nav.domains",
-        to: "/$orgSlug/settings/workspace/general",
+        to: "/$orgSlug/workspace/domains",
         icon: Settings01Icon,
         keywords: ["domain", "cloudflare", "workspace settings", "general"],
       },
       {
         title: "Team",
         i18nKey: "nav.team",
-        to: "/$orgSlug/settings/workspace/team",
+        to: "/$orgSlug/workspace",
+        // The workspace index: inviting is the most common reason to open it.
+        exact: true,
         icon: UserMultipleIcon,
         keywords: ["members", "invite"],
       },
-      // Git providers, Registries and SSH keys moved to the operational
-      // sidebar's Workspace group. See OPERATIONAL_NAV above. The settings
-      // paths remain as redirect shims, so old bookmarks still land.
+      // Git providers, Registries and SSH keys live in the operational
+      // sidebar's Workspace group. See OPERATIONAL_NAV.
       {
         title: "Single sign-on",
         i18nKey: "nav.sso",
-        to: "/$orgSlug/settings/workspace/sso",
+        to: "/$orgSlug/workspace/sso",
         icon: ShieldKeyIcon,
         keywords: ["sso", "saml", "oidc", "okta", "entra", "azure", "identity provider", "idp"],
       },
       {
         title: "API keys",
         i18nKey: "nav.apiKeys",
-        to: "/$orgSlug/settings/workspace/api-keys",
+        to: "/$orgSlug/workspace/api-keys",
         icon: Key02Icon,
         keywords: ["tokens", "access"],
       },
       {
         title: "Webhooks",
         i18nKey: "nav.webhooks",
-        to: "/$orgSlug/settings/workspace/webhooks",
+        to: "/$orgSlug/workspace/webhooks",
         icon: WebhookIcon,
         keywords: ["hmac", "deliveries", "inbound", "events"],
       },
-      // Secret providers moved to OPERATIONAL_NAV → Workspace as "Secrets";
-      // the old settings path redirects there.
-      // Notifications moved to OPERATIONAL_NAV → Workspace; the old settings
-      // path now redirects there. Its transport cards (email provider, Twilio,
-      // FCM) were removed outright. Per-channel delivery credentials are
-      // captured by the channel dialog itself.
+      // Secret providers and Notifications live in OPERATIONAL_NAV →
+      // Workspace. Notification transport cards (email provider, Twilio, FCM)
+      // were removed outright; per-channel delivery credentials are captured
+      // by the channel dialog itself.
     ],
   },
   {
@@ -120,12 +120,13 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
     labelI18nKey: "nav.groups.instance",
     items: [
       {
-        // Label-only rename (od-u63.7): path is unchanged. No page should be
-        // named "General" twice in the same rail; "Instance" says whose
-        // config this is (install-wide, not workspace-scoped).
+        // "Instance" says whose config this is (install-wide, not
+        // workspace-scoped). The page holds the install itself now; access
+        // and migration are their own pages below.
         title: "Instance",
         i18nKey: "nav.instance",
-        to: "/$orgSlug/settings/instance/general",
+        to: "/$orgSlug/instance",
+        exact: true,
         icon: ServerStack01Icon,
         // Every card on this page is backed by the platform-settings router,
         // which is install-admin in its entirety (16 of 16 procedures).
@@ -139,6 +140,30 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
           "updates",
           "general",
         ],
+      },
+      {
+        title: "Access",
+        i18nKey: "nav.instanceAccess",
+        to: "/$orgSlug/instance/access",
+        icon: LockKeyIcon,
+        installAdminOnly: true,
+        keywords: [
+          "sign in",
+          "sign-in methods",
+          "registration",
+          "social",
+          "oauth",
+          "github",
+          "google",
+        ],
+      },
+      {
+        title: "Migration",
+        i18nKey: "nav.instanceMigration",
+        to: "/$orgSlug/instance/migration",
+        icon: Download01Icon,
+        installAdminOnly: true,
+        keywords: ["coolify", "import", "migrate"],
       },
     ],
   },
