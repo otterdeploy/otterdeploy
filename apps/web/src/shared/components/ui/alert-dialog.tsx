@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -141,8 +142,37 @@ function AlertDialogDescription({
   );
 }
 
-function AlertDialogAction({ className, ...props }: React.ComponentProps<typeof Button>) {
-  return <Button data-slot="alert-dialog-action" className={cn(className)} {...props} />;
+function AlertDialogAction({
+  className,
+  render,
+  variant,
+  size,
+  ...props
+}: React.ComponentProps<typeof Button>) {
+  // A caller's `render` element is the button, already carrying its own
+  // variant and size. Rendering it through a styled Button as well stacked the
+  // default variant's classes onto the same element, and its Signal Blue fill
+  // won: every destructive confirm read as a primary "do this". The unstyled
+  // primitive keeps the button behaviour and leaves the look to the caller.
+  if (render) {
+    return (
+      <ButtonPrimitive
+        data-slot="alert-dialog-action"
+        className={className}
+        render={render}
+        {...props}
+      />
+    );
+  }
+  return (
+    <Button
+      data-slot="alert-dialog-action"
+      variant={variant}
+      size={size}
+      className={cn(className)}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogCancel({
