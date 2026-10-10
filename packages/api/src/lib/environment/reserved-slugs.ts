@@ -17,6 +17,8 @@
  * containers and volumes.
  */
 
+import { reservedSlugConflict } from "@otterdeploy/shared/reserved-slugs";
+
 /** `pr-<digits>`, the shape `previewSlug` generates. Anchored and case-folded:
  *  `PR-7` slugifies to `pr-7` and must be caught too. */
 const PREVIEW_SUFFIX = /^pr-\d+$/i;
@@ -31,6 +33,10 @@ const RESERVED = new Set(["preview", "previews", "pr"]);
 
 /** Why a slug was rejected, phrased for the operator creating it. */
 export function environmentSlugConflict(slug: string): string | null {
+  // The URL words come first: `/…/projects/$project/settings` is a page, so an
+  // environment slugged `settings` could never be opened.
+  const urlConflict = reservedSlugConflict("environment", slug);
+  if (urlConflict) return urlConflict;
   const normalized = slug.trim().toLowerCase();
   if (PREVIEW_SUFFIX.test(normalized)) {
     return `"${slug}" collides with the name generated for pull-request previews. Pick a slug that isn't pr-<number>.`;

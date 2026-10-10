@@ -33,6 +33,15 @@ describe("createEnv input", () => {
     }
   });
 
+  it("rejects a slug that names a page beside the environments in the URL", () => {
+    // `/…/projects/$project/settings` is the project's settings page; an
+    // environment slugged `settings` would exist and never be reachable.
+    for (const slug of ["settings", "variables", "previews"]) {
+      const result = createEnvInput.safeParse({ name: slug, slug });
+      expect(result.success).toBe(false);
+    }
+  });
+
   it("still enforces the pre-existing length bounds", () => {
     // The refinement is additive. It must not have replaced min/max.
     expect(createEnvInput.safeParse({ name: "x", slug: "a" }).success).toBe(false);

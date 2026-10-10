@@ -42,6 +42,7 @@ import {
   decideRegistration,
   isSsoCallbackPath,
 } from "./registration-policy";
+import { assertOrganizationSlugAllowed } from "./reserved-organization-slug";
 
 /** The api-key plugin's HTTP create endpoint, closed (see `disabledPaths`). */
 export const API_KEY_CREATE_PATH = "/api-key/create";
@@ -606,7 +607,16 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
         // Sends, retries transient provider errors, and records the outcome
         // on the invitation. See ./invitation-email.ts.
         sendInvitationEmail,
-        organizationHooks: { afterRemoveMember: clearRemovedMemberWorkspace },
+        organizationHooks: {
+          afterRemoveMember: clearRemovedMemberWorkspace,
+          // A slug the dashboard already answers at `/<slug>` (status pages,
+          // sign-in, the server's /api …) would leave the organization
+          // unreachable. See ./reserved-organization-slug.ts.
+          beforeCreateOrganization: async ({ organization }) =>
+            assertOrganizationSlugAllowed(organization),
+          beforeUpdateOrganization: async ({ organization }) =>
+            assertOrganizationSlugAllowed(organization),
+        },
         // RBAC: custom access-control statements + owner/admin/member roles
         // (packages/auth/src/permissions.ts). `auth.api.hasPermission` resolves
         // the active member's role against these, no manual member lookups.
