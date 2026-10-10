@@ -117,6 +117,7 @@ export async function runComposeCreates(
       if (placement.isErr()) return Result.err(placement.error);
       return createComposeFromManifest({
         projectId: ctx.projectId,
+        environmentId: ctx.environmentId,
         organizationId: ctx.organizationId,
         name: change.name,
         spec,

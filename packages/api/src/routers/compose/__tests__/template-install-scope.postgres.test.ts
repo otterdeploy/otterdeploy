@@ -40,6 +40,7 @@ describe("installing a template never touches another stack's values", () => {
     // Template B wants the same generic names, with freshly generated values.
     const created = await createComposeFromManifest({
       projectId: t.projectId,
+      environmentId: t.mainEnvironmentId,
       organizationId: t.organizationId,
       name: `b-${uniq()}`,
       placementServerId: null,

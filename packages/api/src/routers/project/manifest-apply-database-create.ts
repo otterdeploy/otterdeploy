@@ -26,11 +26,11 @@ import { ManifestApplySkipError } from "./errors";
 import { manifestExtensions } from "./manifest-apply-databases";
 import { lookupDatabaseId } from "./manifest-apply-support";
 import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
-import { deriveInternalDbCredentials } from "./postgres/credentials";
 import { ensurePersistedExtensionsLive } from "./postgres/extensions";
 import {
   deleteDraftCredential,
   deleteResourceById,
+  getDatabaseResourceRecord,
   getDraftCredentialPassword,
   setDatabaseResourcePreviewBranching,
 } from "./queries";
@@ -170,28 +170,13 @@ export async function createDatabase(
     args.log,
   );
 
-  // The same deterministic derivation the create used, so a rollback drops
-  // exactly what the create would have made (see ./postgres/credentials).
-  const derived = deriveInternalDbCredentials({
-    engine: args.spec.engine,
-    projectSlug: project.slug,
-    resourceName: args.name,
-    password: "",
-  });
-
   const { success, errorMessage, createdResourceId } = await drainCreateStream(stream);
   if (success && createdResourceId && args.spec.previews) {
     // Manifest declared preview branching at create time, flag the fresh row.
     await setDatabaseResourcePreviewBranching(createdResourceId, true);
   }
   if (!success) {
-    await rollbackFailedCreate({
-      args,
-      createdResourceId,
-      host,
-      projectSlug: project.slug,
-      derived,
-    });
+    await rollbackFailedCreate({ args, createdResourceId, host, projectSlug: project.slug });
     return Result.err(
       new ManifestApplySkipError({
         resource: "database",
@@ -229,16 +214,26 @@ export async function createDatabase(
  * volume, because the bytes are the one thing worth more than a clean retry.
  * A hosted database has no container at all — what it can leave is a database
  * and a role on someone else's server, and those hold the name.
+ *
+ * Only what THIS create made is touched, named from the row it wrote. The row
+ * insert is the stream's first write, so no row means nothing was provisioned
+ * and there is nothing to undo. The names used to be re-derived from
+ * (project, name) instead, which carries no environment: a staging create that
+ * failed its insert (production already held the hostname) removed
+ * PRODUCTION's container of the same name, which the runtime then restarted
+ * (od-5tgf).
  */
 async function rollbackFailedCreate(input: {
   args: CreateDatabaseArgs;
   createdResourceId: ResourceId | null;
   host: HostRow | null;
   projectSlug: string;
-  derived: { databaseName: string; username: string };
 }): Promise<void> {
-  if (input.createdResourceId) await deleteResourceById(input.createdResourceId);
-  const { host, args, derived } = input;
+  const { args, createdResourceId, host } = input;
+  if (!createdResourceId) return;
+  const record = await getDatabaseResourceRecord(args.projectId, createdResourceId);
+  await deleteResourceById(createdResourceId);
+  if (!record) return;
   await Result.tryPromise({
     try: () =>
       host
@@ -246,8 +241,8 @@ async function rollbackFailedCreate(input: {
             {
               host,
               tenant: {
-                databaseName: derived.databaseName,
-                username: derived.username,
+                databaseName: record.database.databaseName,
+                username: record.database.username,
                 password: "",
               },
             },
@@ -259,6 +254,7 @@ async function rollbackFailedCreate(input: {
                 engine: args.spec.engine,
                 projectSlug: input.projectSlug,
                 resourceName: args.name,
+                stored: record.database.serviceName,
               }),
             },
             args.log,

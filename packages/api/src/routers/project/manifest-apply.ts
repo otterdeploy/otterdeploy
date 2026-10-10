@@ -203,7 +203,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const fold = (c: PhaseContribution): void => {
     appliedCount += c.applied;
     for (const e of c.skipped)
-      skipped.push({ resource: e.resource, name: e.name, reason: e.reason });
+      skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
     gitBuilds.push(...c.gitBuilds);
   };
 
@@ -238,7 +238,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // 8. Enqueue builds for the git-sourced services collected above. A failure
   // means the resource exists but won't build, so it joins skipped[].
   for (const e of await runGitBuilds(ctx, gitBuilds)) {
-    skipped.push({ resource: e.resource, name: e.name, reason: e.reason });
+    skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
   }
 
   // Record what LANDED, not what was asked for. A resource in `skipped[]`

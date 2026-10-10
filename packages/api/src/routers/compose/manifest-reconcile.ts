@@ -1,4 +1,10 @@
-import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  EnvironmentId,
+  GitRepoId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -24,6 +30,8 @@ import type { ComposeManifest } from "../../stack/manifest";
 import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { resolveBuildLane } from "../../lib/build-target";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
+import { scopeSuffix } from "../../lib/environment/scoping";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { ManifestApplySkipError } from "../project/errors";
 import { getProjectInOrg } from "../project/queries";
@@ -40,13 +48,16 @@ interface CreateComposeArgs {
    *  query it feeds so the two cannot drift. */
   placementServerId: Parameters<typeof createComposeRecord>[0]["placementServerId"];
   projectId: ProjectId;
+  /** Environment the apply runs in. The stack row is stamped with it and its
+   *  stack name (the identity its containers and volumes derive from) takes
+   *  that environment's suffix. */
+  environmentId: EnvironmentId;
   organizationId: OrganizationId;
   name: string;
   spec: ComposeManifest;
   log: RequestLogger;
 }
 
-type ManifestProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
 type GitManifest = Extract<ComposeManifest, { source: "git" }>;
 type InlineManifest = Extract<ComposeManifest, { source: "inline" }>;
 
@@ -108,7 +119,6 @@ async function resolveGitSource(
 async function createGitStackFromManifest(
   args: CreateComposeArgs,
   spec: GitManifest,
-  project: ManifestProject,
   exposed: ExposedSeed[],
   stackName: string,
 ): Promise<CreateResult> {
@@ -133,11 +143,11 @@ async function createGitStackFromManifest(
     try: () =>
       createComposeRecord({
         projectId,
-        // Stamp the environment like every other create path. Unstamped rows
-        // are only visible because MAIN additionally owns NULL (a legacy
-        // allowance in inEnvironmentScope): a non-main environment would
-        // never see this stack.
-        environmentId: project.environmentId,
+        // Stamp the environment the apply runs in, like every other manifest
+        // create. This used to be the project's MAIN environment whatever was
+        // being applied, so a staging apply wrote its stack into production,
+        // or collided with production's stack of the same name (od-5tgf).
+        environmentId: args.environmentId,
         name,
         source: "git",
         composeContent: null,
@@ -200,7 +210,6 @@ async function createGitStackFromManifest(
 async function createInlineStackFromManifest(
   args: CreateComposeArgs,
   spec: InlineManifest,
-  project: ManifestProject,
   exposed: ExposedSeed[],
   stackName: string,
 ): Promise<CreateResult> {
@@ -219,7 +228,7 @@ async function createInlineStackFromManifest(
       createComposeRecord({
         projectId,
         // See the git branch above, same reason.
-        environmentId: project.environmentId,
+        environmentId: args.environmentId,
         name,
         source: "inline",
         composeContent,
@@ -283,9 +292,17 @@ export async function createComposeFromManifest(args: CreateComposeArgs): Promis
     port: e.port,
     domain: e.domain ?? "",
   }));
-  const stackName = stackNameFor(project.slug, name);
+  // The stack name is global (compose_resource_stack_name_unique) and every
+  // child container and named volume derives from it, so a non-main
+  // environment's stack takes the environment suffix: otherwise staging's
+  // stack would claim production's volumes, or fail on production's name.
+  // Main renders as base, so a deployed stack keeps the name it has.
+  const suffix = scopeSuffix(
+    await resolveRuntimeScope({ projectId, environmentId: args.environmentId }),
+  );
+  const stackName = stackNameFor(project.slug, `${name}${suffix}`);
 
   return spec.source === "git"
-    ? createGitStackFromManifest(args, spec, project, exposed, stackName)
-    : createInlineStackFromManifest(args, spec, project, exposed, stackName);
+    ? createGitStackFromManifest(args, spec, exposed, stackName)
+    : createInlineStackFromManifest(args, spec, exposed, stackName);
 }
