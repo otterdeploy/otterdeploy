@@ -16,6 +16,7 @@ import * as z from "zod";
 
 import { projectRefs } from "../../authz/project-refs";
 import { organizationIdField } from "../project/contract/shared";
+import { baseDomainContract } from "./base-domain-contract";
 import {
   runtimeSettingsDraftSchema,
   signInMethodsDraftSchema,
@@ -94,6 +95,8 @@ const autoConfigureDomainOutput = z.object({
    *  knows exactly which records are now under otterdeploy management. */
   txtRecordId: z.string().nullable(),
   aRecordId: z.string().nullable(),
+  /** The `*.<base>` record every service hostname resolves through. */
+  wildcardRecordId: z.string().nullable(),
   /** Outcome of the verify step that runs after DNS is in place. Lets
    *  the UI show "Verified" or "DNS created, still propagating" without
    *  a separate roundtrip. */
@@ -467,6 +470,9 @@ export const organizationContract = {
     })
     .input(autoConfigureDomainInput)
     .output(autoConfigureDomainOutput),
+
+  // Base-domain DNS check, change impact, Cloudflare zone: ./base-domain-contract
+  ...baseDomainContract,
 
   // ── Control-plane domain ───────────────────────────────────────────
   controlPlaneDomain: oc

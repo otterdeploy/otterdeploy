@@ -6,21 +6,21 @@
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
-import { db } from "@otterdeploy/db";
-import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { Result, TaggedError } from "better-result";
-import { eq } from "drizzle-orm";
 
+import { writeBaseDomainRecords } from "../../lib/base-domain-dns";
 import {
   listCloudflareZones,
-  upsertCloudflareDnsRecord,
   verifyCloudflareToken,
   type CloudflareZone,
 } from "../../lib/cloudflare";
-import { VERIFY_TXT_PREFIX, verifyDomainTxt, type VerifyOutcome } from "../../lib/dns-verify";
+import { verifyDomainTxt, type VerifyOutcome } from "../../lib/dns-verify";
+import { repairBaseDomainWildcard, type WildcardRepair } from "./base-domain";
+import { OrganizationNotFoundError } from "./errors";
 import {
   getOrganizationById,
   markOrganizationBaseDomainVerified,
+  readPlatformServerIp,
   setOrganizationBaseDomain,
   setOrganizationCloudflareConfig,
 } from "./queries";
@@ -55,15 +55,6 @@ function toView(
   };
 }
 
-class OrganizationNotFoundError extends TaggedError("OrganizationNotFoundError")<{
-  organizationId: OrgId;
-  message: string;
-}>() {
-  constructor(organizationId: OrgId) {
-    super({ organizationId, message: `organization ${organizationId} not found` });
-  }
-}
-
 export async function getOrganizationSettings(
   orgId: OrgId,
 ): Promise<Result<OrgSettingsView, OrganizationNotFoundError>> {
@@ -78,6 +69,7 @@ export async function updateOrganizationBaseDomain(input: {
 }): Promise<Result<OrgSettingsView, OrganizationNotFoundError>> {
   const row = await setOrganizationBaseDomain(input.organizationId, input.baseDomain);
   if (!row) return Result.err(new OrganizationNotFoundError(input.organizationId));
+  await repairBaseDomainWildcard(row);
   return Result.ok(toView(row));
 }
 
@@ -160,6 +152,7 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
       ok: boolean;
       txtRecordId: string | null;
       aRecordId: string | null;
+      wildcardRecordId: string | null;
       verify: { ok: boolean; reason: VerifyOutcome["reason"] };
       settings: OrgSettingsView;
     },
@@ -185,16 +178,11 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
     );
   }
 
-  // Look up the platform's serverIp so the A record points at the right
-  // host. sslip fallback wouldn't help here. Auto-configure is only
-  // meaningful when the operator has a real IP to publish under their
-  // own domain.
-  const [settings] = await db
-    .select({ serverIp: platformSettings.serverIp })
-    .from(platformSettings)
-    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
-    .limit(1);
-  if (!settings?.serverIp) {
+  // The A records point at the platform's serverIp. The sslip fallback would
+  // not help here: auto-configure only means something when there is a real
+  // IP to publish under the operator's own domain.
+  const serverIp = await readPlatformServerIp();
+  if (!serverIp) {
     return Result.err(
       new CloudflareConfigError(
         "domain",
@@ -203,29 +191,16 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
     );
   }
 
-  // TXT for verification + A for the apex itself. We don't create the
-  // `apps.<domain>` / `db.<domain>` records here: those are wildcards
-  // the operator can add manually for now (each resource lives at a
-  // unique subdomain so we'd otherwise be creating one A record per
-  // resource on every deploy, which gets noisy fast). A follow-up could
-  // create a `*.apps` / `*.db` wildcard CNAME and call it done.
-  const txt = await upsertCloudflareDnsRecord({
+  // TXT for verification, A for the apex, and the wildcard every service
+  // hostname (`<service>-<project>.<base>`) resolves through.
+  const written = await writeBaseDomainRecords({
     token: row.cloudflareApiToken,
     zoneId: row.cloudflareZoneId,
-    type: "TXT",
-    name: `${VERIFY_TXT_PREFIX}.${row.baseDomain}`,
-    content: row.baseDomainVerifyToken,
+    baseDomain: row.baseDomain,
+    serverIp,
+    verifyToken: row.baseDomainVerifyToken,
   });
-  if (txt.isErr()) return Result.err(new CloudflareConfigError("api", txt.error.message));
-
-  const a = await upsertCloudflareDnsRecord({
-    token: row.cloudflareApiToken,
-    zoneId: row.cloudflareZoneId,
-    type: "A",
-    name: row.baseDomain,
-    content: settings.serverIp,
-  });
-  if (a.isErr()) return Result.err(new CloudflareConfigError("api", a.error.message));
+  if (written.isErr()) return Result.err(new CloudflareConfigError("api", written.error.message));
 
   // Cloudflare-managed DNS typically propagates within ~10s. We
   // attempt verification immediately; if it fails (record not yet
@@ -243,8 +218,9 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
 
   return Result.ok({
     ok: verifyResult.ok,
-    txtRecordId: txt.value.id,
-    aRecordId: a.value.id,
+    txtRecordId: written.value.txtRecordId,
+    aRecordId: written.value.aRecordId,
+    wildcardRecordId: written.value.wildcardRecordId,
     verify: { ok: verifyResult.ok, reason: verifyResult.reason },
     settings: toView(updated),
   });
@@ -252,9 +228,10 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
 
 export async function verifyOrganizationBaseDomain(
   orgId: OrgId,
-): Promise<Result<VerifyDomainResponse, OrganizationNotFoundError>> {
+): Promise<Result<VerifyDomainResponse & { wildcard: WildcardRepair }, OrganizationNotFoundError>> {
   const row = await getOrganizationById(orgId);
   if (!row) return Result.err(new OrganizationNotFoundError(orgId));
+  const wildcard = await repairBaseDomainWildcard(row);
 
   if (!row.baseDomain) {
     return Result.ok({
@@ -264,6 +241,7 @@ export async function verifyOrganizationBaseDomain(
       found: [],
       reason: "missing-token",
       settings: toView(row),
+      wildcard,
     });
   }
 
@@ -273,7 +251,7 @@ export async function verifyOrganizationBaseDomain(
   });
 
   if (!outcome.ok) {
-    return Result.ok({ ...outcome, settings: toView(row) });
+    return Result.ok({ ...outcome, settings: toView(row), wildcard });
   }
 
   // Stamp verified: the next read of org.settings will show
@@ -282,5 +260,6 @@ export async function verifyOrganizationBaseDomain(
   return Result.ok({
     ...outcome,
     settings: updated ? toView(updated) : toView(row),
+    wildcard,
   });
 }

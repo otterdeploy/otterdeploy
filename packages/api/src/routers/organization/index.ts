@@ -60,6 +60,7 @@ function toInvitationView(i: {
   };
 }
 
+import { baseDomainRouter } from "./base-domain-router";
 import {
   autoConfigureBaseDomainViaCloudflare,
   getOrganizationSettings,
@@ -129,6 +130,7 @@ export const organizationRouter = {
       if (result.isErr()) throw result.error;
       context.log.set({
         verify: { ok: result.value.ok, reason: result.value.reason },
+        wildcard: { repair: result.value.wildcard },
       });
       return result.value;
     },
@@ -196,6 +198,10 @@ export const organizationRouter = {
   // ─── Platform-wide settings (control-plane domain + email transport):
   //     see ./platform-settings-router
   ...platformSettingsRouter,
+
+  // ─── Base-domain DNS check, change impact, Cloudflare zone:
+  //     see ./base-domain-router
+  ...baseDomainRouter,
 
   // ─── Members + invitations (better-auth org plugin) ───────────────
   // organizationId passed to auth.api.* below is always context.activeOrganizationId,
