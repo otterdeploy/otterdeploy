@@ -10,6 +10,7 @@
  *   every changed service's deployment, to running.
  */
 
+import { resolveEnvironment } from "@otterdeploy/api/manifest";
 import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -19,6 +20,7 @@ import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configPath, loadConfig } from "../config-file";
 import { countByKind, printChangeSummary, printDiff } from "./diff-printer";
+import { environmentServices } from "./env-services";
 import { createSourceTarball } from "./tar-source";
 import { abort, confirm, detail, dim, hint, note, ok, out, section, table, warn } from "./ui";
 import { uploadSource } from "./upload-source";
@@ -126,7 +128,10 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   // apply, the project is tarred and pushed to the server, which builds it.
   // Runs every deploy (there's no sha to diff against, shipping the current
   // local code is the whole point).
-  const uploadNames = Object.entries(manifest.services)
+  // Read from the manifest AS RESOLVED FOR the target environment: an
+  // `environments.staging.services.web` override can switch a service to or
+  // from `source: "upload"`, and the base block would name the wrong set.
+  const uploadNames = Object.entries(resolveEnvironment(manifest, opts.env).services)
     .filter(([, svc]) => svc.source === "upload")
     .map(([name]) => name);
 
@@ -170,6 +175,7 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
       token: session.token,
       projectDir: dirname(configPath(opts.config)),
       names: uploadNames,
+      env: opts.env,
       json: opts.json,
     });
   }
@@ -190,7 +196,12 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
     // Include upload services explicitly: an unchanged one isn't in the diff,
     // but it was just rebuilt, so it should still be waited on.
     const waited = opts.wait
-      ? await resolveWaitTargets(client, project.id, [...new Set([...waitNames, ...uploadNames])])
+      ? await resolveWaitTargets(
+          client,
+          project.id,
+          [...new Set([...waitNames, ...uploadNames])],
+          opts.env,
+        )
       : [];
     const targets = uniqueTargets([...waited, ...rolloutTargets]);
     if (targets.length === 0) {
@@ -233,12 +244,11 @@ async function uploadServiceSources(args: {
   token: string;
   projectDir: string;
   names: string[];
+  /** The environment the apply targeted: its services get the source. */
+  env?: string;
   json?: boolean;
 }): Promise<void> {
-  const resources = await args.client.project.resource.list({ projectId: args.projectId });
-  const byName = new Map(
-    resources.filter((r) => r.type === "service").map((r) => [r.name, r.resourceId]),
-  );
+  const byName = await environmentServices(args.client, args.projectId, args.env);
 
   for (const name of args.names) {
     const resourceId = byName.get(name);
@@ -272,11 +282,12 @@ async function resolveWaitTargets(
   client: CliClient,
   projectId: string,
   names: string[],
+  env: string | undefined,
 ): Promise<WaitTarget[]> {
   if (names.length === 0) return [];
-  const wanted = new Set(names);
-  const resources = await client.project.resource.list({ projectId });
-  return resources
-    .filter((r) => r.type === "service" && wanted.has(r.name))
-    .map((r) => ({ resourceId: r.resourceId, name: r.name }));
+  const services = await environmentServices(client, projectId, env);
+  return names.flatMap((name) => {
+    const resourceId = services.get(name);
+    return resourceId ? [{ resourceId, name }] : [];
+  });
 }
