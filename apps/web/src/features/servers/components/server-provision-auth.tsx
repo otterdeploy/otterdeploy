@@ -64,8 +64,8 @@ export function ProvisionAuthSection({
                         tab above is too. Saying it a third time in prose is why
                         this block read as noise. */}
                     <p className="text-sm text-muted-foreground">
-                      No SSH keys yet. Create one under Settings → SSH keys, then install its public
-                      key on the host.
+                      No generated SSH key yet. Generate one under Workspace → SSH keys, then
+                      install its public key on the host.
                     </p>
                     <Button
                       type="button"

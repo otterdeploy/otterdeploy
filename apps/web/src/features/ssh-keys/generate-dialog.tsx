@@ -2,7 +2,7 @@
  * Generate-an-SSH-key dialog. Collects a name, key type, optional comment and
  * passphrase, then asks the server to run `ssh-keygen`. The private half never
  * leaves the cluster. On success we just close and the new key appears in the
- * list (operators copy the PUBLIC key from its card to their Git host).
+ * list (operators add its PUBLIC key to a server's authorized_keys).
  */
 
 import { useForm } from "@tanstack/react-form";
@@ -101,8 +101,9 @@ export function GenerateKeyDialog({
           <DialogTitle>{t("sshKeys.generateTitle")}</DialogTitle>
           <DialogDescription>
             We run <code className="font-mono text-xs">ssh-keygen</code> on the cluster. The private
-            key is encrypted at rest and never shown. Copy the public key to your Git host or
-            server.
+            key is encrypted at rest and never shown. Add the public key to a server's{" "}
+            <code className="font-mono text-xs">authorized_keys</code>, then pick it when you add
+            the server.
           </DialogDescription>
         </DialogHeader>
 
