@@ -493,7 +493,12 @@ export const backupsContract = {
       .output(z.array(scheduleSchema)),
 
     create: oc
-      .errors(scheduleInvalidDestination)
+      .errors({
+        // `projectId` names no project of the caller's organization: missing,
+        // or another organization's. One answer for both.
+        NOT_FOUND: { status: 404 as const, message: "Project not found" as const },
+        ...scheduleInvalidDestination,
+      })
       .meta({ path: `${basePath}/schedules`, tag, method: "POST" })
       .input(createScheduleInput)
       .output(scheduleSchema),

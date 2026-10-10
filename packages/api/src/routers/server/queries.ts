@@ -223,6 +223,14 @@ export async function deleteServerRecord(input: {
   // would refuse to deploy at all. Clearing it means "schedulable again", which
   // is the honest state once the machine is gone.
   return db.transaction(async (tx) => {
+    // Delete first: a missing or foreign id changes nothing and is not-found
+    // (the old `tx.rollback()` threw, which surfaced as a 500).
+    const [deleted] = await tx
+      .delete(server)
+      .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
+      .returning({ id: server.id });
+    if (!deleted) return undefined;
+
     const orgProjects = tx
       .select({ id: project.id })
       .from(project)
@@ -269,17 +277,6 @@ export async function deleteServerRecord(input: {
         ),
       );
 
-    const [deleted] = await tx
-      .delete(server)
-      .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
-      .returning({ id: server.id });
-
-    // Server wasn't ours. Roll the unpin back rather than quietly editing
-    // another org's resources.
-    if (!deleted) {
-      tx.rollback();
-      return undefined;
-    }
     publishOrgEvent(input.organizationId, "servers");
     return { id: deleted.id, unpinnedResources: unpinned.length };
   });
