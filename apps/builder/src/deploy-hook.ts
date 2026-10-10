@@ -62,6 +62,21 @@ interface RunHooksOpts {
   sink: LogSink;
 }
 
+/** Below this, a value cannot hold a secret worth hiding, and masking it
+ *  scrambles the hook's output: `DJANGO_LOAD_INITIAL_DATA=on` turned a
+ *  migration error into "django.c***trib.postgres must be in INSTALLED_APPS".
+ *  Same floor as the build's masking (build-env.ts). */
+const MIN_MASKED_LENGTH = 6;
+
+/**
+ * The env values masked out of a hook's output and its failure message. Every
+ * value, not just the secret-flagged ones: a migration error echoes connection
+ * strings and keys whatever their flag says. Only too-short values are spared.
+ */
+export function hookMaskedValues(env: Record<string, string>): string[] {
+  return Object.values(env).filter((value) => value.length >= MIN_MASKED_LENGTH);
+}
+
 const msg = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
 
 export async function runDeployHooks(opts: RunHooksOpts): Promise<Result<void, DeployHookError>> {
@@ -82,9 +97,7 @@ export async function runDeployHooks(opts: RunHooksOpts): Promise<Result<void, D
     );
   }
   const { env, networkName } = ctx.value;
-  const secrets: string[] = Object.values(env).filter(
-    (v): v is string => typeof v === "string" && v.length > 0,
-  );
+  const secrets = hookMaskedValues(env);
 
   // Stage env to a temp file (off the logged argv). Result-wrapped, no raw
   // try/catch in this Result-returning flow.
