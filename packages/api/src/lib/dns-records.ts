@@ -78,3 +78,47 @@ export function requiredDnsRecords(input: {
 
   return records;
 }
+
+/**
+ * What the workspace base domain needs, which is not what a single host needs.
+ *
+ * Every generated host is `<service>-<project>.<base>` (see ./domains.ts), so
+ * the address record is the wildcard `*.<base>`, not the apex: an A record on
+ * `acme.com` alone verifies the domain and leaves every service hostname
+ * unresolvable. The TXT is the same ownership proof every domain uses.
+ */
+export function baseDomainDnsRecords(input: {
+  baseDomain: string;
+  serverIp: string | null;
+  verifyToken: string | null;
+  /** Zone apex from detection, used only to compute `relativeName`. */
+  zone?: string | null;
+}): RequiredDnsRecord[] {
+  // Unknown zone ⇒ null relative names (the UI shows the FQDN). Assuming the
+  // base domain IS the zone would turn `apps.acme.com`'s wildcard into a
+  // relative `*`, which a provider UI would create as `*.acme.com`.
+  const zone = input.zone ?? null;
+  const records: RequiredDnsRecord[] = [];
+
+  if (input.serverIp) {
+    const wildcard = `*.${input.baseDomain}`;
+    records.push({
+      type: "A",
+      name: wildcard,
+      value: input.serverIp,
+      relativeName: toRelativeName(wildcard, zone),
+    });
+  }
+
+  if (input.verifyToken) {
+    const txtName = `${VERIFY_TXT_PREFIX}.${input.baseDomain}`;
+    records.push({
+      type: "TXT",
+      name: txtName,
+      value: input.verifyToken,
+      relativeName: toRelativeName(txtName, zone),
+    });
+  }
+
+  return records;
+}

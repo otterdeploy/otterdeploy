@@ -406,6 +406,7 @@
       "type": "Type",
       "name": "Name",
       "value": "Value",
+      "status": "Status",
       "empty": "Nothing to add yet. Save the domain first."
     }
   },

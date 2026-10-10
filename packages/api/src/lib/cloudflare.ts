@@ -267,11 +267,7 @@ export async function upsertCloudflareDnsRecord(input: {
   proxied?: boolean;
   ttl?: number;
 }): Promise<Result<{ id: string }, CloudflareError>> {
-  const existing = await cfFetch(
-    `/zones/${encodeURIComponent(input.zoneId)}/dns_records?type=${input.type}&name=${encodeURIComponent(input.name)}`,
-    input.token,
-    z.array(dnsRecordSchema),
-  );
+  const existing = await findDnsRecords(input);
   if (existing.isErr()) return Result.err(existing.error);
 
   const target = existing.value[0];
@@ -291,6 +287,26 @@ export async function upsertCloudflareDnsRecord(input: {
     );
     return patched.map(() => ({ id: target.id }));
   }
+  return createCloudflareDnsRecord(input);
+}
+
+type DnsRecordInput = Parameters<typeof upsertCloudflareDnsRecord>[0];
+
+/** The zone's records with exactly this name and type. */
+function findDnsRecords(
+  input: Pick<DnsRecordInput, "token" | "zoneId" | "type" | "name">,
+): Promise<Result<{ id: string }[], CloudflareError>> {
+  return cfFetch(
+    `/zones/${encodeURIComponent(input.zoneId)}/dns_records?type=${input.type}&name=${encodeURIComponent(input.name)}`,
+    input.token,
+    z.array(dnsRecordSchema),
+  );
+}
+
+/** Create one record. The caller has already established the name is free. */
+export async function createCloudflareDnsRecord(
+  input: DnsRecordInput,
+): Promise<Result<{ id: string }, CloudflareError>> {
   const created = await cfFetch(
     `/zones/${encodeURIComponent(input.zoneId)}/dns_records`,
     input.token,
@@ -307,4 +323,43 @@ export async function upsertCloudflareDnsRecord(input: {
     },
   );
   return created.map((r) => ({ id: r.id }));
+}
+
+export interface CloudflareDnsRecord {
+  id: string;
+  type: string;
+  content: string;
+  proxied: boolean;
+}
+
+const fullDnsRecordSchema = z.looseObject({
+  id: z.string(),
+  type: z.string(),
+  content: z.string(),
+  proxied: z.boolean().default(false),
+});
+
+/** Every record on the zone with exactly this name, of any type: what a
+ *  caller must look at before deciding a name is free to write. */
+export function listCloudflareDnsRecordsByName(input: {
+  token: string;
+  zoneId: string;
+  name: string;
+}): Promise<Result<CloudflareDnsRecord[], CloudflareError>> {
+  return cfFetch(
+    `/zones/${encodeURIComponent(input.zoneId)}/dns_records?name=${encodeURIComponent(input.name)}`,
+    input.token,
+    z.array(fullDnsRecordSchema),
+  );
+}
+
+/** One zone by id: how a stored zone id becomes a name the operator knows.
+ *  Also the cheapest live proof that a stored token still works. */
+export async function getCloudflareZone(
+  token: string,
+  zoneId: string,
+): Promise<Result<CloudflareZone, CloudflareError>> {
+  return (await cfFetch(`/zones/${encodeURIComponent(zoneId)}`, token, cloudflareZoneSchema)).map(
+    (zone) => ({ id: zone.id, name: zone.name, status: zone.status }),
+  );
 }

@@ -406,6 +406,7 @@
       "type": "Tipo",
       "name": "Nombre",
       "value": "Valor",
+      "status": "Estado",
       "empty": "Nada que añadir todavía. Guarda primero el dominio."
     }
   },

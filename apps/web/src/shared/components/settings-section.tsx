@@ -20,12 +20,15 @@ type HugeIcon = ComponentProps<typeof HugeiconsIcon>["icon"];
 export function SettingsSection({
   icon,
   title,
+  badge,
   description,
   children,
   className,
 }: {
   icon?: HugeIcon;
   title: string;
+  /** A small qualifier beside the title ("Optional"). */
+  badge?: ReactNode;
   description?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -39,9 +42,12 @@ export function SettingsSection({
           </span>
         )}
         <div className="min-w-0">
-          <h2 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-            {title}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+              {title}
+            </h2>
+            {badge}
+          </div>
           {description && (
             <p className="mt-1 max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground">
               {description}
