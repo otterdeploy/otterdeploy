@@ -8,6 +8,7 @@ import { PLATFORM } from "../constants";
 import { asStepLogger } from "../lib/logger";
 import { SwarmOperationError } from "./errors";
 import { projectNetworkName } from "./network-name";
+import { pickOverlaySubnet } from "./overlay-subnet";
 
 export async function ensureSwarm(): Promise<void> {
   const docker = Docker.fromEnv();
@@ -101,11 +102,14 @@ export async function ensureProjectNetwork(
     throw inspectResult.error;
   }
 
-  log.info({ swarm: { step: "create-network", network: networkName } });
+  // An explicit subnet, never the swarm's default pool: see ./overlay-subnet.
+  const subnet = await freeOverlaySubnet(docker);
+  log.info({ swarm: { step: "create-network", network: networkName, subnet } });
   const createResult = await docker.networks.create({
     Name: networkName,
     Driver: "overlay",
     Attachable: true,
+    ...(subnet ? { IPAM: { Config: [{ Subnet: subnet }] } } : {}),
     Labels: {
       "otterdeploy.managed": "true",
       "otterdeploy.project": projectSlug,
@@ -120,6 +124,16 @@ export async function ensureProjectNetwork(
   await connectCaddyToNetwork(docker, networkName, rlog);
   docker.destroy();
   return networkName;
+}
+
+/** A subnet no network on this daemon holds, from the overlay range; null
+ *  when the daemon cannot be listed or the range is full (the swarm then
+ *  allocates, as before). */
+async function freeOverlaySubnet(docker: Docker): Promise<string | null> {
+  const listed = await docker.networks.list();
+  if (listed.isErr()) return null;
+  const used = listed.value.flatMap((n) => (n.IPAM?.Config ?? []).flatMap((c) => c.Subnet ?? []));
+  return pickOverlaySubnet(used);
 }
 
 /**

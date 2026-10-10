@@ -11,7 +11,7 @@ import type { StackReconcileContext } from "./reconcile";
 
 // Via the barrel, as reconcile.ts did before the split, importing the deep
 // paths instead orphans the re-exports and trips the dead-code ratchet.
-import { allowedHostBind, type HostBindGrants } from "../../lib/host-binds";
+import { allowedHostBind } from "../../lib/host-binds";
 import {
   bulkReplaceServiceMounts,
   createServiceRecord,
@@ -21,7 +21,8 @@ import {
 import { pickInternalHostname, pickResourceName, type toServiceFields } from "./reconcile-map";
 
 /**
- * Re-apply allowlisted host binds on UPDATE, not just on create.
+ * Re-apply the binds the platform owns on UPDATE, not just on create:
+ * allowlisted host binds, and a git stack's binds from its repo.
  *
  * Mounts are otherwise a create-time seed that the user owns afterwards, and
  * that rule is right for the mounts a user can actually manage. An allowlisted
@@ -31,18 +32,29 @@ import { pickInternalHostname, pickResourceName, type toServiceFields } from "./
  * through any number of redeploys: the Dozzle stacks already out there would
  * have needed deleting and re-adding to pick up their socket.
  *
+ * A git stack's repo binds are the same shape. They are copies the build
+ * stages out of the checkout on EVERY deploy, into a folder only the platform
+ * writes (`composeRepoBindDir`), and the file names them; nothing about them
+ * is the user's to manage. Seeding them only on create left every git stack
+ * whose children predate staged repo binds without them forever: a redeploy
+ * refreshed the copies and mounted none of them.
+ *
  * Additive on purpose: each bind is upserted on its own `(service, target)` key,
  * so mounts the user added in the Settings tab are untouched. Only paths the
- * file asks for AND the allowlist grants are written, so this can never mount
- * something the compose did not name.
+ * file asks for AND the platform resolved (an allowlist grant, or a source the
+ * build staged from the repo) are written, so this can never mount something
+ * the compose did not name.
  */
-async function ensureGrantedHostBinds(
+async function ensurePlatformBinds(
   resourceId: ResourceId,
   mounts: ReturnType<typeof toServiceFields>["mounts"],
-  grants: HostBindGrants | undefined,
+  ctx: Pick<StackReconcileContext, "hostBindGrants" | "repoBindSources" | "stackDir">,
 ): Promise<void> {
   for (const m of mounts) {
-    if (m.type !== "bind" || !m.source || !allowedHostBind(m.source, grants)) continue;
+    if (m.type !== "bind" || !m.source) continue;
+    if (!allowedHostBind(m.source, ctx.hostBindGrants) && !isStagedRepoBind(m.source, ctx)) {
+      continue;
+    }
     await upsertServiceMount({
       serviceResourceId: resourceId,
       type: "bind",
@@ -52,6 +64,17 @@ async function ensureGrantedHostBinds(
       readOnly: m.readOnly,
     });
   }
+}
+
+/** A bind `toMounts` resolved into a git stack's staged repo copy. Only a git
+ *  stack carries `repoBindSources`, and only its staged sources resolve under
+ *  `stackDir`, so an inline stack's user-seeded binds never match. */
+function isStagedRepoBind(
+  source: string,
+  ctx: Pick<StackReconcileContext, "repoBindSources" | "stackDir">,
+): boolean {
+  if (!ctx.repoBindSources || !ctx.stackDir) return false;
+  return source.startsWith(`${ctx.stackDir.replace(/\/+$/, "")}/`);
 }
 
 export /**
@@ -91,7 +114,7 @@ async function materializeServiceRow(input: {
       ...mapped.fields,
       composeService: input.composeServiceName,
     });
-    await ensureGrantedHostBinds(input.existingResourceId, mapped.mounts, ctx.hostBindGrants);
+    await ensurePlatformBinds(input.existingResourceId, mapped.mounts, ctx);
     // The stored hostname, not the mapped bare one: an existing child may have
     // been renamed on ITS create, and the rename map the caller builds has to
     // describe what DNS actually answers.

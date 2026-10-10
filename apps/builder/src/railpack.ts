@@ -44,6 +44,7 @@ import { NO_TURBO_CACHE, type TurboCacheEnv, turboForceEnv } from "./buildx";
 import { buildBuildxArgs, buildPrepareArgs, nodeBuildMaxOldSpaceMb } from "./railpack-args";
 import { readJson, tanstackStartCommand } from "./railpack-detect";
 import { type RailpackBuildEnv, type ServiceBuildEnv, railpackBuildEnv } from "./railpack-env";
+import { gradleStartCommandFor, jdkVersionEnv } from "./railpack-java";
 import { type BuildLayout, resolveBuildLayout } from "./railpack-layout";
 import { applyPackageManager } from "./railpack-packagemanager";
 import { TURBO_CACHE_DIR, injectTurboCache } from "./railpack-plan";
@@ -91,6 +92,8 @@ export async function railpackBuild(opts: {
       // The memory guard, and the SPA dir the layout/provider check rely on.
       NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
       ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
+      // Railpack installs JDK 21 whatever the project pins.
+      ...jdkVersionEnv({ buildDir, serviceEnv: opts.serviceEnv.env, sink: opts.sink }),
       ...turboCache.env,
       ...turboForceEnv(opts.noCache),
       ...(runnerUsesTurbo ? { TURBO_CACHE_DIR } : {}),
@@ -189,6 +192,7 @@ async function resolveBuildPlan(opts: {
   workDir: string;
   sourceSubdir: string | null;
   config: BuildRailpackConfig | null;
+  serviceEnv: ServiceBuildEnv;
   sink: LogSink;
 }): Promise<{
   layout: BuildLayout;
@@ -203,6 +207,7 @@ async function resolveBuildPlan(opts: {
       layout,
       configBuildCommand: opts.config?.buildCommand ?? null,
       config: opts.config,
+      serviceEnv: opts.serviceEnv.env,
       sink: opts.sink,
     });
     return { layout, ...commands };
@@ -240,6 +245,27 @@ function buildFailureMessage(exitCode: number, tail: string): string {
 }
 
 /**
+ * railpack auto-detects the start command for a single-app build, except where
+ * it gets it wrong:
+ *   - it mis-detects TanStack Start (SSR, builds to `.output/`) as a static site
+ *     and bakes a `COPY /app/dist` that never exists. tanstackStartCommand
+ *     forces the app's own start script in that case (server deploy).
+ *   - its Gradle start command only finds a subproject's jar (see
+ *     railpack-java.ts).
+ * Null leaves railpack's auto-detection alone.
+ */
+async function singleAppStartCommand(opts: {
+  layout: BuildLayout;
+  serviceEnv: Record<string, string>;
+  sink: LogSink;
+}): Promise<string | null> {
+  const { buildDir, spaOutputDir } = opts.layout;
+  const tanstack = await tanstackStartCommand(buildDir, spaOutputDir, opts.sink);
+  if (tanstack || spaOutputDir) return tanstack;
+  return gradleStartCommandFor({ buildDir, serviceEnv: opts.serviceEnv, sink: opts.sink });
+}
+
+/**
  * Derive the build/start commands for the railpack `prepare` step.
  *
  * Non-workspace builds: pass the user's build command through unchanged and let
@@ -253,18 +279,15 @@ async function resolveBuildCommands(opts: {
   layout: BuildLayout;
   configBuildCommand: string | null;
   config: BuildRailpackConfig | null;
+  /** The service's env: its RAILPACK_START_CMD wins over a derived one. */
+  serviceEnv: Record<string, string>;
   sink: LogSink;
 }): Promise<{ buildCmd: string | null; startCmd: string | null; runner: WorkspaceRunner | null }> {
   const { subdir, isWorkspace, spaOutputDir } = opts.layout;
   const configBuild = opts.configBuildCommand?.trim() || null;
 
   if (!isWorkspace || !subdir) {
-    // railpack auto-detects the start command for a single-app build. Except it
-    // mis-detects TanStack Start (SSR, builds to `.output/`) as a static site and
-    // bakes a `COPY /app/dist` that never exists. tanstackStartCommand forces the
-    // app's own start script in that case (server deploy), else returns null and
-    // leaves railpack's auto-detection alone.
-    const startCmd = await tanstackStartCommand(opts.layout.buildDir, spaOutputDir, opts.sink);
+    const startCmd = await singleAppStartCommand(opts);
     return { buildCmd: configBuild, startCmd, runner: null };
   }
 

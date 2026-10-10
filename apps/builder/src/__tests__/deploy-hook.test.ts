@@ -25,7 +25,7 @@ process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret-0123456789";
 process.env.CORS_ORIGIN ??= "http://localhost:3000";
 
-const { hookRunArgs, runHookCommands } = await import("../deploy-hook");
+const { hookMaskedValues, hookRunArgs, runHookCommands } = await import("../deploy-hook");
 const { readImageVolumes } = await import("../image-volumes");
 
 const FAKE_DOCKER = `#!/bin/sh
@@ -115,6 +115,28 @@ describe("runHookCommands", () => {
     const message = ran.isErr() ? ran.error.message : "";
     expect(message).toContain("command exited 23: bundle exec rails db:prepare");
     expect(message).toContain("migration failed: relation users exists");
+  });
+});
+
+describe("hook output masking", () => {
+  test("masks long env values but leaves short ones, so the error stays readable", async () => {
+    // A Django app: masking every value, `on` included, turned
+    // "django.contrib.postgres" into "django.c***trib.postgres".
+    const secrets = hookMaskedValues({
+      DJANGO_LOAD_INITIAL_DATA: "on",
+      DJANGO_ALLOWED_HOSTS: "*",
+      DEBUG: "1",
+      DB_PASSWORD: "relation",
+    });
+    expect(secrets).toEqual(["relation"]);
+    setFake({ FAKE_EXIT: "1" });
+    const ran = await runHookCommands({
+      ...hookArgs([["python", "manage.py", "migrate"]], recordingSink()),
+      secrets,
+    });
+    const message = ran.isErr() ? ran.error.message : "";
+    expect(message).toContain("migration failed: *** users exists");
+    expect(message).toContain("== running migrations");
   });
 });
 

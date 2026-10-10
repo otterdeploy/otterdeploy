@@ -45,6 +45,11 @@ export const FORWARDED_ENV = [
   "CORS_ORIGIN",
   "NODE_ENV",
   "OTTERDEPLOY_DATA_DIR",
+  // The helper rolls the built image out itself (redeployOne), and the runtime
+  // is picked from this switch: unforwarded, a DEPLOY_RUNTIME=swarm install's
+  // builds rolled out as plain containers and no swarm service ever got a
+  // task.
+  "DEPLOY_RUNTIME",
   // Tenant build isolation (od-48w): an operator-managed BuildKit endpoint,
   // when set, replaces the self-provisioned rootless sandbox.
   "BUILDKIT_HOST",
@@ -253,10 +258,10 @@ export function buildHelperRunArgs(opts: {
 }
 
 /**
- * The mount for a git compose stack's bind-source dir, same-path, so the copy
- * the pipeline makes lands on the HOST, where the stack's services mount it
+ * The mount for a compose stack's bind-source dir, same-path, so what the
+ * pipeline writes lands on the HOST, where the stack's services mount it
  * from (see compose-bind-dir.ts). Empty when the build is not a
- * git stack's, or when there is no data folder to put it in (local dev);
+ * stack's that writes files, or when there is no data folder (local dev);
  * `-v` creates the dir on first use.
  */
 export function createStackBindFlags(stackBindDir: string | null, dataRootPresent: boolean) {

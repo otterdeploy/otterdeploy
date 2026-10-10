@@ -100,6 +100,39 @@ describe("git stack bind mounts", () => {
     expect(mounts.some((m) => m.type === "volume")).toBe(true);
   });
 
+  it("a child created without its repo bind gets it on the next build deploy", async () => {
+    const { projectId, stack, checkout } = await seedGitStack();
+    // A stack whose child predates staged repo binds: rolled once with no staged
+    // copy, so the child was created without the bind.
+    await deployCompose({ projectId, resourceId: stack.resource.id }, "redeploy");
+    const [child] = await db
+      .select({ resourceId: serviceResource.resourceId })
+      .from(serviceResource)
+      .where(eq(serviceResource.stackId, stack.resource.id));
+    if (!child) throw new Error("the stack materialized no child");
+    const target = "/docker-entrypoint-initdb.d/init-data.sh";
+    expect((await listServiceMounts(child.resourceId)).some((m) => m.target === target)).toBe(
+      false,
+    );
+
+    // The upgrade's redeploy builds from the repo again: the existing child
+    // must pick up the bind, not just the refreshed copy.
+    await deployCompose(
+      { projectId, resourceId: stack.resource.id, sourceDir: checkout },
+      "redeploy",
+    );
+    await rm(checkout, { recursive: true, force: true });
+
+    const mounts = await listServiceMounts(child.resourceId);
+    const bind = mounts.find((m) => m.target === target);
+    expect(bind?.type).toBe("bind");
+    expect(await readFile(bind?.source ?? "", "utf8")).toBe("#!/bin/bash\ncreate user n8n\n");
+    // Still only what the repo holds: `./library` is not invented.
+    expect(mounts.some((m) => m.target === "/data")).toBe(false);
+    // One row per target, not a duplicate per redeploy.
+    expect(mounts.filter((m) => m.target === target)).toHaveLength(1);
+  });
+
   it("a copy that cannot be written refuses the deploy, saying so", async () => {
     const { projectId, stack, checkout, dir } = await seedGitStack();
     // Where the copies go is already a FILE: no folder can be made there.
