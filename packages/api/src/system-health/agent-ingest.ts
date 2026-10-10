@@ -31,6 +31,16 @@ import * as z from "zod";
 import { verifyAgentToken } from "./agent-token";
 import { deriveServerMetricValues } from "./metric-row";
 
+/** True when any string, or object key, anywhere in the value holds a U+0000. */
+function containsNul(value: unknown): boolean {
+  if (typeof value === "string") return value.includes("\u0000");
+  if (Array.isArray(value)) return value.some(containsNul);
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value).some(([key, entry]) => containsNul(key) || containsNul(entry));
+  }
+  return false;
+}
+
 /**
  * Payload validation is deliberately shallow: `health` is the HostHealth
  * shape but agents may run a newer/older image than the control plane, so we
@@ -44,22 +54,29 @@ import { deriveServerMetricValues } from "./metric-row";
  *
  * Exported for tests: a version-skew contract is only real if it is asserted.
  */
-export const reportSchema = z.looseObject({
-  hostname: z.string().min(1),
-  health: z.looseObject({
-    memory: z.looseObject({ totalBytes: z.number() }),
-    sampledAt: z.string().min(1),
-    cpu: z.looseObject({}).nullish(),
-    load: z.looseObject({}).nullish(),
-    filesystems: z.array(z.looseObject({})).nullish(),
-    diskIo: z.array(z.looseObject({})).nullish(),
-    network: z.array(z.looseObject({})).nullish(),
-  }),
-  capacity: z
-    .object({ cpuTotal: z.number().int().nonnegative(), memTotalGb: z.number().nonnegative() })
-    .nullable()
-    .optional(),
-});
+export const reportSchema = z
+  .looseObject({
+    hostname: z.string().min(1),
+    health: z.looseObject({
+      memory: z.looseObject({ totalBytes: z.number() }),
+      sampledAt: z.string().min(1),
+      cpu: z.looseObject({}).nullish(),
+      load: z.looseObject({}).nullish(),
+      filesystems: z.array(z.looseObject({})).nullish(),
+      diskIo: z.array(z.looseObject({})).nullish(),
+      network: z.array(z.looseObject({})).nullish(),
+    }),
+    capacity: z
+      .object({ cpuTotal: z.number().int().nonnegative(), memTotalGb: z.number().nonnegative() })
+      .nullable()
+      .optional(),
+  })
+  // Postgres cannot store a U+0000: the hostname is compared as a query
+  // parameter and the whole payload lands in a jsonb column, so one anywhere
+  // (a string, an object key) came back as an unwrapped rejection and a 500
+  // on what is a malformed report. The agent also retries a 5xx
+  // but not a 400, and this input never gets better.
+  .refine((report) => !containsNul(report), "report must not contain a NUL character");
 
 export type AgentHealthReport = z.infer<typeof reportSchema>;
 

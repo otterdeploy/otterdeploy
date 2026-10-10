@@ -8,9 +8,11 @@
  * usable `server_metric` row — the new one with more columns filled, the old
  * one with nulls where it had nothing to say, never with fabricated zeros.
  */
+import { Hono } from "hono";
 import { describe, expect, test } from "vite-plus/test";
 
-import { reportSchema } from "../agent-ingest";
+import { agentHealthIngestHandler, reportSchema } from "../agent-ingest";
+import { mintAgentToken } from "../agent-token";
 import { deriveServerMetricValues } from "../metric-row";
 
 /** Exactly what an agent built before this change posts. */
@@ -141,6 +143,58 @@ describe("agent report ingest schema", () => {
     expect(
       reportSchema.safeParse({ hostname: "n", health: { sampledAt: "2026-01-01" } }).success,
     ).toBe(false);
+  });
+});
+
+describe("agent report ingest: a NUL byte", () => {
+  // Postgres cannot store U+0000 in a text parameter or a jsonb value, so each
+  // of these used to reach the database and answer an unwrapped 500.
+  test("in the hostname is rejected", () => {
+    expect(reportSchema.safeParse({ ...OLD_PAYLOAD, hostname: "node\u0000-1" }).success).toBe(
+      false,
+    );
+  });
+
+  test("inside a health string is rejected", () => {
+    const parsed = reportSchema.safeParse({
+      ...OLD_PAYLOAD,
+      health: { ...OLD_PAYLOAD.health, disk: { ...OLD_PAYLOAD.health.disk, path: "/\u0000" } },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  test("in an array element or an object key is rejected", () => {
+    expect(
+      reportSchema.safeParse({
+        ...OLD_PAYLOAD,
+        health: { ...OLD_PAYLOAD.health, recommendations: ["fine", "bad\u0000"] },
+      }).success,
+    ).toBe(false);
+    expect(
+      reportSchema.safeParse({
+        ...OLD_PAYLOAD,
+        health: { ...OLD_PAYLOAD.health, ["k\u0000"]: 1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  test("a clean report still parses", () => {
+    expect(reportSchema.safeParse(OLD_PAYLOAD).success).toBe(true);
+  });
+});
+
+describe("agent health ingest handler: a NUL byte", () => {
+  test("answers 400 'invalid report shape', before any database call", async () => {
+    const token = await mintAgentToken();
+    const app = new Hono();
+    app.post("/api/agent/health", agentHealthIngestHandler);
+    const res = await app.request("/api/agent/health", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...OLD_PAYLOAD, hostname: "node\u0000-1" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "invalid report shape" });
   });
 });
 
