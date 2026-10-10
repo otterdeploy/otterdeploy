@@ -12,6 +12,7 @@ import { type WebhookRow, webhook, webhookDelivery } from "@otterdeploy/db/schem
 import { and, desc, eq, sql } from "drizzle-orm";
 
 export * from "./queries-inbound";
+export * from "./queries-inbound-rotate";
 
 // ─── Outbound ────────────────────────────────────────────────────────────
 

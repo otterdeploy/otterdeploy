@@ -1,3 +1,4 @@
+import type { InboundEndpointRow } from "@otterdeploy/db/schema";
 import type { JsonObject } from "@otterdeploy/shared/json";
 import type { RequestLogger } from "evlog";
 
@@ -32,6 +33,7 @@ import {
   WEBHOOK_SIGNATURE_HEADER,
   WEBHOOK_TIMESTAMP_HEADER,
   verifyWebhook,
+  type WebhookVerification,
 } from "@otterdeploy/shared/webhook-signature";
 import { Result } from "better-result";
 
@@ -95,36 +97,36 @@ const defaultDeps: InboundDeps = {
   nowSeconds: () => Math.floor(Temporal.Now.instant().epochMilliseconds / 1000),
 };
 
+type Authenticated =
+  | { refused: InboundResponse }
+  | { refused: null; verifiedWith: "current" | "previous" };
+
 /**
- * Signature, timestamp window and single use. Null when the call may proceed,
- * otherwise the refusal to answer with.
+ * Signature, timestamp window and single use. `refused` is null when the call
+ * may proceed, otherwise the refusal to answer with.
  */
 async function authenticate(
   req: InboundRequest,
-  endpoint: { id: string; encryptedSecret: string },
+  endpoint: InboundEndpointRow,
   deps: InboundDeps,
-): Promise<InboundResponse | null> {
+): Promise<Authenticated> {
   const { log } = req;
   if (!req.webhookSignature && req.signatureHeader) {
-    return deny(
+    const refused = deny(
       log,
       401,
       `X-Otterdeploy-Signature is no longer accepted: it signs no timestamp, so a captured request could be replayed. Sign "<webhook-id>.<webhook-timestamp>.<body>" and send ${WEBHOOK_ID_HEADER}, ${WEBHOOK_TIMESTAMP_HEADER} and ${WEBHOOK_SIGNATURE_HEADER}`,
       { endpointId: endpoint.id },
     );
+    return { refused };
   }
 
-  const secret = await decryptSecret(endpoint.encryptedSecret);
-  const verified = await verifyWebhook(secret, {
-    id: req.webhookId,
-    timestamp: req.webhookTimestamp,
-    signature: req.webhookSignature,
-    body: req.rawBody,
-    nowSeconds: deps.nowSeconds(),
-  });
-  if (!verified.ok) {
-    return deny(log, 401, verified.message, { endpointId: endpoint.id, reason: verified.reason });
+  const checked = await verifyWithAnyLiveSecret(endpoint, req, deps.nowSeconds());
+  if (!checked.verified.ok) {
+    const { message, reason } = checked.verified;
+    return { refused: deny(log, 401, message, { endpointId: endpoint.id, reason }) };
   }
+  const { verified, verifiedWith } = checked;
 
   // Signed and fresh; now make it single-use. Claimed only after the
   // signature holds, so nobody without the secret can burn an id.
@@ -134,14 +136,20 @@ async function authenticate(
   });
   if (claimed.isErr()) {
     log.set({ webhookInbound: { replayGuardError: claimed.error } });
-    return deny(log, 503, "replay protection is unavailable, try again", {
-      endpointId: endpoint.id,
-    });
+    return {
+      refused: deny(log, 503, "replay protection is unavailable, try again", {
+        endpointId: endpoint.id,
+      }),
+    };
   }
   if (!claimed.value) {
-    return deny(log, 409, "this webhook-id was already delivered", { endpointId: endpoint.id });
+    return {
+      refused: deny(log, 409, "this webhook-id was already delivered", {
+        endpointId: endpoint.id,
+      }),
+    };
   }
-  return null;
+  return { refused: null, verifiedWith };
 }
 
 export async function handleInboundInvocation(
@@ -168,13 +176,21 @@ export async function handleInboundInvocation(
     return deny(log, 403, "source IP not in allowlist", { endpointId: endpoint.id, ip: req.ip });
   }
 
-  const refused = await authenticate(req, endpoint, deps);
-  if (refused) return refused;
+  const authenticated = await authenticate(req, endpoint, deps);
+  if (authenticated.refused) return authenticated.refused;
+  const { verifiedWith } = authenticated;
 
   // Verified: the invocation counts from here even if the action fails.
   await touchInboundInvokedAt(endpoint.id);
   log.set({
-    webhookInbound: { endpointId: endpoint.id, name: endpoint.name, action: endpoint.action },
+    webhookInbound: {
+      endpointId: endpoint.id,
+      name: endpoint.name,
+      action: endpoint.action,
+      // "previous": the sender still signs with a rotated-out secret inside
+      // its grace window, which is the cue to finish switching it over.
+      verifiedWith,
+    },
   });
   log.audit?.({
     action: "webhooks.inbound.invoke",
@@ -213,6 +229,39 @@ export async function handleInboundInvocation(
   }
 
   return { status: 200, body: { ok: true, action: "redeploy", service: service.resourceName } };
+}
+
+/**
+ * Which secret the request is signed with: the current one, or the one a
+ * rotation replaced while its grace window is still open. When
+ * neither verifies, or the window has closed, the current secret's verdict is
+ * the one reported.
+ */
+async function verifyWithAnyLiveSecret(
+  endpoint: InboundEndpointRow,
+  req: InboundRequest,
+  nowSeconds: number,
+): Promise<{ verified: WebhookVerification; verifiedWith: "current" | "previous" }> {
+  const message = {
+    id: req.webhookId,
+    timestamp: req.webhookTimestamp,
+    signature: req.webhookSignature,
+    body: req.rawBody,
+    nowSeconds,
+  };
+  const current = await verifyWebhook(await decryptSecret(endpoint.encryptedSecret), message);
+  const result = { verified: current, verifiedWith: "current" } as const;
+  if (current.ok || current.reason !== "invalid-signature") return result;
+  const previous = endpoint.previousEncryptedSecret;
+  const expiresAt = endpoint.previousSecretExpiresAt;
+  if (!previous || !expiresAt) return result;
+  const open = Temporal.Instant.compare(
+    Temporal.Now.instant(),
+    Temporal.Instant.fromEpochMilliseconds(expiresAt.getTime()),
+  );
+  if (open >= 0) return result;
+  const old = await verifyWebhook(await decryptSecret(previous), message);
+  return old.ok ? { verified: old, verifiedWith: "previous" } : result;
 }
 
 /** First 6 chars of the token for logs: enough to correlate, useless to replay. */

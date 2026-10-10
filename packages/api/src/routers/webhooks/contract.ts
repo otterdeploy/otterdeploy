@@ -148,6 +148,13 @@ const updateInboundInput = z.object({
 
 const inboundIdInput = z.object({ id: inboundEndpointIdField });
 
+/** Rotate an endpoint's HMAC secret. `graceMinutes` keeps the
+ *  replaced secret valid that long so senders can switch without a window of
+ *  rejected calls; 0 (the default) revokes it at once. Max 7 days. */
+const rotateInboundSecretInput = inboundIdInput.extend({
+  graceMinutes: z.number().int().min(0).max(10_080).default(0),
+});
+
 // ─── Contract ────────────────────────────────────────────────────────────
 
 export const webhooksContract = {
@@ -245,6 +252,23 @@ export const webhooksContract = {
       .route({ method: "POST", path: `${basePath}/inbound/reveal`, tags: [tag] })
       .input(inboundIdInput)
       .output(secretSchema)
+      .errors(endpointNotFound),
+
+    /** Mint a new HMAC secret; the plaintext is returned ONLY here, like
+     *  create. The URL (token) is unchanged, so senders only swap the secret. */
+    rotateSecret: oc
+      .meta(projectRefs({ id: "inboundEndpoint" }))
+      .route({ method: "POST", path: `${basePath}/inbound/rotate-secret`, tags: [tag] })
+      .input(rotateInboundSecretInput)
+      .output(
+        z.object({
+          endpoint: inboundEndpointSchema,
+          secret: z.string(),
+          /** When the replaced secret stops being accepted; null when it
+           *  was revoked immediately. */
+          previousSecretExpiresAt: z.string().nullable(),
+        }),
+      )
       .errors(endpointNotFound),
 
     /** Services a redeploy endpoint can bind to (org-wide). */

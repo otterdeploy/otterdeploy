@@ -17,6 +17,7 @@ import { triggerWebhookDelivery } from "@otterdeploy/jobs";
 import { decryptSecret, encryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
 
 import { orgScopedProcedure, requirePermission } from "../..";
+import { revealInboundSecretHandler, rotateInboundSecretHandler } from "./inbound-secret";
 import {
   deleteInboundEndpoint,
   deleteWebhook,
@@ -259,17 +260,8 @@ export const webhooksRouter = {
       return view;
     }),
 
-    reveal: requirePermission({
-      notificationChannel: ["update"],
-    }).webhooks.inbound.reveal.handler(async ({ input, context, errors }) => {
-      const row = await getInboundRow({
-        organizationId: context.activeOrganizationId,
-        id: input.id,
-      });
-      if (!row) throw errors.NOT_FOUND();
-      context.log.set({ target: { type: "inboundEndpoint", id: input.id } });
-      return { secret: await decryptSecret(row.encryptedSecret) };
-    }),
+    reveal: revealInboundSecretHandler,
+    rotateSecret: rotateInboundSecretHandler,
 
     serviceOptions: orgScopedProcedure.webhooks.inbound.serviceOptions.handler(
       async ({ context }) => {
