@@ -258,10 +258,10 @@ export function buildHelperRunArgs(opts: {
 }
 
 /**
- * The mount for a git compose stack's bind-source dir, same-path, so the copy
- * the pipeline makes lands on the HOST, where the stack's services mount it
+ * The mount for a compose stack's bind-source dir, same-path, so what the
+ * pipeline writes lands on the HOST, where the stack's services mount it
  * from (see compose-bind-dir.ts). Empty when the build is not a
- * git stack's, or when there is no data folder to put it in (local dev);
+ * stack's that writes files, or when there is no data folder (local dev);
  * `-v` creates the dir on first use.
  */
 export function createStackBindFlags(stackBindDir: string | null, dataRootPresent: boolean) {
