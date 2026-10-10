@@ -20,7 +20,10 @@
  * broken cert can never fail the global Caddy load and take other routes
  * down. Deployments whose data dir isn't shared with the edge container (or
  * isn't writable at all: bare dev) therefore surface "install failed"
- * honestly instead of pretending the cert is live.
+ * honestly instead of pretending the cert is live. A failed write is not the
+ * cert's fault, so every later reconcile tries that cert's files again and
+ * puts it back to `installed` once they are written and the edge loads them:
+ * a full disk that has been cleared does not need a re-upload.
  */
 
 import type { CustomCertificateId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
@@ -31,7 +34,8 @@ import { customCertificate } from "@otterdeploy/db/schema/certificates";
 import { project } from "@otterdeploy/db/schema/project";
 import { idSchema } from "@otterdeploy/shared/id";
 import { caddyDir } from "@otterdeploy/shared/paths";
-import { eq, inArray, ne } from "drizzle-orm";
+import { Result } from "better-result";
+import { and, eq, inArray, like, ne } from "drizzle-orm";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -89,6 +93,38 @@ function toServable(
   };
 }
 
+/** The `installError` prefix {@link materializeCustomCerts} writes when a
+ *  cert's files could not be written. A disk that was full or read-only for a
+ *  moment is not the cert's fault, so these rows are retried by every later
+ *  reconcile; a cert the edge itself rejected is not. */
+const CERT_FILES_UNWRITABLE = "could not write certificate files for the edge";
+
+const selectServable = {
+  id: customCertificate.id,
+  organizationId: customCertificate.organizationId,
+  hostname: customCertificate.hostname,
+  subject: customCertificate.subject,
+  sans: customCertificate.sans,
+  certPem: customCertificate.certPem,
+  keyCiphertext: customCertificate.keyCiphertext,
+  createdAt: customCertificate.createdAt,
+};
+
+/** Certs failed only because their files could not be written: worth
+ *  another write (see {@link CERT_FILES_UNWRITABLE}). */
+async function listRetryableRows(): Promise<ServableRow[]> {
+  return db
+    .select(selectServable)
+    .from(customCertificate)
+    .where(
+      and(
+        eq(customCertificate.installState, "error"),
+        like(customCertificate.installError, `${CERT_FILES_UNWRITABLE}%`),
+      ),
+    )
+    .orderBy(customCertificate.createdAt);
+}
+
 async function listServableRows(): Promise<ServableRow[]> {
   return db
     .select({
@@ -124,40 +160,81 @@ export async function listServableCustomCerts(): Promise<ServableCustomCert[]> {
  * `reconcile()`; the certificates router reads back the row state afterwards
  * to report an honest install outcome.
  */
-export async function materializeCustomCerts(rlog?: RequestLogger): Promise<ServableCustomCert[]> {
+export async function materializeCustomCerts(rlog?: RequestLogger): Promise<MaterializedCerts> {
   const log = asStepLogger(rlog);
-  const rows = await listServableRows();
-  if (rows.length === 0) return [];
+  const [current, retryable] = await Promise.all([listServableRows(), listRetryableRows()]);
+  const retrying = new Set<string>(retryable.map((r) => r.id));
+  const rows = [...current, ...retryable].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+  );
+  if (rows.length === 0) return { servable: [], recovered: [] };
 
   // Lazy import: decryptForDomain pulls the env boundary; keep this module
   // cheap to import for the pure matching helpers below.
   const { decryptForDomain } = await import("../lib/crypto");
 
   const servable: ServableCustomCert[] = [];
+  const recovered: CustomCertificateId[] = [];
   for (const row of rows) {
-    try {
-      const key = await decryptForDomain(row.keyCiphertext, "certs");
-      const dir = join(caddyCertsHostDir(), row.id);
-      await mkdir(dir, { recursive: true, mode: 0o700 });
-      await writeFile(join(dir, "cert.pem"), row.certPem, { mode: 0o600 });
-      await writeFile(join(dir, "key.pem"), key, { mode: 0o600 });
+    const written = await Result.tryPromise({
+      try: async () => {
+        const key = await decryptForDomain(row.keyCiphertext, "certs");
+        const dir = join(caddyCertsHostDir(), row.id);
+        await mkdir(dir, { recursive: true, mode: 0o700 });
+        await writeFile(join(dir, "cert.pem"), row.certPem, { mode: 0o600 });
+        await writeFile(join(dir, "key.pem"), key, { mode: 0o600 });
+      },
+      catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+    });
+    if (written.isOk()) {
       servable.push(toServable(row));
-    } catch (cause) {
-      const reason = cause instanceof Error ? cause.message : String(cause);
-      log.warn({
-        caddy: { step: "materialize-cert", status: "failed", certId: row.id, detail: reason },
-      });
-      await db
-        .update(customCertificate)
-        .set({
-          installState: "error",
-          installError: `could not write certificate files for the edge: ${reason}`,
-          updatedAt: new Date(),
-        })
-        .where(eq(customCertificate.id, row.id));
+      if (retrying.has(row.id)) recovered.push(row.id);
+      continue;
     }
+    const reason = written.error;
+    log.warn({
+      caddy: { step: "materialize-cert", status: "failed", certId: row.id, detail: reason },
+    });
+    // Already recorded on an earlier pass: leave the row (and its updatedAt)
+    // alone rather than rewriting it on every reconcile while the disk is bad.
+    if (retrying.has(row.id)) continue;
+    await db
+      .update(customCertificate)
+      .set({
+        installState: "error",
+        installError: `${CERT_FILES_UNWRITABLE}: ${reason}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(customCertificate.id, row.id));
   }
-  return servable;
+  return { servable, recovered };
+}
+
+/** What {@link materializeCustomCerts} wrote: the certs on disk now, and which
+ *  of them were `error` rows whose files could be written this time. */
+export interface MaterializedCerts {
+  servable: ServableCustomCert[];
+  recovered: CustomCertificateId[];
+}
+
+/**
+ * Settle the certs a reconcile's {@link materializeCustomCerts} recovered,
+ * once the edge loaded the config that carries them: `installed` again, with
+ * the old file-write error cleared. Only rows still in that error are touched,
+ * so an upload or replace that ran meanwhile keeps its own state.
+ */
+export async function markRecoveredCertsInstalled(ids: CustomCertificateId[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db
+    .update(customCertificate)
+    .set({ installState: "installed", installError: null, updatedAt: new Date() })
+    .where(
+      and(
+        inArray(customCertificate.id, ids),
+        eq(customCertificate.installState, "error"),
+        like(customCertificate.installError, `${CERT_FILES_UNWRITABLE}%`),
+      ),
+    );
 }
 
 /** Remove a deleted cert's files. Guarded to inside DATA_ROOT and to a path
