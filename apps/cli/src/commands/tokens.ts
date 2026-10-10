@@ -1,3 +1,7 @@
+import {
+  API_KEY_MAX_EXPIRES_IN_SECONDS,
+  API_KEY_MIN_EXPIRES_IN_SECONDS,
+} from "@otterdeploy/shared/api-key-expiry";
 import { defineCommand } from "citty";
 
 import { ensureAuthenticated } from "../auth-flow";
@@ -17,7 +21,15 @@ function parseExpires(raw: string): number | null {
     abort(`Invalid --expires "${raw}".`, 'use <N>d, <N>h, <N>m (e.g. 90d), or "never"');
   }
   const unit = match[2] === "d" ? SECONDS_PER_DAY : match[2] === "h" ? SECONDS_PER_HOUR : 60;
-  return amount * unit;
+  const seconds = amount * unit;
+  // The server's range, said here before the round trip.
+  if (seconds < API_KEY_MIN_EXPIRES_IN_SECONDS || seconds > API_KEY_MAX_EXPIRES_IN_SECONDS) {
+    abort(
+      `Invalid --expires "${raw}": a key lives between 1 day and 365 days.`,
+      'for example `--expires 90d`, or "never"',
+    );
+  }
+  return seconds;
 }
 
 // citty doesn't collect repeated string flags into an array (last one wins),
