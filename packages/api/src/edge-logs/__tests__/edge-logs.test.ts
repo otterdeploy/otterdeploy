@@ -262,6 +262,37 @@ describe("parseCaddyEvent", () => {
     expect(out.domains).toEqual(["a.example.com", "b.example.com"]);
   });
 
+  // Certmagic's issuance lifecycle names its domain in a single
+  // `identifier` string (these are verbatim Caddy v2 lines). Read without it,
+  // the events carried no domain, the promoter matched no route, and every
+  // route's cert_state stayed "unknown" behind a live Let's Encrypt cert.
+  test("reads the domain off an issuance line's `identifier`", () => {
+    const obtained = parseCaddyEvent({
+      level: "info",
+      ts: 1_791_000_000.5,
+      logger: "tls.obtain",
+      msg: "certificate obtained successfully",
+      identifier: "Whoami.Apps.Example.com",
+      issuer: "acme-v02.api.letsencrypt.org-directory",
+    });
+    if (!obtained) throw new Error("expected a parsed event");
+    expect(obtained.category).toBe("cert");
+    expect(obtained.domains).toEqual(["whoami.apps.example.com"]);
+
+    const failed = parseCaddyEvent({
+      level: "error",
+      logger: "tls.obtain",
+      msg: "could not get certificate from issuer",
+      identifier: "whoami.apps.example.com",
+      issuer: "acme-v02.api.letsencrypt.org-directory",
+      error: "HTTP 429 urn:ietf:params:acme:error:rateLimited - too many certificates",
+    });
+    if (!failed) throw new Error("expected a parsed event");
+    expect(failed.level).toBe("error");
+    expect(failed.domains).toEqual(["whoami.apps.example.com"]);
+    expect(failed.error).toContain("rateLimited");
+  });
+
   test("classifies a reverse_proxy error and strips sensitive headers from raw", () => {
     const out = parseCaddyEvent({
       level: "error",

@@ -35,6 +35,7 @@ await stub("@otterdeploy/api/routers/project/deploy-crash-watcher", ["startDeplo
 await stub("@otterdeploy/api/routers/server/enrollment", ["startNodeEnrollmentReaper"]);
 await stub("@otterdeploy/api/routers/server/provision-status", ["startProvisionReaper"]);
 await stub("@otterdeploy/api/routers/service/cert-recheck-sweep", ["startCertRecheckSweep"]);
+await stub("@otterdeploy/api/routers/service/cert-state-probe", ["startCertStateProbe"]);
 await stub("@otterdeploy/api/system-health", [
   "startHealthAgentReconciler",
   "startHostHealthMonitor",
@@ -54,5 +55,15 @@ describe("background services", () => {
     expect(stops.get("startProvisionReaper")).toBeUndefined();
     stop();
     expect(stops.get("startProvisionReaper")).toBe(1);
+  });
+});
+
+describe("certificate state probe", () => {
+  test("starts at boot and stops with the rest", () => {
+    const before = starts.get("startCertStateProbe") ?? 0;
+    const stop = startBackgroundServices();
+    expect(starts.get("startCertStateProbe")).toBe(before + 1);
+    stop();
+    expect(stops.get("startCertStateProbe")).toBe(before + 1);
   });
 });
