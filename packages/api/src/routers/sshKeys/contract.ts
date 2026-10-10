@@ -1,8 +1,9 @@
 /**
- * SSH keys oRPC contract. Org-scoped CRUD for Git deploy keys + node-management
- * keys. The private half is NEVER part of any output schema. Generate/rotate
- * return only the public row (the private key is encrypted at rest and used
- * server-side to authenticate; operators copy the PUBLIC key to their Git host).
+ * SSH keys oRPC contract. Org-scoped CRUD for the keys otterdeploy signs in to
+ * servers with. The private half is NEVER part of any output schema.
+ * Generate/rotate return only the public row (the private key is encrypted at
+ * rest and used server-side to authenticate; operators copy the PUBLIC key to
+ * a server's authorized_keys).
  */
 import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
@@ -17,10 +18,25 @@ const sshKeyIdField = zId(ID_PREFIX.sshKey);
 
 const sshKeyTypeSchema = z.enum(["ed25519", "rsa", "ecdsa"]);
 
-/** Where a key is consumed, derived at read time (never denormalized). */
+const serverIdField = zId(ID_PREFIX.server);
+
+/** A server that signs in with the key (`server.ssh_key_id`), derived at read
+ *  time (never denormalized). The only consumer today: Git clones over SSH
+ *  aren't supported, so no git usage exists to report. */
 const sshKeyUsageSchema = z.object({
-  kind: z.enum(["git", "node", "service"]),
-  label: z.string(),
+  kind: z.literal("server"),
+  serverId: serverIdField,
+  name: z.string(),
+  role: z.enum(["manager", "worker"]),
+});
+
+/** What a rotation did on one server. See rotateSshKey (handlers.ts). */
+export const rotateServerResultSchema = z.object({
+  serverId: serverIdField,
+  name: z.string(),
+  outcome: z.enum(["reauthorized", "old_key_kept", "failed", "rolled_back", "rollback_failed"]),
+  step: z.enum(["connect", "add", "verify", "cleanup"]).nullable(),
+  error: z.string().nullable(),
 });
 
 /** Public-facing key row. Note: no private key material. */
@@ -62,6 +78,11 @@ const importSshKeyInput = z.object({
 });
 
 const rotateSshKeyInput = z.object({ id: sshKeyIdField });
+
+/** The rotated key, plus what happened on each server that uses it. */
+const rotatedSshKeySchema = sshKeySchema.extend({
+  servers: z.array(rotateServerResultSchema),
+});
 
 const deleteSshKeyInput = z.object({ id: sshKeyIdField });
 
@@ -106,15 +127,31 @@ export const sshKeysContract = {
         status: 400,
         message: "This key can't be rotated" as const,
       },
+      // A server couldn't take the new key. Nothing was swapped; every server
+      // still accepts the current key. `servers` says what happened on each.
+      ROTATE_FAILED: {
+        status: 502,
+        message: "The key was not rotated: a server could not take the new key" as const,
+        data: z.object({ servers: z.array(rotateServerResultSchema) }),
+      },
     })
     .route({ method: "POST", path: `${basePath}/{id}/rotate`, tags: [tag] })
     .input(rotateSshKeyInput)
-    .output(sshKeySchema),
+    .output(rotatedSshKeySchema),
 
   delete: oc
     .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "SSH key not found" as const },
+      // Servers still sign in with this key; deleting it would cut the
+      // control plane off from them.
+      IN_USE: {
+        status: 409,
+        message: "This key is in use by a server" as const,
+        data: z.object({
+          servers: z.array(z.object({ serverId: serverIdField, name: z.string() })),
+        }),
+      },
     })
     .route({ method: "DELETE", path: `${basePath}/{id}`, tags: [tag] })
     .input(deleteSshKeyInput)
