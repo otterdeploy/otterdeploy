@@ -14,6 +14,23 @@ import { ORGANIZATION_SWITCHED, statedOrganizationsOf } from "./acting-organizat
 import { isOrgMember } from "./org-member";
 import { guardStreamMembership, isAsyncIteratorObject } from "./stream-membership";
 
+/**
+ * The credential store could not be read (Postgres down): a 503 the client
+ * retries, never the 401 that signs a signed-in dashboard out.
+ * Thrown as a plain ORPCError with oRPC's standard code, like the procedure
+ * timeout's database outage (authz/procedure-timeout.ts): the same answer the
+ * same outage gets one step later, inside a handler.
+ */
+export function authUnavailableError(
+  context: Pick<Context, "authUnavailable">,
+): ORPCError<"SERVICE_UNAVAILABLE", unknown> | null {
+  if (!context.authUnavailable) return null;
+  return new ORPCError("SERVICE_UNAVAILABLE", {
+    status: 503,
+    message: context.authUnavailable.message,
+  });
+}
+
 /** A real API key over its budget is a 429 with a retry hint, not a 401.
  *  Shared by both authenticating middlewares below. Keyed by
  *  oRPC's standard TOO_MANY_REQUESTS code: at runtime the error map is the
@@ -65,7 +82,7 @@ export const orgScopedMiddleware = orpc
           data: { retryAfterSeconds: context.apiKeyRateLimited.retryAfterSeconds },
         });
       }
-      throw errors.UNAUTHORIZED();
+      throw authUnavailableError(context) ?? errors.UNAUTHORIZED();
     }
     if (!context.activeOrganizationId) {
       // A session with no workspace (its member was removed, or it never

@@ -3,6 +3,8 @@ import { isJsonObject } from "@otterdeploy/shared/json";
 import { Result, TaggedError } from "better-result";
 import * as z from "zod";
 
+import { credentialStoreAnswers } from "./credential-store";
+
 /** Shape of the permissions blob better-auth stores on an API key. */
 const permissionRecordSchema = z.record(z.string(), z.array(z.string()));
 
@@ -51,6 +53,34 @@ export class ApiKeyRateLimitedError extends TaggedError("ApiKeyRateLimitedError"
       retryAfterSeconds,
     });
   }
+}
+
+/**
+ * The credential store could not be read: the session lookup or the API-key
+ * verification failed for a reason that is not "this credential is no good".
+ * Postgres down used to read as "no actor", so a signed-in
+ * browser was answered UNAUTHORIZED, which the dashboard treats as signed out.
+ * Kept apart so the transports answer 503 and the client retries instead.
+ */
+export class AuthStoreUnavailableError extends TaggedError("AuthStoreUnavailableError")<{
+  message: string;
+  cause: unknown;
+}>() {
+  constructor(cause: unknown) {
+    super({ message: "Sign-in could not be checked right now. Try again shortly.", cause });
+  }
+}
+
+/**
+ * Whether a better-auth endpoint's rejection is a verdict on the credential
+ * (a 4xx: bad, expired or revoked) rather than a failure to look it up. A
+ * lookup that fails (its database is down) surfaces as an APIError with a 5xx
+ * status, or as whatever the adapter threw; neither says the caller is
+ * anonymous.
+ */
+const credentialVerdictSchema = z.object({ statusCode: z.number().int().min(400).max(499) });
+function isCredentialVerdict(cause: unknown): boolean {
+  return credentialVerdictSchema.safeParse(cause).success;
 }
 
 /** The plugin's rate-limit denial as `verifyApiKey` reports it (the APIError
@@ -107,52 +137,87 @@ function parseMetadata(
 
 /**
  * Resolve one normalized request actor. Cookie/device sessions take precedence
- * over API keys, matching Better Auth's existing request behavior. Errs only
- * for a real API key that is over its rate limit; every other failure is an
- * anonymous (`null`) actor.
+ * over API keys, matching Better Auth's existing request behavior. Errs for a
+ * real API key that is over its rate limit, and when the credential store
+ * could not be read at all (AuthStoreUnavailableError: not a verdict on the
+ * caller). A credential that is simply not valid is an anonymous (`null`)
+ * actor.
  */
 export async function resolveRequestActor(
   headers: Headers,
   options: { bearerOverride?: string } = {},
-): Promise<Result<ResolvedActor, ApiKeyRateLimitedError>> {
+): Promise<Result<ResolvedActor, ApiKeyRateLimitedError | AuthStoreUnavailableError>> {
+  const session = await resolveSession(headers);
+  if (session.isErr() || session.value) return session;
+
+  const credential = readApiKeyCredential(headers, options.bearerOverride);
+  if (!credential) return Result.ok(null);
+  return resolveApiKey(credential);
+}
+
+/** A lookup that failed is anonymous only if the store can still answer;
+ *  otherwise the store is down and nothing was judged. */
+async function anonymousUnlessStoreDown(
+  cause: unknown,
+): Promise<Result<null, AuthStoreUnavailableError>> {
+  const probe = await credentialStoreAnswers();
+  return probe.isErr() ? Result.err(new AuthStoreUnavailableError(cause)) : Result.ok(null);
+}
+
+async function resolveSession(
+  headers: Headers,
+): Promise<Result<SessionActor | null, AuthStoreUnavailableError>> {
   const sessionResult = await Result.tryPromise({
     try: () => auth.api.getSession({ headers }),
     catch: (cause) => cause,
   });
-  const session = sessionResult.isOk() ? sessionResult.value : null;
-
-  if (session?.user) {
-    return Result.ok({
-      kind: "session",
-      headers,
-      user: {
-        id: session.user.id,
-        email: session.user.email,
-        isInstallAdmin: session.user.isInstallAdmin === true,
-        twoFactorEnabled: session.user.twoFactorEnabled === true,
-      },
-      session: {
-        activeOrganizationId: session.session.activeOrganizationId,
-      },
-    });
+  // better-auth answers a session it could not READ with a 500, the same as a
+  // fault anywhere else in the lookup (a mangled cache cookie included). Only
+  // a store that also fails the probe makes it an outage; otherwise the
+  // request stays anonymous, as it always was.
+  if (sessionResult.isErr()) {
+    return isCredentialVerdict(sessionResult.error)
+      ? Result.ok(null)
+      : anonymousUnlessStoreDown(sessionResult.error);
   }
+  const session = sessionResult.value;
+  if (!session?.user) return Result.ok(null);
+  return Result.ok({
+    kind: "session",
+    headers,
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      isInstallAdmin: session.user.isInstallAdmin === true,
+      twoFactorEnabled: session.user.twoFactorEnabled === true,
+    },
+    session: {
+      activeOrganizationId: session.session.activeOrganizationId,
+    },
+  });
+}
 
-  const credential = readApiKeyCredential(headers, options.bearerOverride);
-  if (!credential) return Result.ok(null);
-
+async function resolveApiKey(
+  credential: string,
+): Promise<Result<ApiKeyActor | null, ApiKeyRateLimitedError | AuthStoreUnavailableError>> {
   const verified = await Result.tryPromise({
     try: () => auth.api.verifyApiKey({ body: { key: credential } }),
     catch: (cause) => cause,
   });
-  if (verified.isErr()) return Result.ok(null);
+  if (verified.isErr()) {
+    return isCredentialVerdict(verified.error)
+      ? Result.ok(null)
+      : anonymousUnlessStoreDown(verified.error);
+  }
   const rateLimited = rateLimitedVerifyError.safeParse(verified.value.error);
   if (rateLimited.success) {
     const tryAgainInMs = rateLimited.data.details?.tryAgainIn ?? 0;
     return Result.err(new ApiKeyRateLimitedError(Math.max(1, Math.ceil(tryAgainInMs / 1000))));
   }
-  if (!verified.value.valid || !verified.value.key) return Result.ok(null);
+  // The plugin reads a key it could not look up as INVALID_API_KEY too.
+  const apiKey = verified.value.valid ? verified.value.key : null;
+  if (!apiKey) return anonymousUnlessStoreDown(verified.value.error);
 
-  const apiKey = verified.value.key;
   return Result.ok({
     kind: "api-key",
     id: apiKey.id,
