@@ -44,6 +44,11 @@ const sharedErrors = {
   INVALID_INPUT: { status: 400, message: "Invalid input" as const },
   REF_MISSING: { status: 400, message: "Referenced resource does not exist" as const },
   REF_CYCLE: { status: 400, message: "Variable reference cycle" as const },
+  // A `${{vault.<provider>.<ref>}}` the operator can fix: no such provider, or
+  // a ref it does not hold. The message names the reference.
+  VAULT_UNRESOLVED: { status: 400, message: "A vault reference could not be resolved" as const },
+  // The provider could not be asked (its API, or the stored credential).
+  VAULT_UNAVAILABLE: { status: 502, message: "The secret provider could not be reached" as const },
   NO_HTTP_PORT: { status: 400, message: "Service has no HTTP port to expose" as const },
   UNKNOWN_PORT: {
     status: 400,
@@ -83,6 +88,8 @@ export const serviceContract = {
       MISSING_BUILD_BINDING: sharedErrors.MISSING_BUILD_BINDING,
       REF_MISSING: sharedErrors.REF_MISSING,
       REF_CYCLE: sharedErrors.REF_CYCLE,
+      VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+      VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
     })
     .meta({ path: basePath, tag, method: "POST" })
     .input(createServiceInput)
@@ -111,6 +118,13 @@ export const serviceContract = {
   restart: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
+      // A redeploy resolves the stored env: a reference that no longer
+      // resolves is named, not hidden behind a 500.
+      INVALID_INPUT: sharedErrors.INVALID_INPUT,
+      REF_MISSING: sharedErrors.REF_MISSING,
+      REF_CYCLE: sharedErrors.REF_CYCLE,
+      VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+      VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
     })
     .meta({ path: `${basePath}/{resourceId}/restart`, tag, method: "POST" })
     .input(getServiceInput)
@@ -122,6 +136,13 @@ export const serviceContract = {
   rollback: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
+      // A redeploy resolves the stored env: a reference that no longer
+      // resolves is named, not hidden behind a 500.
+      INVALID_INPUT: sharedErrors.INVALID_INPUT,
+      REF_MISSING: sharedErrors.REF_MISSING,
+      REF_CYCLE: sharedErrors.REF_CYCLE,
+      VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+      VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
       NOT_ROLLBACKABLE: {
         status: 400,
         message: "This deployment can't be rolled back to" as const,
@@ -173,6 +194,13 @@ export const serviceContract = {
   pause: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
+      // A redeploy resolves the stored env: a reference that no longer
+      // resolves is named, not hidden behind a 500.
+      INVALID_INPUT: sharedErrors.INVALID_INPUT,
+      REF_MISSING: sharedErrors.REF_MISSING,
+      REF_CYCLE: sharedErrors.REF_CYCLE,
+      VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+      VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
     })
     .meta({ path: `${basePath}/{resourceId}/pause`, tag, method: "POST" })
     .input(getServiceInput)
@@ -181,6 +209,13 @@ export const serviceContract = {
   resume: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
+      // A redeploy resolves the stored env: a reference that no longer
+      // resolves is named, not hidden behind a 500.
+      INVALID_INPUT: sharedErrors.INVALID_INPUT,
+      REF_MISSING: sharedErrors.REF_MISSING,
+      REF_CYCLE: sharedErrors.REF_CYCLE,
+      VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+      VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
     })
     .meta({ path: `${basePath}/{resourceId}/resume`, tag, method: "POST" })
     .input(getServiceInput)
@@ -226,6 +261,13 @@ export const serviceContract = {
         message: "Moving this service leaves its volumes behind." as const,
         data: z.object({ mounts: z.array(z.string()) }),
       },
+      // The move redeploys: a stored reference that no longer resolves is
+      // named, not hidden behind a 500.
+      INVALID_INPUT: sharedErrors.INVALID_INPUT,
+      REF_MISSING: sharedErrors.REF_MISSING,
+      REF_CYCLE: sharedErrors.REF_CYCLE,
+      VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+      VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
     })
     .meta({ path: `${basePath}/{resourceId}/placement`, tag, method: "POST" })
     .input(
@@ -283,6 +325,8 @@ export const serviceContract = {
         INVALID_INPUT: sharedErrors.INVALID_INPUT,
         REF_MISSING: sharedErrors.REF_MISSING,
         REF_CYCLE: sharedErrors.REF_CYCLE,
+        VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+        VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
       })
       .meta({ path: `${basePath}/{resourceId}/env/{key}`, tag, method: "PUT" })
       .input(setEnvInput)
@@ -291,6 +335,13 @@ export const serviceContract = {
     unset: oc
       .errors({
         NOT_FOUND: sharedErrors.NOT_FOUND,
+        // A redeploy resolves the stored env: a reference that no longer
+        // resolves is named, not hidden behind a 500.
+        INVALID_INPUT: sharedErrors.INVALID_INPUT,
+        REF_MISSING: sharedErrors.REF_MISSING,
+        REF_CYCLE: sharedErrors.REF_CYCLE,
+        VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+        VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
       })
       .meta({ path: `${basePath}/{resourceId}/env/{key}`, tag, method: "DELETE" })
       .input(unsetEnvInput)
@@ -302,6 +353,8 @@ export const serviceContract = {
         INVALID_INPUT: sharedErrors.INVALID_INPUT,
         REF_MISSING: sharedErrors.REF_MISSING,
         REF_CYCLE: sharedErrors.REF_CYCLE,
+        VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+        VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
       })
       .meta({ path: `${basePath}/{resourceId}/env`, tag, method: "POST" })
       .input(bulkEnvInput)
@@ -462,13 +515,31 @@ export const serviceContract = {
       .output(z.array(serviceMountSchema)),
 
     add: oc
-      .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        // A redeploy resolves the stored env: a reference that no longer
+        // resolves is named, not hidden behind a 500.
+        INVALID_INPUT: sharedErrors.INVALID_INPUT,
+        REF_MISSING: sharedErrors.REF_MISSING,
+        REF_CYCLE: sharedErrors.REF_CYCLE,
+        VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+        VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
+      })
       .meta({ path: `${basePath}/{resourceId}/mounts`, tag, method: "POST" })
       .input(addMountInput)
       .output(serviceMountSchema),
 
     remove: oc
-      .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        // A redeploy resolves the stored env: a reference that no longer
+        // resolves is named, not hidden behind a 500.
+        INVALID_INPUT: sharedErrors.INVALID_INPUT,
+        REF_MISSING: sharedErrors.REF_MISSING,
+        REF_CYCLE: sharedErrors.REF_CYCLE,
+        VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
+        VAULT_UNAVAILABLE: sharedErrors.VAULT_UNAVAILABLE,
+      })
       .meta({ path: `${basePath}/{resourceId}/mounts`, tag, method: "DELETE" })
       .input(removeMountInput)
       .output(z.object({ ok: z.boolean() })),

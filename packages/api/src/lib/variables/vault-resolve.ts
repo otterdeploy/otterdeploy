@@ -75,6 +75,7 @@ export function vaultValueFor(
         providerName: token.provider,
         ref: token.ref,
         detail: "value was not fetched before substitution",
+        unavailable: true,
       }),
     );
   }
@@ -111,6 +112,7 @@ export async function loadVaultValues(
         providerName,
         ref: firstRefOf(refs),
         detail: "could not determine the workspace that owns this project",
+        unavailable: true,
       }),
     );
   }
@@ -186,6 +188,7 @@ async function resolveOneProvider(
         providerName,
         ref: [...refs][0] ?? "",
         detail: err instanceof Error ? err.message : String(err),
+        unavailable: true,
       }),
     );
   }
