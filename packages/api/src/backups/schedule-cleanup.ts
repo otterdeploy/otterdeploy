@@ -77,7 +77,9 @@ export async function pruneSchedulesForDeletedResource(input: {
       .where(
         and(
           eq(backupSchedule.organizationId, organizationId),
-          sql`(${backupSchedule.sources} @> ${JSON.stringify([resourceId])}::jsonb or ${backupSchedule.sources} @> ${JSON.stringify([resourceName])}::jsonb)`,
+          // Arrays built in SQL: a JSON-encoded string parameter cast to
+          // jsonb binds as a jsonb string, which no sources array contains.
+          sql`(${backupSchedule.sources} @> jsonb_build_array(${resourceId}::text) or ${backupSchedule.sources} @> jsonb_build_array(${resourceName}::text))`,
         ),
       );
     if (candidates.length === 0) return;

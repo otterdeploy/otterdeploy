@@ -199,7 +199,10 @@ export async function countDestinationReferences(input: {
     .select({ n: sql<string>`count(*)` })
     .from(backupSchedule)
     // jsonb containment: schedules whose destinationIds array holds this id.
-    .where(sql`${backupSchedule.destinationIds} @> ${JSON.stringify([input.id])}::jsonb`);
+    // The array is built in SQL: a JSON-encoded string parameter cast to jsonb
+    // binds as a jsonb STRING ("[\"bdst_…\"]"), which no array contains, so
+    // the count was always 0 and a referenced destination deleted cleanly.
+    .where(sql`${backupSchedule.destinationIds} @> jsonb_build_array(${input.id}::text)`);
   const [bak] = await db
     .select({ n: sql<string>`count(*)` })
     .from(backup)
