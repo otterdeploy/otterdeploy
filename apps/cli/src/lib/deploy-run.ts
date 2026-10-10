@@ -2,10 +2,12 @@
  * The one save→diff→confirm→apply→report pipeline shared by `deploy`,
  * `sync`, and `up`. Single semantics so the three verbs can't drift.
  *
- *   save (expectedVersion from manifest.get) → diff →
+ *   diff the local manifest (nothing saved yet) →
  *   dry-run? print plan and stop →
- *   deletes pending? confirm (skipped under --yes/--json) →
- *   applyChange → report applied/skipped →
+ *   deletes pending? confirm (skipped under --yes/--json); declined: stop,
+ *   nothing saved →
+ *   save (expectedVersion from manifest.get) → applyChange →
+ *   report applied/skipped →
  *   follow the image rollouts the apply started (always) and, under --wait,
  *   every changed service's deployment, to running.
  */
@@ -61,42 +63,32 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   const project = await client.project.getBySlug({ slug: manifest.project });
   const current = await client.project.manifest.get({ id: project.id });
 
-  // A dry run must not write. The diff endpoint takes the local manifest
-  // directly, so the preview needs no save — previously the save happened
-  // first regardless, and `--dry-run` replaced the saved manifest while
-  // printing "Nothing was applied". That manifest is the baseline `discard`
-  // reverts to and the next `deploy` compares against, so the preview
-  // silently changed the thing it was previewing.
+  // Diff the LOCAL manifest against live state without saving it: the diff
+  // endpoint takes the manifest directly. Nothing is saved until the run is
+  // past every point where it can stop. A dry run stops here (it used to save
+  // first, replacing the manifest `discard` reverts to while printing
+  // "Nothing was applied"), and so does a declined delete prompt below (which
+  // used to leave the local file, deletions included, saved as the server's
+  // manifest, one "Apply all" away in the web pending-changes bar).
+  const diff = await client.project.manifest.diff({
+    projectId: project.id,
+    environment: opts.env,
+    manifest,
+  });
+
   if (opts.dryRun) {
-    const preview = await client.project.manifest.diff({
-      projectId: project.id,
-      environment: opts.env,
-      manifest,
-    });
     if (opts.json) {
-      process.stdout.write(`${JSON.stringify(preview, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify(diff, null, 2)}\n`);
       return;
     }
     section("Planned changes");
-    printDiff(preview.changes);
-    printChangeSummary(preview.changes);
+    printDiff(diff.changes);
+    printChangeSummary(diff.changes);
     out();
     note("Nothing was applied, and nothing was saved.");
     hint("re-run without `--dry-run` to apply");
     return;
   }
-
-  // Save so the server diff compares the LOCAL manifest against live state;
-  // applyChange then uses the bumped version.
-  const saved = await client.project.manifest.save({
-    projectId: project.id,
-    manifest,
-    expectedVersion: current.version,
-  });
-  const diff = await client.project.manifest.diff({
-    projectId: project.id,
-    environment: opts.env,
-  });
 
   // Destructive changes get one confirmation; skipped under --yes/--json
   // (script-friendly).
@@ -112,9 +104,17 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
       const proceed = await confirm(
         `${deletes} ${deletes === 1 ? "resource" : "resources"} will be deleted. Continue?`,
       );
-      if (!proceed) abort("Aborted. Nothing was applied.");
+      if (!proceed) abort("Aborted. Nothing was applied, and nothing was saved.");
     }
   }
+
+  // Agreed (or nothing destructive): save, so the apply runs against the
+  // bumped version. expectedVersion still guards a concurrent edit.
+  const saved = await client.project.manifest.save({
+    projectId: project.id,
+    manifest,
+    expectedVersion: current.version,
+  });
 
   // Capture wait targets from the diff BEFORE apply. applyChange's
   // output doesn't identify which resources changed.
