@@ -1,32 +1,33 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import { CloudIcon } from "@hugeicons/core-free-icons";
+import { useState } from "react";
+
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { CloudflareConnected } from "@/features/domains/components/cloudflare-connected";
+import { invalidateBaseDomain, useCloudflareZone } from "@/features/domains/data/use-base-domain";
 import { useCanManageWorkspace } from "@/features/team/data/use-team";
 import { SettingsFooter, SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { orpc, queryClient } from "@/shared/server/orpc";
+import { orpc } from "@/shared/server/orpc";
 
 import { STEP, StepNumber, TokenSetupSteps, ZonePicker } from "./settings-cloudflare-steps";
 
-function invalidateSettings(organizationId: OrganizationId) {
-  return queryClient.invalidateQueries({
-    queryKey: orpc.organization.settings.queryKey({
-      input: { organizationId },
-    }),
-  });
-}
-
+/** Folded to one row: Cloudflare is one way to write the base domain's
+ *  records, not a setup step of its own. The three-step connect flow opens in
+ *  place when asked for. */
 export function CloudflareCard({ organizationId }: { organizationId: OrganizationId }) {
   const settingsQuery = useQuery(
     orpc.organization.settings.queryOptions({ input: { organizationId } }),
   );
   const isConfigured = settingsQuery.data?.cloudflareTokenConfigured ?? false;
-  const currentZoneId = settingsQuery.data?.cloudflareZoneId ?? null;
+  const hasBaseDomain = Boolean(settingsQuery.data?.baseDomain);
+  const zoneQuery = useCloudflareZone(organizationId, isConfigured);
+  const [connecting, setConnecting] = useState(false);
 
   // `setCloudflareConfig` is `organization:update`. Owner/admin only. Reading
   // the settings is not, so a member may SEE whether Cloudflare is wired up;
@@ -36,87 +37,69 @@ export function CloudflareCard({ organizationId }: { organizationId: Organizatio
   const { user } = useRouteContext({ from: "/_app" });
   const canManage = useCanManageWorkspace(organizationId, user.id);
 
-  if (!canManage) {
-    return (
-      <SettingsSection
-        icon={CloudIcon}
-        title="Cloudflare"
-        description="Connect Cloudflare and we'll write the DNS records for you whenever you save a domain."
-      >
-        <div className="p-5 text-[13px] text-muted-foreground">
-          {isConfigured
-            ? `Connected to zone ${currentZoneId ?? "(none)"}.`
-            : "Not connected."}{" "}
-          Only workspace owners and admins can change this.
-        </div>
-      </SettingsSection>
-    );
-  }
-
   return (
-    // One sentence in the header: what connecting BUYS you. The mechanics
-    // (why a pasted token and not OAuth, which scope) belong to the step that
-    // needs them, not to a paragraph you must read before the first step.
     <SettingsSection
       icon={CloudIcon}
       title="Cloudflare"
-      description="Connect Cloudflare and we'll write the DNS records for you whenever you save a domain."
+      badge={
+        <span className="rounded-sm bg-muted px-1.5 py-px text-[10.5px] font-medium text-muted-foreground ring-1 ring-foreground/10">
+          Optional
+        </span>
+      }
+      description="If your domain's DNS is on Cloudflare, connect it and we'll write the records above for you. Any other provider works too: add them by hand."
     >
       {isConfigured ? (
-        <div className="p-5">
-          <CloudflareConnected organizationId={organizationId} zoneId={currentZoneId} />
-        </div>
+        <CloudflareConnected
+          organizationId={organizationId}
+          zone={zoneQuery.data}
+          zoneId={settingsQuery.data?.cloudflareZoneId ?? null}
+          checking={zoneQuery.isLoading}
+          canManage={canManage}
+          canWrite={hasBaseDomain}
+          replacing={connecting}
+          onReplace={() => setConnecting((v) => !v)}
+        />
       ) : (
+        <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-[13px] font-medium">Not connected</span>
+            <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
+              {canManage
+                ? "Takes about a minute. You'll create a token with DNS edit access on Cloudflare and paste it here."
+                : "Only workspace owners and admins can connect Cloudflare."}
+            </span>
+          </div>
+          {canManage && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-expanded={connecting}
+              onClick={() => setConnecting((v) => !v)}
+            >
+              {connecting ? "Cancel" : "Connect Cloudflare"}
+            </Button>
+          )}
+        </div>
+      )}
+      {canManage && connecting ? (
         // Renders its own padded body + footer as siblings so the card's
         // `divide-y` puts a hairline between the steps and the action.
-        <CloudflareConnectForm organizationId={organizationId} />
-      )}
+        <CloudflareConnectForm
+          organizationId={organizationId}
+          onConnected={() => setConnecting(false)}
+        />
+      ) : null}
     </SettingsSection>
-  );
-}
-
-function CloudflareConnected({
-  organizationId,
-  zoneId,
-}: {
-  organizationId: OrganizationId;
-  zoneId: string | null;
-}) {
-  const disconnect = useMutation({
-    ...orpc.organization.setCloudflareConfig.mutationOptions(),
-    onSuccess: async () => {
-      await invalidateSettings(organizationId);
-      toast.success("Cloudflare disconnected");
-    },
-    onError: (err) => toast.error(err.message ?? "Disconnect failed"),
-  });
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex flex-col">
-        <span className="text-[13px] font-medium">Connected</span>
-        <span className="font-mono text-[11px] text-muted-foreground">
-          Zone {zoneId ?? "(none)"}
-        </span>
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={disconnect.isPending}
-        onClick={() =>
-          disconnect.mutate({ organizationId, token: "", zoneId: null })
-        }
-      >
-        {disconnect.isPending ? "Disconnecting…" : "Disconnect"}
-      </Button>
-    </div>
   );
 }
 
 function CloudflareConnectForm({
   organizationId,
+  onConnected,
 }: {
   organizationId: OrganizationId;
+  onConnected: () => void;
 }) {
   const zonesQuery = useMutation({
     ...orpc.organization.cloudflareListZones.mutationOptions(),
@@ -125,8 +108,9 @@ function CloudflareConnectForm({
   const saveConfig = useMutation({
     ...orpc.organization.setCloudflareConfig.mutationOptions(),
     onSuccess: async () => {
-      await invalidateSettings(organizationId);
+      await invalidateBaseDomain(organizationId);
       form.reset();
+      onConnected();
       toast.success("Cloudflare connected");
     },
     onError: (err) => toast.error(err.message ?? "Save failed"),

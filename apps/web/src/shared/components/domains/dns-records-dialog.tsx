@@ -17,6 +17,8 @@
  * created or to fix it by hand when it goes wrong.
  */
 
+import type { ReactNode } from "react";
+
 import { Alert02Icon, Copy01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
@@ -120,9 +122,22 @@ function OneClickRow({
 }
 
 /** The records themselves, click-to-copy. Empty only before the domain is
- *  saved. There is no "this provider needs no records" case. */
-function RecordsTable({ records }: { records: DnsRecordRow[] }) {
+ *  saved. There is no "this provider needs no records" case.
+ *
+ *  `caption` says what a record is for, under its name; `status` adds a
+ *  column with what DNS says about it now. Both optional: the dialog shows
+ *  neither, Settings → Domains shows both. */
+export function RecordsTable({
+  records,
+  caption,
+  status,
+}: {
+  records: DnsRecordRow[];
+  caption?: (record: DnsRecordRow) => ReactNode;
+  status?: (record: DnsRecordRow) => ReactNode;
+}) {
   const { t } = useTranslation();
+  const columns = status ? 4 : 3;
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full text-[12px]">
@@ -131,23 +146,32 @@ function RecordsTable({ records }: { records: DnsRecordRow[] }) {
             <th className="px-2 py-1.5 text-left font-medium">{t("dns.table.type")}</th>
             <th className="px-2 py-1.5 text-left font-medium">{t("dns.table.name")}</th>
             <th className="px-2 py-1.5 text-left font-medium">{t("dns.table.value")}</th>
+            {status ? (
+              <th className="px-2 py-1.5 text-left font-medium">{t("dns.table.status")}</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
           {records.map((r) => (
-            <tr key={`${r.type}:${r.name}`} className="border-t">
+            <tr key={`${r.type}:${r.name}`} className="border-t align-top">
               <td className="px-2 py-1.5 font-mono">{r.type}</td>
               <td className="max-w-[16rem] px-1 py-1">
                 <CopyCell text={r.relativeName ?? r.name} />
+                {caption ? (
+                  <p className="px-1 pt-0.5 pb-1 text-[11px] leading-snug text-muted-foreground">
+                    {caption(r)}
+                  </p>
+                ) : null}
               </td>
               <td className="max-w-[20rem] px-1 py-1">
                 <CopyCell text={r.value} />
               </td>
+              {status ? <td className="px-2 py-1.5 whitespace-nowrap">{status(r)}</td> : null}
             </tr>
           ))}
           {records.length === 0 ? (
             <tr className="border-t">
-              <td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">
+              <td colSpan={columns} className="px-2 py-3 text-center text-muted-foreground">
                 {t("dns.table.empty")}
               </td>
             </tr>
