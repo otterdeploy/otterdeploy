@@ -1,8 +1,9 @@
 /**
  * Settings tab: everything an operator can change about a registered server
  * today, and the facts they cannot. Scheduling and cluster role are swarm
- * procedures and say so on plain Docker; the firewall re-apply and removal
- * work on every runtime. Name, thresholds and reporting cadence have no
+ * procedures and are not shown on plain Docker, where they could only explain
+ * that they do not apply; the firewall re-apply and removal work on every
+ * runtime. Name, thresholds and reporting cadence have no
  * write procedure yet and are not offered as editable.
  */
 import { useMutation } from "@tanstack/react-query";
@@ -101,6 +102,40 @@ function ClusterRole({
   );
 }
 
+/** Availability and cluster role: swarm procedures, shown on Swarm only. */
+function SwarmSections({
+  server,
+  node,
+  swarmView,
+  onRemoved,
+}: {
+  server: Server;
+  node: SwarmNode | null;
+  swarmView: SwarmNodesView | null;
+  onRemoved: () => void;
+}) {
+  return (
+    <>
+      <SettingsSection
+        title="Scheduling"
+        description="Whether swarm may place new tasks here. Drain moves existing tasks off; pause only stops new ones."
+      >
+        <SettingsRow
+          title="Availability"
+          description="Applied to the swarm node immediately."
+          control={<AvailabilitySelect server={server} className="h-8 w-[140px]" />}
+        />
+      </SettingsSection>
+
+      <SettingsSection title="Cluster role" description="Manager or worker in the swarm, and leaving it.">
+        <div className="px-4 py-3">
+          <ClusterRole server={server} node={node} swarmView={swarmView} onRemoved={onRemoved} />
+        </div>
+      </SettingsSection>
+    </>
+  );
+}
+
 export function ServerSettingsTab({
   server,
   node,
@@ -116,28 +151,9 @@ export function ServerSettingsTab({
   const local = isControlPlaneRow(server);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <SettingsSection
-        title="Scheduling"
-        description="Whether swarm may place new tasks here. Drain moves existing tasks off; pause only stops new ones."
-      >
-        <SettingsRow
-          title="Availability"
-          description={isSwarm ? "Applied to the swarm node immediately." : "Plain Docker has no scheduler; every service runs on this host."}
-          control={
-            isSwarm ? (
-              <AvailabilitySelect server={server} className="h-8 w-[140px]" />
-            ) : (
-              <span className="font-mono text-[12px] text-muted-foreground">{server.availability}</span>
-            )
-          }
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Cluster role" description="Manager or worker in the swarm, and leaving it.">
-        <div className="px-4 py-3">
-          <ClusterRole server={server} node={node} swarmView={swarmView} onRemoved={onRemoved} />
-        </div>
-      </SettingsSection>
+      {isSwarm ? (
+        <SwarmSections server={server} node={node} swarmView={swarmView} onRemoved={onRemoved} />
+      ) : null}
 
       <SettingsSection
         title="Firewall"

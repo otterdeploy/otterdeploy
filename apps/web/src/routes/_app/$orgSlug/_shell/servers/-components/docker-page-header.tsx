@@ -19,7 +19,6 @@ import { TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 export const DOCKER_TABS = [
   "containers",
   "images",
-  "volumes",
   "networks",
   "tasks",
   "events",

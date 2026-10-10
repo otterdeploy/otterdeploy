@@ -1,6 +1,7 @@
 import type { Context } from "../../context";
 
 import { requireInstallAdmin } from "../..";
+import { withOwnerNames } from "./container-owner-names";
 import { streamDockerEvents } from "./events-stream";
 import {
   createNetwork,
@@ -60,7 +61,7 @@ export const dockerRouter = {
     list: requireInstallAdmin().docker.containers.list.handler(async ({ input, errors }) => {
       const result = await listContainers(input);
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
-      return result.items;
+      return withOwnerNames(result.items);
     }),
     inspect: requireInstallAdmin().docker.containers.inspect.handler(
       async ({ input, errors, context }) => {

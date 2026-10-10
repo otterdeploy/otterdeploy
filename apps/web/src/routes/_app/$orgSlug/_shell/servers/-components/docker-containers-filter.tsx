@@ -7,6 +7,8 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import type { ContainerOwnerView } from "@/features/servers/detail/container-groups";
+
 import { FilterPill } from "./servers-parts";
 
 /** Local row type: mirrors the docker contract output shape. */
@@ -19,6 +21,7 @@ export interface Container {
   ports: string[];
   createdAt: number;
   managed: boolean;
+  owner: ContainerOwnerView;
 }
 
 export type StateFilter = "running" | "healthy" | "exited" | null;
@@ -44,6 +47,10 @@ export function matchesSearch(c: Container, needle: string): boolean {
     c.name.toLowerCase().includes(needle) ||
     c.image.toLowerCase().includes(needle) ||
     c.id.startsWith(needle) ||
+    (c.owner.kind === "resource" &&
+      [c.owner.resourceName, c.owner.projectName, c.owner.projectSlug].some((v) =>
+        v?.toLowerCase().includes(needle),
+      )) ||
     c.ports.some((p) => p.toLowerCase().includes(needle))
   );
 }

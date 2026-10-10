@@ -33,10 +33,14 @@ function ProjectChip({ slug, orgSlug }: { slug: string; orgSlug: string }) {
 export function PlacementSummary({
   server,
   stats,
+  isSwarm,
   orgSlug,
 }: {
   server: Server;
   stats: ServerNodeStats | null;
+  /** Tasks and reservations are swarm's: plain Docker has neither, and the
+   *  numbers read zero forever there. */
+  isSwarm: boolean;
   orgSlug: string;
 }) {
   if (!stats) {
@@ -44,20 +48,22 @@ export function PlacementSummary({
   }
   return (
     <div className="flex flex-col gap-3 px-4 py-3 text-[12.5px]">
-      <div className="flex flex-wrap gap-x-5 gap-y-1">
-        <span>
-          <span className="font-mono tabular-nums">{stats.tasksRunning}</span> task
-          {stats.tasksRunning === 1 ? "" : "s"} running
-        </span>
-        <span className="text-muted-foreground">
-          <span className="font-mono tabular-nums">{stats.cpuAllocatedVcpu}</span> /{" "}
-          {server.cpuTotal || "–"} vCPU reserved
-        </span>
-        <span className="text-muted-foreground">
-          <span className="font-mono tabular-nums">{stats.memoryAllocatedGb.toFixed(1)}</span> /{" "}
-          {server.memTotalGb || "–"} GB reserved
-        </span>
-      </div>
+      {isSwarm ? (
+        <div className="flex flex-wrap gap-x-5 gap-y-1">
+          <span>
+            <span className="font-mono tabular-nums">{stats.tasksRunning}</span> task
+            {stats.tasksRunning === 1 ? "" : "s"} running
+          </span>
+          <span className="text-muted-foreground">
+            <span className="font-mono tabular-nums">{stats.cpuAllocatedVcpu}</span> /{" "}
+            {server.cpuTotal || "–"} vCPU reserved
+          </span>
+          <span className="text-muted-foreground">
+            <span className="font-mono tabular-nums">{stats.memoryAllocatedGb.toFixed(1)}</span> /{" "}
+            {server.memTotalGb || "–"} GB reserved
+          </span>
+        </div>
+      ) : null}
       {stats.projects.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {stats.projects.map((slug) => (
@@ -102,7 +108,7 @@ export function TabLink({
 }: {
   orgSlug: string;
   serverId: string;
-  tab: "services" | "storage";
+  tab: "containers" | "storage";
   children: string;
 }) {
   return (

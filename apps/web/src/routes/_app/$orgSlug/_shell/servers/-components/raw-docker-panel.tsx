@@ -1,16 +1,15 @@
 /**
- * Raw Docker inventory: containers, images, volumes, networks, and swarm
- * tasks outside the project and Stack abstraction. Formerly the standalone
- * `/docker` page; demoted to a "Raw Docker" tab under Servers (od-u63.3)
- * because it's an escape hatch, not a peer of Servers. Content is unchanged from the
- * old page; only the chrome that wraps it moved.
+ * What the control plane's Docker daemon holds: containers (grouped by
+ * project, Platform and Unmanaged), images, networks, events, and swarm tasks
+ * on the Swarm runtime only. It reads one daemon (the control plane's
+ * socket), so it lives on that server's Containers tab rather than the fleet
+ * page. Volumes are on the server's Storage tab, beside disk usage and
+ * reclaim.
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { volumesListQuery } from "@/features/volumes/data/volumes";
-import { VolumesSection } from "@/features/volumes/volumes-section";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
@@ -94,14 +93,14 @@ function pruneSummary(res: {
   return swept ? `${images} · ${swept}` : images;
 }
 
+type DockerTabEntry = [DockerTab, string, number | undefined];
+
 export function RawDockerPanel({
-  orgSlug,
   tab,
   onTabChange,
 }: {
-  orgSlug: string;
-  /** The open sub-tab. It is a route (`/servers/docker/images`, …), so the
-   *  page owns it and this panel reports clicks back. */
+  /** The open sub-tab. It is a route (`/servers/$cp/containers/images`, …),
+   *  so the page owns it and this panel reports clicks back. */
   tab: DockerTab;
   onTabChange: (tab: DockerTab) => void;
 }) {
@@ -119,9 +118,6 @@ export function RawDockerPanel({
     ...orpc.docker.images.list.queryOptions({ input: { all: false } }),
     staleTime: 10_000,
   });
-  // The rich volumes inventory (ownership attribution, orphans), the same
-  // surface the standalone /volumes page used before it merged into this tab.
-  const volumes = useQuery(volumesListQuery());
   const networks = useQuery({
     ...orpc.docker.networks.list.queryOptions({ input: {} }),
     staleTime: 10_000,
@@ -173,12 +169,13 @@ export function RawDockerPanel({
     (img) => img.repoTags.length === 0 || img.repoTags[0] === "<none>:<none>",
   ).length;
 
-  const tabs: Array<[DockerTab, string, number | undefined]> = [
+  const tabs: DockerTabEntry[] = [
     ["containers", "Containers", containers.data?.length],
     ["images", "Images", images.data?.length],
-    ["volumes", "Volumes", volumes.data?.volumes.length],
     ["networks", "Networks", networks.data?.length],
-    ["tasks", "Tasks", tasks.data?.length],
+    // Tasks are swarm's scheduling units: on plain Docker the list is always
+    // empty, so the tab is not offered there.
+    ...(swarm ? [["tasks", "Tasks", tasks.data?.length] satisfies DockerTabEntry] : []),
     // No count: the feed is a live stream, not an inventory.
     ["events", "Events", undefined],
   ];
@@ -223,10 +220,6 @@ export function RawDockerPanel({
             />
           </div>
           <ImagesTable query={images} />
-        </TabsContent>
-        <TabsContent value="volumes">
-          <ManagerScopeCaption swarm={swarm} tab={tab} />
-          <VolumesSection orgSlug={orgSlug} />
         </TabsContent>
         <TabsContent value="networks">
           <ManagerScopeCaption swarm={swarm} tab={tab} />

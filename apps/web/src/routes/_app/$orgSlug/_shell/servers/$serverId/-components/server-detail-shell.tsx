@@ -1,5 +1,7 @@
 /**
- * Logs and Terminal tabs.
+ * Logs and Terminal tabs. Logs also holds what the old Units tab tried to
+ * show (systemd unit status): it was empty on every host for the same reason
+ * host logs are not here yet.
  *
  * A host shell exists for the control-plane host (a local PTY, the same one
  * the Terminal page opens). For every other node it needs the node daemon
@@ -27,7 +29,7 @@ const TerminalSession = lazy(() =>
   })),
 );
 
-function ComingSoon({ title, description }: { title: string; description: string }) {
+export function ComingSoon({ title, description }: { title: string; description: string }) {
   return (
     <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
       <EmptyHeader>
@@ -42,7 +44,7 @@ export function ServerLogsTab({ server }: { server: Server }) {
   return (
     <ComingSoon
       title="Host logs: coming soon"
-      description={`Docker events, systemd journal and kernel messages for ${server.name} arrive with the node daemon. Service logs are on each service today.`}
+      description={`The systemd journal, unit status and kernel messages for ${server.name} arrive with the node daemon: the health agent runs in a container and cannot read them. Service logs are on each service today, and Docker events on the control plane's Containers tab.`}
     />
   );
 }

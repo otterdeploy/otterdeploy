@@ -130,12 +130,14 @@ export function ServerOverviewTab({
   state,
   health,
   stats,
+  isSwarm,
   orgSlug,
 }: {
   server: Server;
   state: ServerState;
   health: HostHealth | null;
   stats: ServerNodeStats | null;
+  isSwarm: boolean;
   orgSlug: string;
 }) {
   const shown = hasReadings(state.kind) ? health : null;
@@ -156,14 +158,14 @@ export function ServerOverviewTab({
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <SectionCard
           title="Placed here"
-          hint="reservations, not utilization"
+          hint={isSwarm ? "reservations, not utilization" : "projects with work on this host"}
           action={
-            <TabLink orgSlug={orgSlug} serverId={server.id} tab="services">
-              Services →
+            <TabLink orgSlug={orgSlug} serverId={server.id} tab="containers">
+              Containers →
             </TabLink>
           }
         >
-          <PlacementSummary server={server} stats={stats} orgSlug={orgSlug} />
+          <PlacementSummary server={server} stats={stats} isSwarm={isSwarm} orgSlug={orgSlug} />
         </SectionCard>
         <SectionCard title="About this machine" hint="as registered and as reported">
           <KeyValueList items={machineFacts(server, shown)} className="py-1" />

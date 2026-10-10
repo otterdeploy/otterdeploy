@@ -15,8 +15,11 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 import type { ReactNode } from "react";
 
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
+import { useLiveQuery } from "@tanstack/react-db";
 import { Link } from "@tanstack/react-router";
 
+import { serverCollection } from "@/features/servers/data/server";
+import { isControlPlaneRow } from "@/features/servers/detail/server-state";
 import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
 
 export type InboxTarget =
@@ -82,6 +85,9 @@ export function InboxLink({
   onClick?: () => void;
 }) {
   const envSlugFor = useEnvSlugResolver();
+  // Install health is the control-plane server's Platform tab.
+  const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }), []);
+  const controlPlane = servers.find((s) => isControlPlaneRow(s));
   switch (target.kind) {
     case "service": {
       const params = {
@@ -126,13 +132,17 @@ export function InboxLink({
       );
     }
     case "servers":
-      return (
+      return controlPlane ? (
         <Link
-          to="/$orgSlug/servers/install-health"
-          params={{ orgSlug }}
+          to="/$orgSlug/servers/$serverId/platform"
+          params={{ orgSlug, serverId: controlPlane.id }}
           className={className}
           onClick={onClick}
         >
+          {children}
+        </Link>
+      ) : (
+        <Link to="/$orgSlug/servers" params={{ orgSlug }} className={className} onClick={onClick}>
           {children}
         </Link>
       );

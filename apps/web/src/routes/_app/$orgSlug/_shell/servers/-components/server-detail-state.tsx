@@ -68,7 +68,7 @@ export function ServerStateBadge({ state, className }: { state: ServerState; cla
 interface BannerCopy {
   title: string;
   body: string;
-  action?: { label: string; tab: "services" | "settings" };
+  action?: { label: string; tab: "containers" | "settings" };
 }
 
 function bannerCopy(state: ServerState, server: Server, tasks: number | null): BannerCopy | null {
@@ -79,7 +79,7 @@ function bannerCopy(state: ServerState, server: Server, tasks: number | null): B
       return {
         title: `${server.name} is down: ${state.detail}`,
         body: `${placed} ${tasks === 1 ? "is" : "are"} unreachable. If the box is gone, move its work; if it is rebooting, wait: the state clears itself when it reports again.`,
-        action: { label: "Services", tab: "services" },
+        action: { label: "Containers", tab: "containers" },
       };
     case "stale":
       return {

@@ -5,8 +5,13 @@
  * always-tappable ⋯ menu, and a row click that opens the inspector.
  * Operator-started strays (no platform label) carry an "unmanaged" marker:
  * on a raw-daemon view those are exactly what you came to find.
+ *
+ * Rows are grouped by owner: each project's services and their containers,
+ * then the install's own Platform containers, then Unmanaged. That is what
+ * answers "what runs on this server" (the old Services tab only listed
+ * projects).
  */
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -21,8 +26,10 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
+import { containerHeadings, orderByOwner } from "@/features/servers/detail/container-groups";
 import { orpc } from "@/shared/server/orpc";
 
+import { GroupHeadingRow, ServiceHeadingRow } from "./docker-container-headings";
 import { ContainerLogsDialog, InspectDialog } from "./docker-dialogs";
 import {
   compressContainerStatus,
@@ -158,7 +165,10 @@ export function ContainersTable({ query }: { query: QueryLike<Container> }) {
   const all = useMemo(() => query.data ?? [], [query.data]);
   const needle = search.trim().toLowerCase();
   const filtered = useMemo(
-    () => all.filter((c) => matchesStateFilter(c, stateFilter) && matchesSearch(c, needle)),
+    () =>
+      orderByOwner(
+        all.filter((c) => matchesStateFilter(c, stateFilter) && matchesSearch(c, needle)),
+      ),
     [all, stateFilter, needle],
   );
   // Panel owns loading/error/empty/pagination; hand it the filtered view.
@@ -190,16 +200,16 @@ export function ContainersTable({ query }: { query: QueryLike<Container> }) {
           emptyTitle="No containers"
           emptyText="The daemon reported no containers."
         >
-          {(rows) =>
-            rows.map((c) => (
-              <ContainerRow
-                key={c.id}
-                c={c}
-                onLogs={() => setLogsFor(c)}
-                onInspect={() => setInspectFor(c)}
-              />
-            ))
-          }
+          {(rows) => {
+            const headings = containerHeadings(rows);
+            return rows.map((c, i) => (
+              <Fragment key={c.id}>
+                {headings[i]?.group ? <GroupHeadingRow label={headings[i].group} /> : null}
+                {headings[i]?.service ? <ServiceHeadingRow service={headings[i].service} /> : null}
+                <ContainerRow c={c} onLogs={() => setLogsFor(c)} onInspect={() => setInspectFor(c)} />
+              </Fragment>
+            ));
+          }}
         </Panel>
       )}
 

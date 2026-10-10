@@ -7,7 +7,6 @@ import { Key01Icon } from "@hugeicons/core-free-icons";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "@/shared/components/page";
-import { orpc, queryClient } from "@/shared/server/orpc";
 import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
 import { useAddServerDialog } from "@/features/servers/components/use-add-server-dialog";
@@ -25,24 +24,12 @@ import {
 import { fleetAttention } from "@/features/servers/detail/fleet-attention";
 import { deriveServerState, isReporting } from "@/features/servers/detail/server-state";
 import { Button } from "@/shared/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { pickView, useRouteView } from "@/shared/hooks/use-route-view";
 
-import { DOCKER_TABS } from "../-components/docker-page-header";
-import {
-  DOCKER_TAB_PATHS,
-  resolveServersTab,
-  SERVERS_TAB_PATHS,
-  SERVERS_TABS,
-  type ServersTab,
-} from "../-components/fleet-tabs";
-import { InstallHealthSection } from "../-components/install-health";
-import { RawDockerPanel } from "../-components/raw-docker-panel";
-import { FleetAttention } from "../-components/servers-fleet-attention";
-import { ServerFleetGrid } from "../-components/servers-fleet-grid";
-import { ManagersQuorumCard } from "../-components/servers-managers-card";
-import { FleetTiles, ProjectFilters, SectionHeading } from "../-components/servers-parts";
-import { ServersPending } from "../-components/servers-pending";
+import { FleetAttention } from "./-components/servers-fleet-attention";
+import { ServerFleetGrid } from "./-components/servers-fleet-grid";
+import { ManagersQuorumCard } from "./-components/servers-managers-card";
+import { FleetTiles, ProjectFilters, SectionHeading } from "./-components/servers-parts";
+import { ServersPending } from "./-components/servers-pending";
 
 // Pulled out of ServersRoute (rather than inline IIFEs) to keep the
 // component's own branching under the complexity budget. These are pure
@@ -78,16 +65,13 @@ function countBy(items: ReadonlyArray<{ serverId: string }>): Map<string, number
 }
 
 function ServerPageActions({
-  tab,
   onEnroll,
   onCreate,
 }: {
-  tab: ServersTab;
   onEnroll: () => void;
   onCreate: () => void;
 }) {
   const { t } = useTranslation();
-  if (tab !== "overview") return null;
   return (
     <>
       <Button
@@ -107,20 +91,10 @@ function ServerPageActions({
   );
 }
 
-export const Route = createFileRoute("/_app/$orgSlug/_shell/servers/_fleet")({
+export const Route = createFileRoute("/_app/$orgSlug/_shell/servers/")({
   staticData: { crumb: "Servers" },
-  loader: async ({ context }) => {
+  loader: async () => {
     await serverCollection.preload();
-    // Warm the Install health tab's platform-metrics query on hover
-    // (intent-preload), same as the standalone Platform page used to.
-    // Non-blocking + best-effort, and skipped entirely for viewers who can't
-    // open that tab, since a loader prefetch fires on navigation regardless of
-    // which tab is rendered.
-    if (context.isInstallAdmin) {
-      void queryClient
-        .prefetchQuery(orpc.metrics.platform.queryOptions({ input: { windowMinutes: 60 } }))
-        .catch(() => undefined);
-    }
   },
   component: ServersRoute,
   pendingComponent: ServersPending,
@@ -129,11 +103,6 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/servers/_fleet")({
 function ServersRoute() {
   const { t } = useTranslation();
   const { orgSlug } = Route.useParams();
-  const { isInstallAdmin } = Route.useRouteContext();
-  const view = useRouteView();
-  const tab = resolveServersTab(pickView(view, 0, SERVERS_TABS, "overview"), isInstallAdmin);
-  const dockerTab = pickView(view, 1, DOCKER_TABS, "containers");
-  const navigate = Route.useNavigate();
   const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }));
   const addDialog = useAddServerDialog();
   const [tokenOpen, setTokenOpen] = useState(false);
@@ -163,39 +132,18 @@ function ServersRoute() {
   ).length;
 
   return (
-    <Tabs
-      value={tab}
-      onValueChange={(v) => {
-        const next = SERVERS_TABS.find((t) => t === v);
-        if (next) void navigate({ to: SERVERS_TAB_PATHS[next], params: { orgSlug }, replace: true });
-      }}
-      className="flex min-w-0 flex-1 flex-col gap-0"
-    >
-      <div className="border-b px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
+    <div className="flex min-w-0 flex-1 flex-col gap-0">
+      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
         <PageHeader
           title={t("servers.title")}
           description={t("servers.nodeDescription", { count: servers.length })}
           actions={
-            <ServerPageActions
-              tab={tab}
-              onEnroll={() => setTokenOpen(true)}
-              onCreate={addDialog.openFresh}
-            />
+            <ServerPageActions onEnroll={() => setTokenOpen(true)} onCreate={addDialog.openFresh} />
           }
         />
-
-        <TabsList variant="line" className="mt-3.5 h-9 justify-start gap-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          {isInstallAdmin ? (
-            <>
-              <TabsTrigger value="docker">Docker</TabsTrigger>
-              <TabsTrigger value="install-health">Install health</TabsTrigger>
-            </>
-          ) : null}
-        </TabsList>
       </div>
 
-      <TabsContent value="overview" className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
         {/* 1. Capacity and how much of it is in use. */}
         <FleetTiles
           servers={servers}
@@ -240,27 +188,7 @@ function ServersRoute() {
             onReAdd={addDialog.openWith}
           />
         </section>
-      </TabsContent>
-
-      {/* Install-admin planes: omitted (not just hidden) for everyone else, so
-          none of their admin-only queries ever fires and 403s. The server
-          re-checks the same flag on each procedure. */}
-      {isInstallAdmin ? (
-        <>
-          <TabsContent value="docker" className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <RawDockerPanel
-              orgSlug={orgSlug}
-              tab={dockerTab}
-              onTabChange={(next) =>
-                void navigate({ to: DOCKER_TAB_PATHS[next], params: { orgSlug }, replace: true })
-              }
-            />
-          </TabsContent>
-          <TabsContent value="install-health" className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <InstallHealthSection />
-          </TabsContent>
-        </>
-      ) : null}
+      </div>
 
       {/* Keyed so a re-add remounts the form. TanStack Form reads
           defaultValues on mount only, so a live prop change wouldn't apply. */}
@@ -271,6 +199,6 @@ function ServersRoute() {
         initial={addDialog.initial}
       />
       <JoinTokenDialog open={tokenOpen} onOpenChange={setTokenOpen} />
-    </Tabs>
+    </div>
   );
 }
