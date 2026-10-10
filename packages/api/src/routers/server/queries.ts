@@ -291,16 +291,27 @@ export async function deleteServerRecord(input: {
  *
  * Idempotent: relies on the (organizationId, host) unique index added in
  * the server schema, so concurrent first-list races resolve to a single
- * row via ON CONFLICT DO NOTHING.
+ * row via ON CONFLICT.
+ *
+ * Runs on every `server.list`, so a row already canonical is not written:
+ * an unconditional upsert costs a row version, a lock and a `server` cache
+ * invalidation per list.
  */
 export async function bootstrapLocalhostIfMissing(organizationId: OrgId): Promise<void> {
+  const hostname = hostHostname() || null;
+  const [existing] = await db
+    .select({ name: server.name, hostname: server.hostname })
+    .from(server)
+    .where(and(eq(server.organizationId, organizationId), eq(server.host, "127.0.0.1")))
+    .limit(1);
+  if (existing && existing.name === "localhost" && existing.hostname === hostname) return;
+
   const cpuCount = os.cpus().length;
   const memTotalGb = Math.max(1, Math.round(os.totalmem() / 1024 ** 3));
-  const hostname = hostHostname() || null;
 
-  // Upsert: insert new orgs, and back-fill the canonical name/hostname pair
-  // on existing rows that were created before the schema split (when the OS
-  // hostname was stored as `name`).
+  // Insert new orgs; back-fill the canonical name/hostname pair on rows
+  // created before the schema split (when the OS hostname was stored as
+  // `name`).
   await db
     .insert(server)
     .values({
