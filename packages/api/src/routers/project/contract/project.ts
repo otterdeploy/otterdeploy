@@ -32,6 +32,8 @@ export const projectSchema = createSelectSchema(project)
     manifestVersion: true,
     lastAppliedManifest: true,
     lastManifestAppliedAt: true,
+    // Import bookkeeping, read only by the platform import.
+    importedFrom: true,
   })
   .extend({
     id: projectIdField,

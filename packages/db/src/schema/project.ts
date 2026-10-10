@@ -85,6 +85,11 @@ export const project = pgTable(
     // a project named "web". Enforced by the (organization_id, slug) unique
     // index below.
     slug: text("slug").notNull(),
+    // Where an imported project came from, e.g. `coolify:<project uuid>`; NULL
+    // for a project created here. The platform import reads it to recognise a
+    // project it already imported, so re-running an import does not create a
+    // `-2` copy of every project. Unique per organization.
+    importedFrom: text("imported_from"),
     // The project's MAIN environment. Must be one of this project's own
     // environments: enforced by `project_main_environment_in_project_fk`
     // below. NULL only after that environment was deleted (env/queries.ts
@@ -163,6 +168,9 @@ export const project = pgTable(
     // 20261006191815_global_project_slugs resolves pre-existing duplicates.
     uniqueIndex("project_slug_unique").on(table.slug),
     index("project_organization_id_idx").on(table.organizationId),
+    // One project per imported source per organization: a concurrent second
+    // import of the same source fails its insert instead of duplicating it.
+    uniqueIndex("project_imported_from_unique").on(table.organizationId, table.importedFrom),
     // The main-environment pointer names an environment that
     // exists AND belongs to this project. Composite for the same reason as
     // `resource_environment_in_project_fk`: an id that exists in ANOTHER

@@ -13,7 +13,7 @@ import { createCipheriv, createHmac, randomBytes } from "node:crypto";
 import { describe, expect, test } from "vite-plus/test";
 
 import { buildManifest, toProjectSlug } from "../apply";
-import { normalizeDomains, normalizeRepo, toResourceName } from "../coolify";
+import { httpsCloneUrl, normalizeDomains, normalizeRepo, toResourceName } from "../coolify";
 import { decryptLaravelValue, looksLaravelEncrypted, parseAppKey } from "../laravel-crypt";
 
 /** Mirror of Laravel Encrypter::encryptString (serialize=false). */
@@ -86,6 +86,15 @@ describe("coolify plan mappers", () => {
     expect(normalizeDomains(null)).toEqual([]);
   });
 
+  test("httpsCloneUrl keeps a public https URL and drops ssh and bare owner/repo", () => {
+    expect(httpsCloneUrl("https://github.com/traefik/whoami.git")).toBe(
+      "https://github.com/traefik/whoami.git",
+    );
+    expect(httpsCloneUrl("git@github.com:o/r.git")).toBeNull();
+    expect(httpsCloneUrl("o/r")).toBeNull();
+    expect(httpsCloneUrl(null)).toBeNull();
+  });
+
   test("toResourceName and toProjectSlug produce grammar-valid identifiers", () => {
     expect(toResourceName("My Shop API!", "app-1")).toBe("my-shop-api");
     expect(toResourceName("42 服务", "app-7")).toBe("app-7");
@@ -98,10 +107,12 @@ describe("buildManifest", () => {
   test("a full planned project validates against the manifest schema", () => {
     const manifest = buildManifest("acme-shop", {
       name: "Acme Shop",
+      sourceId: "acme-uuid",
       services: [
         {
           name: "web",
           repo: "acme/shop",
+          cloneUrl: "https://github.com/acme/shop.git",
           branch: "main",
           buildPack: "dockerfile",
           dockerfilePath: "./Dockerfile.prod",
@@ -115,6 +126,7 @@ describe("buildManifest", () => {
         {
           name: "web",
           repo: null,
+          cloneUrl: null,
           branch: null,
           buildPack: "nixpacks",
           dockerfilePath: null,

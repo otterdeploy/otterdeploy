@@ -35,6 +35,8 @@ export async function createProjectRecord(input: {
   /** Caller-supplied ids for optimistic UI; generated when absent. */
   id?: ProjectId;
   environmentId?: EnvironmentId;
+  /** Set by a platform import: see the column. */
+  importedFrom?: string;
 }): Promise<
   Result<
     { project: typeof project.$inferSelect; environment: typeof environment.$inferSelect },
@@ -91,6 +93,7 @@ export async function createProjectRecord(input: {
         organizationId: input.organizationId,
         name: input.name,
         slug: input.slug,
+        importedFrom: input.importedFrom ?? null,
       })
       .returning({ id: project.id });
     if (!created) {

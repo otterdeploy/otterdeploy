@@ -8,7 +8,7 @@
  */
 import * as z from "zod";
 
-const projectRow = z.looseObject({ id: z.number(), name: z.string() });
+const projectRow = z.looseObject({ id: z.number(), name: z.string(), uuid: z.string().nullish() });
 const environmentRow = z.looseObject({
   id: z.number(),
   name: z.string(),
@@ -58,6 +58,9 @@ interface PlannedEnvVar {
 export interface PlannedService {
   name: string;
   repo: string | null;
+  /** The https clone URL Coolify built from, when it is one: a public-URL
+   *  app, bound as a public repo on import. Server-side only. */
+  cloneUrl: string | null;
   branch: string | null;
   buildPack: string | null;
   dockerfilePath: string | null;
@@ -75,6 +78,9 @@ export interface PlannedDatabase {
 
 export interface PlannedProject {
   name: string;
+  /** Stable identity of the Coolify project (its uuid, else its row id): how
+   *  a re-run recognises a project it already imported. */
+  sourceId: string;
   services: PlannedService[];
   databases: PlannedDatabase[];
 }
@@ -98,6 +104,11 @@ export function normalizeRepo(gitRepository: string | null | undefined): string 
     .replace(/^\/+|\/+$/g, "");
   const parts = cleaned.split("/");
   return parts.length === 2 && parts.every(Boolean) ? cleaned : null;
+}
+
+/** The repository as an https clone URL, or null for ssh / bare `owner/repo`. */
+export function httpsCloneUrl(gitRepository: string | null | undefined): string | null {
+  return gitRepository && /^https:\/\//i.test(gitRepository) ? gitRepository : null;
 }
 
 /** Coolify fqdn: comma-separated URLs ("https://a.com,https://b.com"). */
@@ -181,6 +192,7 @@ function toPlannedService(a: z.infer<typeof applicationRow>, env: PlannedEnvVar[
   return {
     name: toResourceName(a.name, `app-${a.id}`),
     repo,
+    cloneUrl: repo ? httpsCloneUrl(a.git_repository) : null,
     branch: a.git_branch ?? null,
     buildPack: a.build_pack ?? null,
     dockerfilePath: a.dockerfile_location ?? null,
@@ -197,6 +209,11 @@ const GLOBAL_WARNINGS = [
   "Coolify one-click services (compose templates) are not imported in v1; only git applications and standalone databases.",
   "Coolify itself is left untouched: its containers keep running until you shut it down.",
 ];
+
+/** A Coolify project's identity: its uuid, else (older schemas) its row id. */
+function projectSourceId(p: z.infer<typeof projectRow>): string {
+  return p.uuid ?? `id:${p.id}`;
+}
 
 /** Shape the plan from raw row sets. Pure; fixture-testable. */
 export function buildCoolifyPlan(
@@ -237,7 +254,7 @@ export function buildCoolifyPlan(
     const services = servicesByProject.get(p.id) ?? [];
     const databases = dbsByProject.get(p.id) ?? [];
     if (services.length === 0 && databases.length === 0) continue;
-    projects.push({ name: p.name, services, databases });
+    projects.push({ name: p.name, sourceId: projectSourceId(p), services, databases });
   }
 
   return { version, projects, warnings: [...warnings, ...GLOBAL_WARNINGS] };

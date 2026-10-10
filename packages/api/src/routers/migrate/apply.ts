@@ -14,18 +14,24 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
  */
 import type { RequestLogger } from "evlog";
 
+import { db } from "@otterdeploy/db";
+import { project as projectTable } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
+import { and, eq } from "drizzle-orm";
 
 import type { ApplyResult } from "../project/manifest-apply";
 import type { CoolifyPlan, PlannedProject, PlannedService } from "./coolify";
 
+import { resolveRemoteDefaultBranch } from "../../git";
 import {
   manifestSchema,
   type DatabaseManifest,
   type Manifest,
   type ServiceManifest,
 } from "../../stack/manifest/schema";
+import { connectPublicRepo } from "../git/public-repos";
 import { applyManifest } from "../project/manifest-apply";
+import { resolveManifestRepo } from "../project/manifest-apply-git";
 import { createProject } from "../project/projects";
 
 export interface ImportedProjectResult {
@@ -101,8 +107,54 @@ export function buildManifest(slug: string, project: PlannedProject): Result<Man
   });
 }
 
+/** The ledger key a project imported from Coolify carries (project.importedFrom). */
+function coolifyImportKey(project: Pick<PlannedProject, "sourceId">): string {
+  return `coolify:${project.sourceId}`;
+}
+
+/** The project an earlier import of this source created in this org, if any. */
+async function findImportedProject(organizationId: OrganizationId, importedFrom: string) {
+  const [row] = await db
+    .select({ slug: projectTable.slug })
+    .from(projectTable)
+    .where(
+      and(
+        eq(projectTable.organizationId, organizationId),
+        eq(projectTable.importedFrom, importedFrom),
+      ),
+    )
+    .limit(1)
+    .$withCache(false);
+  return row ?? null;
+}
+
+/**
+ * Bind each public-URL app's repository before the manifest applies
+ *. The manifest names a repo as `owner/repo`, which resolves
+ * only against the org's GitHub App installations or an existing public
+ * binding; on a fresh install neither exists, so every imported git app came
+ * in unbound and failed its first deploy. A repo an installation already owns
+ * is left to it. An URL that cannot be bound leaves the service unbound, as
+ * before (the plan already warns about it).
+ */
+async function bindPublicRepos(
+  project: PlannedProject,
+  organizationId: OrganizationId,
+): Promise<void> {
+  for (const svc of project.services) {
+    if (!svc.repo || !svc.cloneUrl) continue;
+    if ((await resolveManifestRepo(svc.repo, organizationId)) !== null) continue;
+    await connectPublicRepo({
+      cloneUrl: svc.cloneUrl,
+      resolveDefaultBranch: resolveRemoteDefaultBranch,
+    });
+  }
+}
+
 /** Import every planned project into the caller's org. Per-project isolation:
- *  one bad project reports its error and the rest proceed. */
+ *  one bad project reports its error and the rest proceed. A project an
+ *  earlier run already imported is reported as imported and left alone, so
+ *  re-running the import is a no-op. */
 export async function applyCoolifyPlan(input: {
   plan: CoolifyPlan;
   organizationId: OrganizationId;
@@ -123,9 +175,25 @@ export async function applyCoolifyPlan(input: {
       });
     };
 
-    // Slug collisions (re-import, or an existing project of the same name)
-    // get a numbered suffix rather than merging into an existing project:
-    // an import must never mutate resources it didn't create.
+    const importedFrom = coolifyImportKey(project);
+    const imported = (slug: string) =>
+      results.push({
+        coolifyProject: project.name,
+        slug,
+        services: project.services.length,
+        databases: project.databases.length,
+        skipped: [],
+        error: null,
+      });
+    const earlier = await findImportedProject(input.organizationId, importedFrom);
+    if (earlier) {
+      imported(earlier.slug);
+      continue;
+    }
+
+    // Slug collisions (an existing project of the same name) get a numbered
+    // suffix rather than merging into an existing project: an import must
+    // never mutate resources it didn't create.
     let created = null;
     let slug = base;
     for (let i = 2; i <= 5 && created === null; i++) {
@@ -133,6 +201,7 @@ export async function applyCoolifyPlan(input: {
         organizationId: input.organizationId,
         name: project.name,
         slug,
+        importedFrom,
       });
       if (attempt.isOk()) {
         created = attempt.value;
@@ -141,7 +210,10 @@ export async function applyCoolifyPlan(input: {
       slug = `${base}-${i}`.slice(0, 48);
     }
     if (created === null) {
-      fail(`Could not create a project for "${project.name}" (slug conflicts).`);
+      // A concurrent import of the same source may have won the ledger row.
+      const racer = await findImportedProject(input.organizationId, importedFrom);
+      if (racer) imported(racer.slug);
+      else fail(`Could not create a project for "${project.name}" (slug conflicts).`);
       continue;
     }
 
@@ -151,6 +223,7 @@ export async function applyCoolifyPlan(input: {
       continue;
     }
 
+    await bindPublicRepos(project, input.organizationId);
     const applied = await Result.tryPromise({
       try: () =>
         applyManifest({

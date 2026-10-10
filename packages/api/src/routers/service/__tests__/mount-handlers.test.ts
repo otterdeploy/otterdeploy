@@ -41,6 +41,7 @@ const projectRow: ProjectRow = {
   organizationId,
   name: "proj",
   slug: "proj",
+  importedFrom: null,
   buildServerId: null,
   environmentId: null,
   stackFile: null,
