@@ -33,7 +33,7 @@ import {
 import { createAuthMiddleware } from "evlog/better-auth";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
-import { serveStatic, upgradeWebSocket, websocket } from "hono/bun";
+import { serveStatic, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 
 import { runBootstrap } from "./bootstrap";
@@ -322,18 +322,6 @@ app.use("/*", async (c, next) => {
     })) ?? next()
   );
 });
-
-app.get(
-  "/ws",
-  upgradeWebSocket(() => ({
-    onMessage(event, ws) {
-      invalidate.onMessage(ws, typeof event.data === "string" ? event.data : "");
-    },
-    onClose(_event, ws) {
-      invalidate.removeClient(ws);
-    },
-  })),
-);
 
 // Health, in two grades. Reports the running image tag so the updater UI can
 // confirm the version actually changed, and the CLI floor alongside it so

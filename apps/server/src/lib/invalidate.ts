@@ -1,31 +1,11 @@
-import type { WSContext } from "hono/ws";
-
-// Map of resource group → set of subscribed clients
-const subscriptions = new Map<string, Set<WSContext>>();
-
+/**
+ * Resource invalidation fan-out. Procedures receive `context.broadcast` and may
+ * call it after a write; nothing delivers it to a client any more.
+ *
+ * It used to go out over `/ws`, a WebSocket that no client used and that did
+ * not check the caller's session or organization. The route is gone and this
+ * stays a no-op so the context shape is unchanged.
+ */
 export const invalidate = {
-  onMessage(ws: WSContext, data: string) {
-    const msg = JSON.parse(data);
-    if (msg.type === "subscribe" && typeof msg.resource === "string") {
-      if (!subscriptions.has(msg.resource)) {
-        subscriptions.set(msg.resource, new Set());
-      }
-      subscriptions.get(msg.resource)?.add(ws);
-    } else if (msg.type === "unsubscribe" && typeof msg.resource === "string") {
-      subscriptions.get(msg.resource)?.delete(ws);
-    }
-  },
-  removeClient(ws: WSContext) {
-    for (const clients of subscriptions.values()) {
-      clients.delete(ws);
-    }
-  },
-  broadcast(resource: string) {
-    const clients = subscriptions.get(resource);
-    if (!clients) return;
-    const message = JSON.stringify({ type: "invalidate", resource });
-    for (const client of clients) {
-      client.send(message);
-    }
-  },
+  broadcast(_resource: string): void {},
 };

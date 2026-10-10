@@ -6,7 +6,8 @@
  *      Per-request gate. Allows on: a valid __otter_auth session cookie, a
  *      valid __otter_share cookie, or a valid x-otter-bypass automation
  *      header. Otherwise 302s to /authorize on the central auth authority.
- *      Pure HMAC checks, no DB hit on the hot path.
+ *      HMAC checks, plus the route lookup and (for a member cookie) the
+ *      member-table lookup that keeps a removed member out.
  *
  *  - GET /.well-known/otterdeploy/authorize   (on the auth authority)
  *      Reads the master Better-Auth session, checks org membership of the
@@ -92,10 +93,14 @@ export const deployAuthzHandler = guard(async (c) => {
     return allow(c, "", "");
   }
 
-  // 3. Member session cookie.
+  // 3. Member session cookie. The cookie proves membership when it was minted
+  //    (up to an hour ago); the member table says whether it still holds, so a
+  //    member removed from the organization is walled off on the next request
+  //    rather than when the cookie expires. A cookie that no
+  //    longer holds falls through to the other methods and then the wall.
   const cookie = getCookie(c, SESSION_COOKIE);
   const claims = cookie ? await verifySessionCookie(cookie, domain) : null;
-  if (claims) {
+  if (claims && claims.orgId === org.orgId && (await isOrgMember(claims.userId, org.orgId))) {
     return allow(c, claims.userId, claims.email);
   }
 

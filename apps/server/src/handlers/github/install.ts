@@ -11,6 +11,7 @@
 
 import type { Handler } from "hono";
 
+import { isOrgMember } from "@otterdeploy/api/authz/org-member";
 import {
   completeGithubConnect,
   completeManifestExchange,
@@ -49,6 +50,32 @@ const resultRedirectUrl = async (params: {
 const errorRedirectUrl = (reason: string, returnTo?: string) =>
   resultRedirectUrl({ status: "error", reason, returnTo });
 
+/**
+ * The state was signed for a member, up to 15 minutes ago: a
+ * user removed from the organization since must not finish wiring a GitHub
+ * App into it. Refused like any other state that no longer holds; a lookup
+ * that fails refuses too (the operator can simply retry the connect).
+ */
+async function stillMember(
+  state: { orgId: string; userId: string },
+  leg: "install" | "manifest",
+): Promise<Result<true, "not-a-member">> {
+  const member = await Result.tryPromise({
+    try: () => isOrgMember(state.userId, state.orgId),
+    catch: (cause) => cause,
+  });
+  if (member.isOk() && member.value) return Result.ok(true);
+  log.warn({
+    github: {
+      event: `${leg}.not-a-member`,
+      orgId: state.orgId,
+      userId: state.userId,
+      ...(member.isErr() ? { error: String(member.error) } : {}),
+    },
+  });
+  return Result.err("not-a-member");
+}
+
 // ─── /api/integrations/github/install/callback ──────────────────────
 
 export const githubInstallCallbackHandler: Handler = async (c) => {
@@ -73,7 +100,10 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
   // a missing `org_` prefix means a forged or corrupted token: treat it the
   // same as a bad signature instead of asserting the brand.
   const organizationId = state.orgId;
-  if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
+  if (
+    !hasPrefix(organizationId, ID_PREFIX.organization) ||
+    (await stillMember(state, "install")).isErr()
+  ) {
     return c.redirect(await errorRedirectUrl("invalid-state"));
   }
 
@@ -129,7 +159,10 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
 
   // Same forged-token treatment as the install callback above.
   const organizationId = state.orgId;
-  if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
+  if (
+    !hasPrefix(organizationId, ID_PREFIX.organization) ||
+    (await stillMember(state, "manifest")).isErr()
+  ) {
     return c.redirect(await errorRedirectUrl("invalid-state"));
   }
 

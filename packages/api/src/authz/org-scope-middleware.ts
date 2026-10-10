@@ -12,6 +12,7 @@ import type { Context } from "../context";
 
 import { ORGANIZATION_SWITCHED, statedOrganizationsOf } from "./acting-organization";
 import { isOrgMember } from "./org-member";
+import { guardStreamMembership, isAsyncIteratorObject } from "./stream-membership";
 
 /** A real API key over its budget is a 429 with a retry hint, not a 401.
  *  Shared by both authenticating middlewares below. Keyed by
@@ -102,7 +103,7 @@ export const orgScopedMiddleware = orpc
         data: { statedOrganizationId: elsewhere, activeOrganizationId },
       });
     }
-    return next({
+    const result = await next({
       context: {
         actor: context.actor,
         session: context.session,
@@ -110,4 +111,16 @@ export const orgScopedMiddleware = orpc
         activeOrganizationId,
       },
     });
+    // A stream outlives the check above: re-check membership while it runs,
+    // so a member removed mid-stream stops receiving frames.
+    if (context.session && isAsyncIteratorObject(result.output)) {
+      return {
+        ...result,
+        output: guardStreamMembership(result.output, {
+          userId: context.session.user.id,
+          organizationId: activeOrganizationId,
+        }),
+      };
+    }
+    return result;
   });
