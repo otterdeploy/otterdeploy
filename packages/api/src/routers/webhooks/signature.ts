@@ -1,37 +1,20 @@
 /**
- * Webhook HMAC signing + credential minting.
+ * Webhook credential minting, and the name of the older signature header.
  *
- * One signature scheme for both directions: `sha256=<hex hmac of the raw
- * body>` in the `X-Otterdeploy-Signature` header. Outbound deliveries are
- * signed by the delivery job (packages/jobs/src/jobs/webhook.ts) with the
- * same shared `hmacSha256Hex`, so `verifySignatureHeader` here is the exact
- * inverse, covered by __tests__/signature.test.ts.
+ * Signing and verifying live in @otterdeploy/shared/webhook-signature: one
+ * timestamped scheme for both directions. `webhook-id`,
+ * `webhook-timestamp` and `webhook-signature: v1,<base64 HMAC-SHA256 of
+ * "<id>.<timestamp>.<body>">`, keyed by the secret as shown.
+ *
+ * `X-Otterdeploy-Signature: sha256=<hex HMAC of the body>` is the older,
+ * body-only scheme. Outbound deliveries still send it alongside the new
+ * headers, for receivers that already verify it; it cannot tell a replay from
+ * a delivery, so receivers should move to `webhook-signature`. Inbound calls
+ * carrying only this header are refused.
  */
-import { bytesToHex, hmacSha256Hex, timingSafeEqual } from "@otterdeploy/shared/crypto";
+import { bytesToHex } from "@otterdeploy/shared/crypto";
 
 export const SIGNATURE_HEADER = "x-otterdeploy-signature";
-const SIGNATURE_PREFIX = "sha256=";
-
-/** Produce the signature header value for a raw body. */
-export async function signPayload(secret: string, rawBody: string | ArrayBuffer): Promise<string> {
-  return `${SIGNATURE_PREFIX}${await hmacSha256Hex(secret, rawBody)}`;
-}
-
-/**
- * Verify a client-supplied `X-Otterdeploy-Signature` header against the raw
- * request bytes. Timing-safe compare; tolerant of hex case, strict about the
- * `sha256=` scheme prefix.
- */
-export async function verifySignatureHeader(
-  secret: string,
-  header: string | null | undefined,
-  rawBody: string | ArrayBuffer,
-): Promise<boolean> {
-  if (!header || !header.startsWith(SIGNATURE_PREFIX)) return false;
-  const claimed = header.slice(SIGNATURE_PREFIX.length).toLowerCase();
-  const expected = await hmacSha256Hex(secret, rawBody);
-  return timingSafeEqual(claimed, expected);
-}
 
 function randomHex(bytes: number): string {
   return bytesToHex(crypto.getRandomValues(new Uint8Array(bytes)));

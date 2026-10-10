@@ -15,6 +15,8 @@
 import { beforeAll, describe, expect, mock, test } from "bun:test";
 
 let deliverWebhookHttp: typeof import("../webhook").deliverWebhookHttp;
+let webhookRequestHeaders: typeof import("../webhook").webhookRequestHeaders;
+let deliveryFailure: typeof import("../webhook").deliveryFailure;
 
 beforeAll(async () => {
   await mock.module("@otterdeploy/db", () => ({ db: {} }));
@@ -26,7 +28,7 @@ beforeAll(async () => {
   // None of these tests call controlPlaneEgressDenylist()/egressAllowlist(),
   // so an empty stub is enough.
   await mock.module("@otterdeploy/env/server", () => ({ env: {} }));
-  ({ deliverWebhookHttp } = await import("../webhook"));
+  ({ deliverWebhookHttp, webhookRequestHeaders, deliveryFailure } = await import("../webhook"));
 });
 
 describe("deliverWebhookHttp: fails closed against denied targets", () => {
@@ -108,5 +110,50 @@ describe("deliverWebhookHttp: fails closed against denied targets", () => {
     });
     expect(outcome.statusCode).toBeNull();
     expect(outcome.error).toContain("blocked by outbound egress policy");
+  });
+});
+
+describe("outbound deliveries are signed with a timestamp", () => {
+  const body = JSON.stringify({ event: "deploy.succeeded" });
+  const input = {
+    secret: "whsec_test",
+    body,
+    event: "deploy.succeeded",
+    deliveryId: "42",
+    timestamp: 1_760_000_000,
+  };
+
+  test("carries webhook-id/-timestamp/-signature that verify, and the older header", async () => {
+    const { verifyWebhook } = await import("@otterdeploy/shared/webhook-signature");
+    const { hmacSha256Hex } = await import("@otterdeploy/shared/crypto");
+    const headers = await webhookRequestHeaders(input);
+    expect(headers["webhook-id"]).toBe("42");
+    expect(headers["webhook-timestamp"]).toBe("1760000000");
+    const verified = await verifyWebhook("whsec_test", {
+      id: headers["webhook-id"],
+      timestamp: headers["webhook-timestamp"],
+      signature: headers["webhook-signature"],
+      body,
+      nowSeconds: 1_760_000_010,
+    });
+    expect(verified.ok).toBe(true);
+    // Receivers that verify the body-only signature keep working.
+    expect(headers["X-Otterdeploy-Signature"]).toBe(
+      `sha256=${await hmacSha256Hex("whsec_test", body)}`,
+    );
+  });
+
+  test("a retry keeps the id and is signed at its own time", async () => {
+    const first = await webhookRequestHeaders(input);
+    const retry = await webhookRequestHeaders({ ...input, timestamp: input.timestamp + 40 });
+    expect(retry["webhook-id"]).toBe(first["webhook-id"]);
+    expect(retry["webhook-signature"]).not.toBe(first["webhook-signature"]);
+  });
+
+  test("410 Gone is final; every other failure is retried", async () => {
+    const { UnrecoverableError } = await import("bullmq");
+    expect(deliveryFailure(410, "HTTP 410")).toBeInstanceOf(UnrecoverableError);
+    expect(deliveryFailure(500, "HTTP 500")).not.toBeInstanceOf(UnrecoverableError);
+    expect(deliveryFailure(null, "timeout")).not.toBeInstanceOf(UnrecoverableError);
   });
 });

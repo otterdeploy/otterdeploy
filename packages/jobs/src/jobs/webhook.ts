@@ -9,12 +9,17 @@ import { webhook, webhookDelivery } from "@otterdeploy/db/schema";
  *     event id and enqueues one `webhook.deliver` per match, so each target
  *     gets its own retry cycle and one dead endpoint can't stall the rest.
  *
- *   webhook.deliver: a single POST to a single webhook. Signs the raw JSON
- *     body with the webhook's (decrypted) secret: `X-Otterdeploy-Signature:
- *     sha256=<hmac-hex>`: 10s timeout, and writes ONE `webhook_delivery` row
- *     PER ATTEMPT (status code, ok, attempt #, latency, error). On failure it
- *     throws so BullMQ retries with exponential backoff (5 attempts); every
- *     attempt is already recorded by the time the throw happens.
+ *   webhook.deliver: a single POST to a single webhook. Signs each attempt
+ *     with the webhook's (decrypted) secret (`webhookRequestHeaders` below):
+ *     `webhook-id` / `webhook-timestamp` / `webhook-signature` over
+ *     id.timestamp.body, so a receiver can refuse a replayed or stale delivery,
+ *     plus the older body-only `X-Otterdeploy-Signature`
+ *     for receivers that already verify it. 10s timeout, and writes ONE
+ *     `webhook_delivery` row PER ATTEMPT (status code, ok, attempt #,
+ *     latency, error). On failure it throws so BullMQ retries with
+ *     exponential backoff (5 attempts); every attempt is already recorded by
+ *     the time the throw happens. A 410 Gone is final: the receiver said the
+ *     endpoint is gone, so it is not retried.
  *
  *     `target.url` is entirely tenant-supplied. The POST goes through the
  *     shared egress policy (`deliverWebhookHttp` below), which resolves and
@@ -28,6 +33,9 @@ import { webhook, webhookDelivery } from "@otterdeploy/db/schema";
 import { hmacSha256Hex } from "@otterdeploy/shared/crypto";
 import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
 import { hasPrefix, ID_PREFIX, type OrganizationId } from "@otterdeploy/shared/id";
+import { Temporal } from "@otterdeploy/shared/temporal";
+import { webhookSignatureHeaders } from "@otterdeploy/shared/webhook-signature";
+import { UnrecoverableError } from "bullmq";
 import { and, arrayOverlaps, eq } from "drizzle-orm";
 import * as z from "zod";
 
@@ -36,7 +44,10 @@ import { controlPlaneEgressDenylist, egressAllowlist } from "../delivery/egress-
 import { decryptSecret } from "../delivery/secret-crypto";
 import { subscriberEventIds } from "../delivery/subscribed-events";
 
-const SIGNATURE_HEADER = "X-Otterdeploy-Signature";
+/** Body-only HMAC, kept for receivers that already verify it. It signs no
+ *  timestamp, so it cannot tell a replay from a delivery: new receivers verify
+ *  `webhook-signature` instead. */
+const LEGACY_SIGNATURE_HEADER = "X-Otterdeploy-Signature";
 const DELIVERY_TIMEOUT_MS = 10_000;
 const DELIVERY_MAX_RESPONSE_BYTES = 1024 * 1024;
 
@@ -104,6 +115,40 @@ export async function deliverWebhookHttp(input: {
         : String(err);
     return { statusCode: null, error };
   }
+}
+
+/** The error a failed attempt throws: retried by BullMQ, except a 410 Gone,
+ *  where the receiver said the endpoint is retired and retrying cannot help. */
+export function deliveryFailure(statusCode: number | null, error: string): Error {
+  const message = `webhook delivery failed: ${error}`;
+  return statusCode === 410 ? new UnrecoverableError(message) : new Error(message);
+}
+
+/**
+ * Headers for one delivery attempt. `deliveryId` is the message id, the same on
+ * every retry so a receiver can de-duplicate; `timestamp` is this attempt's
+ * signing time, so each retry is signed afresh and stays inside the
+ * receiver's tolerance window.
+ */
+export async function webhookRequestHeaders(input: {
+  secret: string;
+  body: string;
+  event: string;
+  deliveryId: string;
+  timestamp: number;
+}): Promise<Record<string, string>> {
+  return {
+    "content-type": "application/json",
+    "user-agent": "otterdeploy-webhooks/1",
+    ...(await webhookSignatureHeaders(input.secret, {
+      id: input.deliveryId,
+      timestamp: input.timestamp,
+      body: input.body,
+    })),
+    [LEGACY_SIGNATURE_HEADER]: `sha256=${await hmacSha256Hex(input.secret, input.body)}`,
+    "X-Otterdeploy-Event": input.event,
+    "X-Otterdeploy-Delivery": input.deliveryId,
+  };
 }
 
 export const WebhookEventPayload = z.object({
@@ -247,7 +292,6 @@ export const webhookDeliverJob = defineJob({
 
     const secret = await decryptSecret(target.encryptedSecret);
     const rawBody = JSON.stringify(payload.body);
-    const signature = `sha256=${await hmacSha256Hex(secret, rawBody)}`;
     // In this BullMQ version `attemptsMade` counts FAILED prior attempts (0
     // during the first run), so the 1-based attempt number is +1. The same
     // convention the worker wrapper's log line uses (workers.ts).
@@ -258,13 +302,13 @@ export const webhookDeliverJob = defineJob({
     const { statusCode, error } = await deliverWebhookHttp({
       url: target.url,
       body: rawBody,
-      headers: {
-        "content-type": "application/json",
-        "user-agent": "otterdeploy-webhooks/1",
-        [SIGNATURE_HEADER]: signature,
-        "X-Otterdeploy-Event": payload.event,
-        "X-Otterdeploy-Delivery": String(job.id ?? ""),
-      },
+      headers: await webhookRequestHeaders({
+        secret,
+        body: rawBody,
+        event: payload.event,
+        deliveryId: job.id ?? crypto.randomUUID(),
+        timestamp: Math.floor(Temporal.Now.instant().epochMilliseconds / 1000),
+      }),
       denyHosts: denylist.blockedHosts,
       denyAddresses: denylist.blockedAddresses,
       allowAddresses: await egressAllowlist(),
@@ -289,7 +333,7 @@ export const webhookDeliverJob = defineJob({
       });
       // Throw so BullMQ retries (up to `attempts`); the row above already
       // recorded this attempt.
-      throw new Error(`webhook delivery failed: ${error}`);
+      throw deliveryFailure(statusCode, error);
     }
 
     return { webhookId: target.id, event: payload.event, statusCode, attempt, latencyMs };
