@@ -71,8 +71,15 @@ export const platformSettings = pgTable("platform_settings", {
   resendApiKeyCiphertext: text("resend_api_key_ciphertext"),
   smtpHost: text("smtp_host"),
   smtpPort: integer("smtp_port"),
-  /** TLS-on-connect (465). false ⇒ STARTTLS (587). */
+  /** Legacy TLS flag, read only while `smtpTlsMode` is null: true ⇒
+   *  TLS-on-connect (465); false ⇒ STARTTLS when a user is set, plain text
+   *  when not. */
   smtpSecure: boolean("smtp_secure"),
+  /** "none" | "starttls" | "implicit": how the connection is secured,
+   *  independent of auth (packages/email/src/smtp-tls.ts). "none"
+   *  is the explicit opt-in for an authenticated relay without TLS. Null ⇒
+   *  the legacy `smtpSecure` meaning. */
+  smtpTlsMode: text("smtp_tls_mode"),
   smtpUser: text("smtp_user"),
   /** SMTP password, encrypted (encryptSecret blob). */
   smtpPasswordCiphertext: text("smtp_password_ciphertext"),

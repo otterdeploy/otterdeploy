@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { log } from "evlog";
 
 import { decryptSecret } from "./crypto";
+import { parseSmtpTlsMode, type SmtpTlsMode } from "./smtp-tls";
 
 export interface ResendTransport {
   provider: "resend";
@@ -24,7 +25,10 @@ export interface SmtpTransport {
   from: string;
   host: string;
   port: number;
+  /** Legacy TLS flag, used only when `tlsMode` is null. */
   secure: boolean;
+  /** Explicit TLS mode; null keeps the legacy `secure` meaning. */
+  tlsMode: SmtpTlsMode | null;
   user?: string;
   pass?: string;
 }
@@ -85,6 +89,7 @@ async function load(): Promise<ResolvedTransport> {
       host: row.smtpHost,
       port: row.smtpPort ?? 587,
       secure: row.smtpSecure ?? false,
+      tlsMode: parseSmtpTlsMode(row.smtpTlsMode),
       user: row.smtpUser ?? undefined,
       pass,
     };

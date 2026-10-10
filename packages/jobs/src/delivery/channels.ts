@@ -1,4 +1,5 @@
 import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
+import { parseSmtpTlsMode } from "@otterdeploy/email/smtp-tls";
 import { env } from "@otterdeploy/env/server";
 
 /**
@@ -123,9 +124,18 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
       const user = typeof c.config.username === "string" ? c.config.username : undefined;
       if (!host) return { ok: false, error: "SMTP host not configured" };
       // Channel's own SMTP server, same SDK + React Email path as everything
-      // else. 465 = implicit TLS; 587/25 = STARTTLS.
+      // else. `config.tlsMode` ("none" | "starttls" | "implicit") states the
+      // TLS choice explicitly; without it, 465 = implicit TLS and
+      // anything else the legacy STARTTLS-when-authenticated default.
       await sendViaSmtpServer(
-        { host, port, secure: port === 465, user, pass: c.secret ?? undefined },
+        {
+          host,
+          port,
+          secure: port === 465,
+          tlsMode: parseSmtpTlsMode(c.config.tlsMode),
+          user,
+          pass: c.secret ?? undefined,
+        },
         {
           to: c.target,
           subject: emailSubject,
