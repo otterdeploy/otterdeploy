@@ -12,7 +12,7 @@
  */
 
 import { db } from "@otterdeploy/db";
-import { gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
+import { gitRepo, preview, project, resource, serviceResource } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { log } from "evlog";
@@ -86,6 +86,24 @@ export async function handlePullRequest(
   // the containers + branched DBs leak.
   if (action === "closed") return closePreviews(ev, repo, projects);
 
+  // GitHub neither orders deliveries nor stops anyone pressing "Redeliver", so
+  // a deploy action can land after the PR closed. It must not reopen the
+  // closed preview and build it again. Two tells: the payload itself says the
+  // PR is closed, or it is a `synchronize` for exactly the commit the PR
+  // closed at (closePreviews records that head), i.e. the push that preceded
+  // the close, delivered late. A genuinely new push to a preview the idle
+  // reaper closed carries a new sha and still revives it; `reopened` always
+  // does.
+  if (ev.pull_request.state === "closed") {
+    log.info({
+      github: { event: "pull_request", deliveryId, repo: ev.repository.full_name, action },
+      msg: "deploy action for a closed pull request, ignoring",
+    });
+    return ignored;
+  }
+  const live =
+    action === "synchronize" ? await withoutStaleSynchronize(ev, repo, projects) : projects;
+
   // Deploy is OPT-IN per SERVICE (the preview unit is the resource, not the
   // project: a project may host several git services and only some follow
   // PRs). A project spins up a preview env only when at least one of its
@@ -106,7 +124,7 @@ export async function handlePullRequest(
         )
     ).map((r) => r.id),
   );
-  const optedIn = projects.filter((p) => optedInProjectIds.has(p.id));
+  const optedIn = live.filter((p) => optedInProjectIds.has(p.id));
   if (optedIn.length === 0) {
     log.info({
       github: { event: "pull_request", deliveryId, repo: ev.repository.full_name, action },
@@ -115,6 +133,29 @@ export async function handlePullRequest(
     return ignored;
   }
   return deployPreviews(ev, repo, optedIn);
+}
+
+/** Drop the projects whose preview for this PR was closed at the very commit
+ *  this `synchronize` carries: a late delivery of the pre-close push. */
+async function withoutStaleSynchronize(
+  ev: PullRequestEvent,
+  repo: RepoRow,
+  projects: ProjectRow[],
+): Promise<ProjectRow[]> {
+  const closedAtHead = await db
+    .select({ projectId: preview.projectId })
+    .from(preview)
+    .where(
+      and(
+        eq(preview.gitRepoId, repo.id),
+        eq(preview.prNumber, ev.pull_request.number),
+        eq(preview.state, "closed"),
+        eq(preview.headSha, ev.pull_request.head.sha),
+      ),
+    );
+  if (closedAtHead.length === 0) return projects;
+  const stale = new Set(closedAtHead.map((r) => r.projectId));
+  return projects.filter((p) => !stale.has(p.id));
 }
 
 /** Sanitized `owner-repo` slug: qualifies preview env slugs/DB branch names so
@@ -127,7 +168,7 @@ async function closePreviews(
   const prNumber = ev.pull_request.number;
   let environmentsTouched = 0;
   for (const p of projects) {
-    const closed = await markPreviewsClosed(p.id, repo.id, prNumber);
+    const closed = await markPreviewsClosed(p.id, repo.id, prNumber, ev.pull_request.head.sha);
     environmentsTouched += closed.length;
     // Destroy each closed preview's containers + branched databases.
     for (const row of closed) {
