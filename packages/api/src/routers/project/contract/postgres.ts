@@ -10,6 +10,7 @@
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { rotatePasswordContract } from "./postgres-rotate";
 import { postgresResourceSchema } from "./resource";
 import { basePath, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
@@ -315,6 +316,8 @@ export const postgresContractSlice = {
     })
     .input(setPostgresExtensionsInput)
     .output(postgresResourceSchema),
+
+  rotatePassword: rotatePasswordContract,
 
   setExtraEnv: oc
     .errors({
