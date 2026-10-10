@@ -245,6 +245,42 @@ export function restoreShortfall(engine: DatabaseEngine, stderr: string): string
   return null;
 }
 
+/** One `pg_restore: error:` line, whatever it says. */
+const PG_RESTORE_ERROR_LINE = /^pg_restore: error: /gm;
+/** pg_restore's closing count of the statements that failed. */
+const PG_RESTORE_ERRORS_IGNORED = /^pg_restore: warning: errors ignored on restore: (\d+)$/m;
+/** The `--clean` drop of a partition's own copy of its parent's primary-key or
+ *  unique constraint, with the statement that raised it. */
+const PG_RESTORE_INHERITED_DROP =
+  /^pg_restore: error: could not execute query: ERROR: {2}cannot drop inherited constraint "[^"\n]+" of relation "[^"\n]+"\nCommand was: ALTER TABLE IF EXISTS ONLY [^\n]+ DROP CONSTRAINT IF EXISTS [^\n]+;$/gm;
+
+/**
+ * Whether a restore client's non-zero exit failed nothing that matters.
+ *
+ * `pg_restore --clean` drops every object of the dump in reverse order before
+ * recreating it, and for a partitioned table with a primary key or unique
+ * constraint pg_dump lists each partition's copy of that constraint as its own
+ * entry. Into a database that still holds the table (any in-place restore that
+ * is not into an empty database) the partition's drop comes first and fails,
+ * "cannot drop inherited constraint", the parent's drop right after removes it
+ * anyway, and every object is recreated from the dump. pg_restore still exits
+ * 1, which failed every such restore. Only those drops are forgiven: any
+ * other error, or an error count that does not add up, is a failed restore.
+ */
+export function restoreFailureIsBenign(
+  engine: DatabaseEngine,
+  exitCode: number,
+  stderr: string,
+): boolean {
+  if (engine !== "postgres" || exitCode !== 1) return false;
+  const errors = stderr.match(PG_RESTORE_ERROR_LINE)?.length ?? 0;
+  const ignored = PG_RESTORE_ERRORS_IGNORED.exec(stderr);
+  const inheritedDrops = stderr.match(PG_RESTORE_INHERITED_DROP)?.length ?? 0;
+  return (
+    errors > 0 && ignored !== null && Number(ignored[1]) === errors && inheritedDrops === errors
+  );
+}
+
 /** Filesystem the engine's data lives on inside its container, for the
  *  disk-space preflight before an in-place restore. */
 export function engineDataDir(engine: DatabaseEngine): string {

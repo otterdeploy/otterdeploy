@@ -15,6 +15,7 @@ import {
   engineDataDir,
   mongoNamespaceArgs,
   restoreCommand,
+  restoreFailureIsBenign,
   restoreShortfall,
 } from "../engine-helpers";
 import { isOverdue, overdueThresholdMs } from "../overdue";
@@ -222,6 +223,34 @@ describe("restoreShortfall", () => {
     ).toBeNull();
     expect(restoreShortfall("mongodb", "no summary line")).toBeNull();
     expect(restoreShortfall("postgres", "")).toBeNull();
+  });
+});
+
+describe("restoreFailureIsBenign", () => {
+  const drop = (child: string) =>
+    [
+      `pg_restore: error: could not execute query: ERROR:  cannot drop inherited constraint "${child}_pkey" of relation "${child}"`,
+      `Command was: ALTER TABLE IF EXISTS ONLY public.${child} DROP CONSTRAINT IF EXISTS ${child}_pkey;`,
+    ].join("\n");
+  const summary = (n: number) => `pg_restore: warning: errors ignored on restore: ${n}`;
+
+  it("forgives only pg_restore --clean's drops of a partition's inherited constraint", () => {
+    const stderr = [drop("zoo_part_us"), drop("zoo_part_eu"), summary(2)].join("\n");
+    expect(restoreFailureIsBenign("postgres", 1, stderr)).toBe(true);
+  });
+  it("fails any other error, a count that does not add up, or another engine", () => {
+    const other =
+      'pg_restore: error: could not execute query: ERROR:  relation "t" already exists\nCommand was: CREATE TABLE public.t (id int);';
+    expect(restoreFailureIsBenign("postgres", 1, [drop("p1"), other, summary(2)].join("\n"))).toBe(
+      false,
+    );
+    expect(restoreFailureIsBenign("postgres", 1, [drop("p1"), summary(3)].join("\n"))).toBe(false);
+    expect(restoreFailureIsBenign("postgres", 1, drop("p1"))).toBe(false);
+    expect(restoreFailureIsBenign("postgres", 1, "pg_restore: error: could not connect")).toBe(
+      false,
+    );
+    expect(restoreFailureIsBenign("postgres", 2, [drop("p1"), summary(1)].join("\n"))).toBe(false);
+    expect(restoreFailureIsBenign("mariadb", 1, [drop("p1"), summary(1)].join("\n"))).toBe(false);
   });
 });
 
