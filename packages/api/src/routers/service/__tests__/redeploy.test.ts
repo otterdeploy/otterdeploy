@@ -6,6 +6,9 @@ import { describe, expect, test, vi } from "vite-plus/test";
 // behaviour under test: what happens when runtime().update() throws.
 vi.mock("../queries", () => ({
   bumpForceUpdateCounter: vi.fn(),
+  // No primary http port: the route-follow step after a landed roll is a
+  // no-op here (port-change-routes.postgres.test.ts drives it for real).
+  getPrimaryHttpPort: vi.fn(),
   getServiceRecord: vi.fn(),
   markServiceEnvApplied: vi.fn(),
   updateServiceResourceStatus: vi.fn(),
@@ -222,5 +225,50 @@ describe("redeployOne", () => {
     // A variable saved while the roll is in flight lands after this stamp,
     // so the Variables tab keeps calling it pending.
     expect(stamp?.[1]?.getTime()).toBeLessThanOrEqual(readAt);
+  });
+
+  test("a service deleted before its turn to roll is not found, and nothing reaches the runtime", async () => {
+    primeCommonMocks();
+    vi.mocked(queries.getServiceRecord).mockResolvedValue(undefined);
+    const update = vi.fn<RuntimeDriver["update"]>();
+    vi.mocked(runtime).mockReturnValue(stubRuntime(update));
+
+    const result = await redeployOne(projectId, resourceId, "proj");
+
+    expect(result.isErr() && result.error._tag).toBe("ServiceNotFoundError");
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  test("two rolls of one service never overlap: the second starts after the first ends", async () => {
+    primeCommonMocks();
+    const order: string[] = [];
+    let release = (): void => undefined;
+    const firstGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const update = vi.fn<RuntimeDriver["update"]>().mockImplementation(async () => {
+      calls += 1;
+      const n = calls;
+      order.push(`start ${n}`);
+      if (n === 1) await firstGate;
+      order.push(`end ${n}`);
+      return {
+        serviceId: "s1",
+        serviceName: "svc",
+        networkName: "net",
+        status: "running",
+        health: null,
+      };
+    });
+    vi.mocked(runtime).mockReturnValue(stubRuntime(update));
+
+    const first = redeployOne(projectId, resourceId, "proj");
+    const second = redeployOne(projectId, resourceId, "proj");
+    await vi.waitFor(() => expect(order).toEqual(["start 1"]));
+    release();
+    await Promise.all([first, second]);
+
+    expect(order).toEqual(["start 1", "end 1", "start 2", "end 2"]);
   });
 });

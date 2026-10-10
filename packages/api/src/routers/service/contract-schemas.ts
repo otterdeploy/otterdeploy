@@ -112,6 +112,14 @@ export const serviceSchema = z.object({
   updatedAt: z.string(),
 });
 
+/** What `service.create` / `update` / `restart` answer: the service, plus the
+ *  deployment its rollout runs under. The rollout continues in the background;
+ *  follow this row for its outcome (`running`, or `failed` with the reason).
+ *  Null when the change started no rollout of its own. */
+export const serviceMutationSchema = serviceSchema.extend({
+  deploymentId: z.string().nullable(),
+});
+
 export const envVarSchema = z.object({
   id: z.string(),
   serviceResourceId: z.string(),

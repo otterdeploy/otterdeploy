@@ -260,7 +260,12 @@ export class ManifestVersionConflictError extends TaggedError("ManifestVersionCo
 export class ManifestApplySkipError extends TaggedError("ManifestApplySkipError")<{
   message: string;
   resource: "service" | "database" | "env" | "compose";
-  name: string;
+  /** The resource's manifest name. Not `name`: a TaggedError sets `name` to
+   *  its tag AFTER assigning the fields, so a `name` field always read back
+   *  "ManifestApplySkipError". Every skip then reported the wrong resource
+   *  ("database ManifestApplySkipError: …"), and the applied snapshot could
+   *  not revert the resource that failed (od-5tgf). */
+  resourceName: string;
   reason: string;
 }>() {
   constructor(args: {
@@ -269,7 +274,9 @@ export class ManifestApplySkipError extends TaggedError("ManifestApplySkipError"
     reason: string;
   }) {
     super({
-      ...args,
+      resource: args.resource,
+      resourceName: args.name,
+      reason: args.reason,
       message: `${args.resource} ${args.name} skipped: ${args.reason}`,
     });
   }

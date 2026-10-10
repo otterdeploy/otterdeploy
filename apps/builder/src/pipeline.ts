@@ -25,6 +25,7 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
 import { isPreviewActive, loadPreviewScope } from "@otterdeploy/api/lib/environment/load";
+import { recordDeploymentConfig } from "@otterdeploy/api/routers/service/config-snapshot";
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
 import { serviceResource } from "@otterdeploy/db/schema";
@@ -381,6 +382,10 @@ function runBuildSteps(
       deploymentId: opts.deploymentId,
       sink,
     });
+
+    // Rollback restores the ports/health check this rolls out with.
+    const record = () => recordDeploymentConfig(opts.deploymentId, ctx.resource.id);
+    if (!isPreview) yield* await step("record-config", record);
 
     const runtime = yield* (
       await redeployOne(ctx.project.id, ctx.resource.id, ctx.project.slug, undefined, {

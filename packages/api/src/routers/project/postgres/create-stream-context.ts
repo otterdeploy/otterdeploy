@@ -189,8 +189,14 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
     localBaseDomain: null,
     serverIp: null,
   };
+  // The public label carries the environment suffix exactly like the internal
+  // hostname and the container do (`postgres-staging-<project>`), and for the
+  // same reason: `database_resource_public_hostname_unique` is global, so a
+  // staging `postgres` minting production's hostname failed its insert and
+  // the whole create read as "created concurrently" (od-5tgf). Main and
+  // unstamped rows take no suffix, so nothing deployed is renamed.
   const resolved = resolvePublicDomain(
-    { resourceSlug, projectSlug, kind: "database" },
+    { resourceSlug: `${resourceSlug}${suffix}`, projectSlug, kind: "database" },
     domainSources,
   );
   // Container + volume names use the engine's short slug so multi-engine

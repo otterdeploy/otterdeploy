@@ -30,11 +30,13 @@ import {
   environment,
 } from "@otterdeploy/db/schema/project";
 import { deployQueueName, listDeployLanes, runOnRequestQueue } from "@otterdeploy/jobs";
+import { collectInFlightDeploys } from "@otterdeploy/jobs/in-flight-core";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
+import { Result } from "better-result";
 import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
 
 /**
- * Past this age an in-flight row is stranded, not working.
+ * Past this age an in-flight row MAY be stranded, not working.
  *
  * Mirrors `HELPER_TIMEOUT_MS` in apps/builder/src/handler.ts (and the client's
  * `STRANDED_AFTER_MS` in use-deploy-status.ts): the builder kills its helper at
@@ -43,8 +45,18 @@ import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
  * repairing it: real, and the reason the indicator needs a ceiling. Without one
  * a single stranded row pins the header pill on forever, and an always-on
  * indicator is furniture you learn to ignore.
+ *
+ * But the wall runs from when the BUILD starts, and this age is measured from
+ * when the ROW was created. Behind a busy builder a deploy can wait in the
+ * queue longer than that and then build for real. Such a row is still owned
+ * by a live queue job, so an old row counts while a job owns it and only an
+ * unowned one is stranded. Without that check the header under-counted every
+ * long queue: fewer deploys in flight than were actually queued.
  */
 const STRANDED_AFTER_MS = 45 * 60_000;
+
+/** Nothing waits in a build queue this long; rows older than this are not read at all. */
+const QUEUE_CEILING_MS = 24 * 60 * 60_000;
 
 /** The two stored statuses that mean "work is owed". `running` is already live,
  *  `starting` never reaches the row (it is derived at render time). */
@@ -129,11 +141,39 @@ async function laneQueueStats(): Promise<{ anyActive: boolean; lanes?: DeployLan
   }
 }
 
-export async function getDeployActivity(input: {
-  organizationId: OrganizationId;
-  limit: number;
-}): Promise<DeployActivity> {
-  const rows = await db
+/**
+ * Deployment ids a queued, active, delayed or paused deploy job owns, across
+ * every lane. Fail-fast request queues: when Redis cannot answer, null, and
+ * the caller treats every old row as stranded (the behaviour before the check).
+ */
+async function ownedDeploymentIds(): Promise<ReadonlySet<string> | null> {
+  const owned = await Result.tryPromise({
+    try: async () => {
+      const lanes = await listDeployLanes();
+      const perLane = await Promise.all(
+        lanes.map((lane) =>
+          runOnRequestQueue(deployQueueName(lane), (queue) => collectInFlightDeploys([queue])),
+        ),
+      );
+      return new Set(perLane.flatMap((lane) => [...lane.ownedIds]));
+    },
+    catch: (cause) => cause,
+  });
+  return owned.isOk() ? owned.value : null;
+}
+
+export interface DeployActivityDeps {
+  ownedDeploymentIds: () => Promise<ReadonlySet<string> | null>;
+}
+
+export async function getDeployActivity(
+  input: {
+    organizationId: OrganizationId;
+    limit: number;
+  },
+  deps: DeployActivityDeps = { ownedDeploymentIds },
+): Promise<DeployActivity> {
+  const inFlight = await db
     .select({
       id: deployment.id,
       resourceId: deployment.resourceId,
@@ -160,9 +200,8 @@ export async function getDeployActivity(input: {
       and(
         eq(project.organizationId, input.organizationId),
         inArray(deployment.status, [...IN_FLIGHT]),
-        // Ageing out in SQL rather than in JS keeps stranded rows from
-        // consuming the limit and hiding real work behind them.
-        gte(deployment.createdAt, new Date(Date.now() - STRANDED_AFTER_MS)),
+        // Only a bound: the stranded rule needs the queue (below).
+        gte(deployment.createdAt, new Date(Date.now() - QUEUE_CEILING_MS)),
         // Preview deploys belong to their PR panel, not the workspace header.
         isNull(deployment.previewId),
         isNull(resource.previewId),
@@ -175,6 +214,17 @@ export async function getDeployActivity(input: {
     // Oldest first: this is a queue, and the useful reading order is the order
     // it drains, not newest-first like the history feed.
     .orderBy(asc(deployment.createdAt), asc(deployment.id));
+
+  // A row past the stranded age counts only while a queue job still owns it.
+  // The queue is read only when such a row exists: the common poll stays one
+  // query. Ageing out before counting keeps stranded rows from consuming the
+  // limit and hiding real work behind them.
+  const strandedBefore = Date.now() - STRANDED_AFTER_MS;
+  const old = inFlight.filter((row) => row.createdAt.getTime() < strandedBefore);
+  const owned = old.length > 0 ? await deps.ownedDeploymentIds() : null;
+  const rows = inFlight.filter(
+    (row) => row.createdAt.getTime() >= strandedBefore || owned?.has(row.id) === true,
+  );
 
   let building = 0;
   let queued = 0;

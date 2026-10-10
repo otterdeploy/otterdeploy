@@ -29,7 +29,12 @@ import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { Manifest } from "../../stack/manifest";
-import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
+import type {
+  ApplyContext,
+  GitBuild,
+  PhaseContribution,
+  StartedRollout,
+} from "./manifest-apply-phases";
 
 import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
 import { diffManifest, manifestSchema } from "../../stack/manifest";
@@ -60,6 +65,9 @@ export interface ApplyResult {
     reason: string;
   }>;
   lastAppliedAt: string;
+  /** Image services this apply started rolling; each continues in the
+   *  background and records its outcome on its deployment. */
+  rollouts: StartedRollout[];
 }
 
 export interface ApplyInput {
@@ -151,6 +159,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   let appliedCount = 0;
   const skipped: ApplyResult["skipped"] = [];
   const gitBuilds: GitBuild[] = [];
+  const rollouts: StartedRollout[] = [];
 
   // Cherry-pick. Split each planned list into "run now" and "leave staged"
   // BEFORE any phase executes, and route the deferred half into `skipped`.
@@ -203,8 +212,9 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const fold = (c: PhaseContribution): void => {
     appliedCount += c.applied;
     for (const e of c.skipped)
-      skipped.push({ resource: e.resource, name: e.name, reason: e.reason });
+      skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
     gitBuilds.push(...c.gitBuilds);
+    rollouts.push(...(c.rollouts ?? []));
   };
 
   // 1. Database creates first. Services may reference them.
@@ -238,7 +248,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // 8. Enqueue builds for the git-sourced services collected above. A failure
   // means the resource exists but won't build, so it joins skipped[].
   for (const e of await runGitBuilds(ctx, gitBuilds)) {
-    skipped.push({ resource: e.resource, name: e.name, reason: e.reason });
+    skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
   }
 
   // Record what LANDED, not what was asked for. A resource in `skipped[]`
@@ -281,5 +291,6 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     appliedCount,
     skipped,
     lastAppliedAt: new Date().toISOString(),
+    rollouts,
   };
 }

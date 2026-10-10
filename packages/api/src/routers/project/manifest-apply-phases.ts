@@ -5,7 +5,13 @@
  * orchestrator sums. Execution order is owned by applyManifest in
  * ./manifest-apply.
  */
-import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  DeploymentId,
+  EnvironmentId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -52,10 +58,18 @@ export interface GitBuild {
   name: string;
 }
 
+/** An image-service rollout a phase started (off the request). */
+export interface StartedRollout {
+  name: string;
+  resourceId: ResourceId;
+  deploymentId: DeploymentId;
+}
+
 export interface PhaseContribution {
   applied: number;
   skipped: ManifestApplySkipError[];
   gitBuilds: GitBuild[];
+  rollouts?: StartedRollout[];
 }
 
 // Fold a batch of per-resource Results into a contribution: ok → applied++,
@@ -117,6 +131,7 @@ export async function runComposeCreates(
       if (placement.isErr()) return Result.err(placement.error);
       return createComposeFromManifest({
         projectId: ctx.projectId,
+        environmentId: ctx.environmentId,
         organizationId: ctx.organizationId,
         name: change.name,
         spec,

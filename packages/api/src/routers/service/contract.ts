@@ -29,6 +29,7 @@ import {
   effectiveEnvRowSchema,
   envVarSchema,
   serviceDomainSchema,
+  serviceMutationSchema,
   serviceSchema,
 } from "./contract-schemas";
 
@@ -85,7 +86,7 @@ export const serviceContract = {
     })
     .meta({ path: basePath, tag, method: "POST" })
     .input(createServiceInput)
-    .output(serviceSchema),
+    .output(serviceMutationSchema),
 
   update: oc
     .errors({
@@ -96,7 +97,7 @@ export const serviceContract = {
     })
     .meta({ path: `${basePath}/{resourceId}`, tag, method: "PATCH" })
     .input(updateServiceInput)
-    .output(serviceSchema),
+    .output(serviceMutationSchema),
 
   delete: oc
     .errors({
@@ -113,10 +114,11 @@ export const serviceContract = {
     })
     .meta({ path: `${basePath}/{resourceId}/restart`, tag, method: "POST" })
     .input(getServiceInput)
-    .output(serviceSchema),
+    .output(serviceMutationSchema),
 
-  // Roll a service back to a prior deployment's image (image-only, current
-  // env/config is kept). Records a new reason="rollback" deployment.
+  // Roll a service back to a prior deployment's image and the ports, health
+  // check and command it ran with (current env is kept). Records a new
+  // reason="rollback" deployment; one rollback of a service at a time.
   rollback: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,

@@ -11,7 +11,12 @@ import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
 import type { RolloutTiming } from "../service/handlers";
-import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
+import type {
+  ApplyContext,
+  GitBuild,
+  PhaseContribution,
+  StartedRollout,
+} from "./manifest-apply-phases";
 
 import { declaredEnvOf, type Change, type ServiceManifest } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
@@ -19,14 +24,16 @@ import { type RefTable, resolveEnv } from "./manifest-apply-refs";
 import {
   createServiceFromManifest,
   seedServiceDomains,
+  type ServiceApplied,
   updateServiceFromManifest,
 } from "./manifest-apply-services";
 import { lookupServiceId } from "./manifest-apply-support";
 
 interface ServiceCreateOutcome {
-  created: Result<{ resourceId: ResourceId }, ManifestApplySkipError>;
+  created: Result<ServiceApplied, ManifestApplySkipError>;
   builds: GitBuild[];
   localSkipped: ManifestApplySkipError[];
+  name: string;
 }
 
 async function createOneService(
@@ -71,7 +78,7 @@ async function createOneService(
       localSkipped.push(s);
     }
   }
-  return { created, builds, localSkipped };
+  return { created, builds, localSkipped, name: change.name };
 }
 
 export async function runServiceCreates(
@@ -85,20 +92,23 @@ export async function runServiceCreates(
   let applied = 0;
   const skipped: ManifestApplySkipError[] = [];
   const gitBuilds: GitBuild[] = [];
+  const rollouts: StartedRollout[] = [];
   for (const o of outcomes) {
     if (!o) continue;
     skipped.push(...o.localSkipped);
     if (o.created.isOk()) applied += 1;
     else skipped.push(o.created.error);
     gitBuilds.push(...o.builds);
+    rollouts.push(...startedRollout(o.name, o.created));
   }
-  return { applied, skipped, gitBuilds };
+  return { applied, skipped, gitBuilds, rollouts };
 }
 
 interface ServiceUpdateOutcome {
-  updated: Result<{ resourceId: ResourceId }, ManifestApplySkipError>;
+  updated: Result<ServiceApplied, ManifestApplySkipError>;
   builds: GitBuild[];
   localSkipped: ManifestApplySkipError[];
+  name: string;
 }
 
 async function updateOneService(
@@ -135,7 +145,16 @@ async function updateOneService(
     rollout: resolveRolloutTiming(ctx, change.name, spec.source, builds.length > 0),
     log: ctx.log,
   });
-  return { updated, builds, localSkipped: resolved.skipped };
+  return { updated, builds, localSkipped: resolved.skipped, name: change.name };
+}
+
+/** The rollout a create/update started, if it started one. */
+function startedRollout(
+  name: string,
+  outcome: Result<ServiceApplied, ManifestApplySkipError>,
+): StartedRollout[] {
+  if (outcome.isErr() || outcome.value.deploymentId === null) return [];
+  return [{ name, resourceId: outcome.value.resourceId, deploymentId: outcome.value.deploymentId }];
 }
 
 async function hasPendingImage(resourceId: ResourceId): Promise<boolean> {
@@ -177,12 +196,14 @@ export async function runServiceUpdates(
   let applied = 0;
   const skipped: ManifestApplySkipError[] = [];
   const gitBuilds: GitBuild[] = [];
+  const rollouts: StartedRollout[] = [];
   for (const o of outcomes) {
     if (!o) continue;
     skipped.push(...o.localSkipped);
     if (o.updated.isOk()) applied += 1;
     else skipped.push(o.updated.error);
     gitBuilds.push(...o.builds);
+    rollouts.push(...startedRollout(o.name, o.updated));
   }
-  return { applied, skipped, gitBuilds };
+  return { applied, skipped, gitBuilds, rollouts };
 }

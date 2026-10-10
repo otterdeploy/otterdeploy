@@ -38,6 +38,10 @@ export interface JobDef<TSchema extends z.ZodType = z.ZodType> {
   schema: TSchema;
   /** Per-job default options (attempts, backoff, retention). */
   opts?: JobsOptions;
+  /** Worker concurrency for this job alone, overriding the process-wide
+   *  `createWorkers({ concurrency })`. For a job that mostly waits (a rollout
+   *  gating on readiness), so one slow run does not queue every other. */
+  concurrency?: number;
   /** What runs when the worker picks the job up. */
   handler: (payload: z.infer<TSchema>, ctx: JobContext<z.infer<TSchema>>) => Promise<unknown>;
   /**

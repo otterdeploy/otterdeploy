@@ -36,7 +36,7 @@ export async function createWorkers(opts?: {
   const concurrency = opts?.concurrency ?? 1;
 
   for (const job of jobList) {
-    const worker = createWorker(job, concurrency, opts?.queueNameFor?.(job));
+    const worker = createWorker(job, job.concurrency ?? concurrency, opts?.queueNameFor?.(job));
     workers.push(worker);
 
     if (job.cron) {

@@ -15,7 +15,6 @@ import { Result } from "better-result";
 import type { ProjectNotFoundError } from "../project/errors";
 
 import { resolvePlacementSeed, UnknownPlacementServerError } from "../../lib/placement-seed";
-import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import {
   resolveNewResourceEnvironment,
   type ResourceEnvironmentNotFoundError,
@@ -35,8 +34,14 @@ import {
   getServiceRecordByName,
   type ServiceRecord,
 } from "./queries";
-import { provisionFresh, settleCreateDeployment } from "./redeploy";
-import { isUniqueViolation, mapServiceView, normalizePorts, type ServiceView } from "./views";
+import { provisionFresh } from "./redeploy";
+import { checkRolloutResolvable, startRollout } from "./rollout";
+import {
+  isUniqueViolation,
+  mapServiceView,
+  normalizePorts,
+  type ServiceMutationView,
+} from "./views";
 
 /**
  * Is this service name already used IN THE TARGET ENVIRONMENT?
@@ -63,7 +68,7 @@ export async function createService(
   log: RequestLogger,
 ): Promise<
   Result<
-    ServiceView,
+    ServiceMutationView,
     | ProjectNotFoundError
     | ServiceConflictError
     | MissingServiceBuildBindingError
@@ -131,43 +136,44 @@ export async function createService(
     throw error;
   }
 
-  // Image-sourced creates deploy right here (no build): record the deployment
-  // BEFORE provisioning so the ledger has a row for it (history, logs anchor,
-  // rollback anchor) and buildSwarmSpec stamps its id onto the container's
-  // labels. Git/upload creates skip this: their row is inserted by the build
-  // enqueue (manifest-apply-git / upload-source) when the build actually starts.
-  // Compose stacks don't pass through here (reconcileStackServices owns its
-  // own per-service rows). The image is prebuilt/pulled: nothing compiles -
-  // so the row starts at "pending", not "building".
-  const deploysNow = !record.service.image.startsWith("pending:");
-  const deploymentRow = deploysNow
-    ? await insertDeployment({
-        resourceId: record.service.resourceId,
-        image: record.service.image,
-        reason: "create",
-        status: "pending",
-        snapshot: { image: record.service.image, source },
-      })
-    : null;
-
-  const provisioned = await provisionFresh(input.projectId, record, projectSlug, log);
-  if (provisioned.isErr()) {
-    if (deploymentRow) {
-      await markDeploymentFailed(deploymentRow.id, provisioned.error.message).catch(
-        () => undefined,
-      );
-    }
-    return Result.err(provisioned.error);
+  // Git/upload creates sit on a placeholder image until their first build:
+  // nothing to roll, and their row is inserted by the build enqueue.
+  if (record.service.image.startsWith("pending:")) {
+    const provisioned = await provisionFresh(input.projectId, record, projectSlug, log);
+    if (provisioned.isErr()) return Result.err(provisioned.error);
+    const refreshed = await getServiceRecord(input.projectId, record.service.resourceId);
+    const view = await mapServiceView(refreshed ?? record, projectSlug, provisioned.value);
+    return Result.ok({ ...view, deploymentId: null });
   }
-  const runtime = provisioned.value;
-  await settleCreateDeployment(
-    deploymentRow?.id ?? null,
-    record.service.resourceId,
-    runtime.status,
-    runtime.errorMessage,
-  );
-  log.set({ provision: { service: serviceName, status: runtime.status } });
+
+  // Image-sourced creates deploy now, off the request (./rollout.ts): the
+  // health-gated first start can outlast the request's deadline. The row is
+  // recorded first (history, logs anchor, rollback anchor, and the id
+  // buildSwarmSpec stamps onto the container) and its id is the answer; the
+  // outcome lands on it. A broken env reference is still refused here.
+  const resolvable = await checkRolloutResolvable(input.projectId, record.service.resourceId);
+  if (resolvable.isErr()) return Result.err(resolvable.error);
+  const deploymentId = await startRollout({
+    kind: "create",
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+    resourceId: record.service.resourceId,
+    reason: "create",
+    image: record.service.image,
+    snapshot: { image: record.service.image, source },
+    fanOut: false,
+    log,
+  });
+  log.set({ provision: { service: serviceName, deploymentId } });
 
   const refreshed = await getServiceRecord(input.projectId, record.service.resourceId);
-  return Result.ok(await mapServiceView(refreshed ?? record, projectSlug, runtime));
+  // Honest about the moment: the first version is starting, not yet up.
+  const view = await mapServiceView(refreshed ?? record, projectSlug, {
+    serviceId: null,
+    serviceName,
+    networkName,
+    status: "starting",
+    health: null,
+  });
+  return Result.ok({ ...view, deploymentId });
 }

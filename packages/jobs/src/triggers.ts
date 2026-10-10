@@ -10,6 +10,7 @@ import { type NotificationPayload, sendNotificationJob } from "./jobs/notificati
 import { type PlatformEventPayload, notificationEventJob } from "./jobs/notification-event";
 import { type DataProcessingPayload, processDataJob } from "./jobs/process-data";
 import { type ProvisionServerPayload, provisionServerJob } from "./jobs/provision";
+import { type ServiceRolloutPayload, serviceRolloutJob } from "./jobs/service-rollout";
 import {
   type WebhookDeliveryPayload,
   type WebhookEventPayload,
@@ -31,6 +32,7 @@ export type {
   UserSignupPayload,
   DeployTriggeredPayload,
   ProvisionServerPayload,
+  ServiceRolloutPayload,
 };
 
 /**
@@ -170,6 +172,14 @@ export async function triggerProvisionServer(payload: ProvisionServerPayload, op
     ...provisionServerJob.opts,
     ...opts,
   });
+}
+
+/** Enqueue an image service's health-gated rollout (jobs/service-rollout.ts).
+ *  Fail-fast like every request-path trigger: with Redis unreachable it throws
+ *  JobQueueUnavailableError, and the caller runs the rollout in-process. */
+export async function triggerServiceRollout(payload: ServiceRolloutPayload, opts?: JobsOptions) {
+  const parsed = serviceRolloutJob.schema.parse(payload);
+  return enqueue(serviceRolloutJob.name, parsed, { ...serviceRolloutJob.opts, ...opts });
 }
 
 export async function triggerWelcomeSequence(payload: UserSignupPayload, opts?: JobsOptions) {

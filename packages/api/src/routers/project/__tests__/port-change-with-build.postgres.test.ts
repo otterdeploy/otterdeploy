@@ -70,6 +70,14 @@ vi.mock("../../../runtime", async (importOriginal) => {
 const { createKeyContext } = await import("../../../__tests__/postgres-actors");
 const { seedOrganization, seedProject } = await import("../../../__tests__/postgres-seed");
 const { appRouter } = await import("../../index");
+const { rolloutDispatch } = await import("../../service/rollout");
+
+// Nothing consumes a queue here: a service's rollout, which runs off the
+// request, runs in-process at once instead of after the queue's ready budget
+// runs out on the unreachable test Redis.
+rolloutDispatch.enqueue = async () => {
+  throw new Error("no service.rollout worker in this test");
+};
 
 type Outcome = { kind: "ok"; output: unknown } | { kind: "error"; thrown: string; stack: string };
 
@@ -241,8 +249,9 @@ describe("a live service's port changes in the same deploy as its build", () => 
 
     expectOk(await deploy(projectId, slug, { port: 7070, env: { GREETING: "hi" } }, undefined));
 
+    // The roll runs off the request: it follows the answer.
+    await vi.waitFor(() => expect(rolled("web").length).toBeGreaterThan(0));
     const web = rolled("web");
-    expect(web.length).toBeGreaterThan(0);
     expect(web.every((u) => u.image === "otterdeploy-local/web:built")).toBe(true);
     expect(web.every((u) => u.ports.includes(7070))).toBe(true);
   });
@@ -271,7 +280,7 @@ describe("a live service's port changes in the same deploy as its build", () => 
     });
     expectOk(applied);
 
-    const api = rollouts.updates.slice(before).filter((u) => u.resourceName === "api");
-    expect(api.some((u) => u.image === "nginx:1.28-alpine")).toBe(true);
+    const api = () => rollouts.updates.slice(before).filter((u) => u.resourceName === "api");
+    await vi.waitFor(() => expect(api().some((u) => u.image === "nginx:1.28-alpine")).toBe(true));
   });
 });

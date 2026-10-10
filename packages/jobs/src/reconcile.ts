@@ -34,6 +34,7 @@ import { log as globalLog } from "evlog";
 
 import type { PlatformEventPayload } from "./jobs/notification-event";
 
+import { serviceRolloutJob } from "./jobs/service-rollout";
 import { deployQueueName, listDeployLanes } from "./lanes";
 
 const LOCK_KEY = "otterdeploy:reconcile:deploy:lock";
@@ -203,8 +204,11 @@ async function reconcileOrphans(
   // across EVERY deploy lane: a build queued on a named lane's queue must not
   // be mistaken for an orphan just because it isn't on the default queue.
   const owned = new Set<string>();
-  for (const lane of await listLanes()) {
-    const queue = getQueue(deployQueueName(lane));
+  // The image-service rollout queue owns its rows the same way (readiness can
+  // run 20 min, past the age floor): a rollout still gating is not an orphan.
+  const queueNames = [...(await listLanes()).map(deployQueueName), serviceRolloutJob.name];
+  for (const name of queueNames) {
+    const queue = getQueue(name);
     const jobs = await queue.getJobs(["waiting", "active", "delayed", "paused"]);
     for (const job of jobs) {
       // Untyped queue → `data` is `any`; guard the shape instead of asserting.

@@ -27,6 +27,7 @@ vi.mock("../../project/deployments-list", () => ({
 // which needs the queue): its own behaviour is pinned in
 // project/__tests__/deployments-reconcile.test.ts.
 vi.mock("../../project/deployments-reconcile", () => ({
+  isOwnedInFlight: vi.fn(),
   reconcileObservedSuccess: vi.fn(),
 }));
 
@@ -369,6 +370,7 @@ describe("listProjectDeployments", () => {
     vi.mocked(derivation.resolveDeploymentServiceName).mockResolvedValue("svc");
     vi.mocked(derivation.loadTaskStatesByDeployment).mockResolvedValue(new Map());
     vi.mocked(derivation.isBuildStillLogging).mockResolvedValue(false);
+    vi.mocked(reconcile.isOwnedInFlight).mockResolvedValue(false);
     vi.mocked(derivation.deriveDeploymentStatus).mockReturnValue("running");
     vi.mocked(reconcile.reconcileObservedSuccess).mockResolvedValue(undefined);
 

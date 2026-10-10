@@ -2,13 +2,17 @@
  * The one save→diff→confirm→apply→report pipeline shared by `deploy`,
  * `sync`, and `up`. Single semantics so the three verbs can't drift.
  *
- *   save (expectedVersion from manifest.get) → diff →
+ *   diff the local manifest (nothing saved yet) →
  *   dry-run? print plan and stop →
- *   deletes pending? confirm (skipped under --yes/--json) →
- *   applyChange → report applied/skipped →
- *   --wait? follow the changed services' deployments to running.
+ *   deletes pending? confirm (skipped under --yes/--json); declined: stop,
+ *   nothing saved →
+ *   save (expectedVersion from manifest.get) → applyChange →
+ *   report applied/skipped →
+ *   follow the image rollouts the apply started (always) and, under --wait,
+ *   every changed service's deployment, to running.
  */
 
+import { resolveEnvironment } from "@otterdeploy/api/manifest";
 import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -18,6 +22,7 @@ import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configPath, loadConfig } from "../config-file";
 import { countByKind, printChangeSummary, printDiff } from "./diff-printer";
+import { environmentServices } from "./env-services";
 import { createSourceTarball } from "./tar-source";
 import { abort, confirm, detail, dim, hint, note, ok, out, section, table, warn } from "./ui";
 import { uploadSource } from "./upload-source";
@@ -58,42 +63,32 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   const project = await client.project.getBySlug({ slug: manifest.project });
   const current = await client.project.manifest.get({ id: project.id });
 
-  // A dry run must not write. The diff endpoint takes the local manifest
-  // directly, so the preview needs no save — previously the save happened
-  // first regardless, and `--dry-run` replaced the saved manifest while
-  // printing "Nothing was applied". That manifest is the baseline `discard`
-  // reverts to and the next `deploy` compares against, so the preview
-  // silently changed the thing it was previewing.
+  // Diff the LOCAL manifest against live state without saving it: the diff
+  // endpoint takes the manifest directly. Nothing is saved until the run is
+  // past every point where it can stop. A dry run stops here (it used to save
+  // first, replacing the manifest `discard` reverts to while printing
+  // "Nothing was applied"), and so does a declined delete prompt below (which
+  // used to leave the local file, deletions included, saved as the server's
+  // manifest, one "Apply all" away in the web pending-changes bar).
+  const diff = await client.project.manifest.diff({
+    projectId: project.id,
+    environment: opts.env,
+    manifest,
+  });
+
   if (opts.dryRun) {
-    const preview = await client.project.manifest.diff({
-      projectId: project.id,
-      environment: opts.env,
-      manifest,
-    });
     if (opts.json) {
-      process.stdout.write(`${JSON.stringify(preview, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify(diff, null, 2)}\n`);
       return;
     }
     section("Planned changes");
-    printDiff(preview.changes);
-    printChangeSummary(preview.changes);
+    printDiff(diff.changes);
+    printChangeSummary(diff.changes);
     out();
     note("Nothing was applied, and nothing was saved.");
     hint("re-run without `--dry-run` to apply");
     return;
   }
-
-  // Save so the server diff compares the LOCAL manifest against live state;
-  // applyChange then uses the bumped version.
-  const saved = await client.project.manifest.save({
-    projectId: project.id,
-    manifest,
-    expectedVersion: current.version,
-  });
-  const diff = await client.project.manifest.diff({
-    projectId: project.id,
-    environment: opts.env,
-  });
 
   // Destructive changes get one confirmation; skipped under --yes/--json
   // (script-friendly).
@@ -109,9 +104,17 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
       const proceed = await confirm(
         `${deletes} ${deletes === 1 ? "resource" : "resources"} will be deleted. Continue?`,
       );
-      if (!proceed) abort("Aborted. Nothing was applied.");
+      if (!proceed) abort("Aborted. Nothing was applied, and nothing was saved.");
     }
   }
+
+  // Agreed (or nothing destructive): save, so the apply runs against the
+  // bumped version. expectedVersion still guards a concurrent edit.
+  const saved = await client.project.manifest.save({
+    projectId: project.id,
+    manifest,
+    expectedVersion: current.version,
+  });
 
   // Capture wait targets from the diff BEFORE apply. applyChange's
   // output doesn't identify which resources changed.
@@ -125,7 +128,10 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   // apply, the project is tarred and pushed to the server, which builds it.
   // Runs every deploy (there's no sha to diff against, shipping the current
   // local code is the whole point).
-  const uploadNames = Object.entries(manifest.services)
+  // Read from the manifest AS RESOLVED FOR the target environment: an
+  // `environments.staging.services.web` override can switch a service to or
+  // from `source: "upload"`, and the base block would name the wrong set.
+  const uploadNames = Object.entries(resolveEnvironment(manifest, opts.env).services)
     .filter(([, svc]) => svc.source === "upload")
     .map(([name]) => name);
 
@@ -169,17 +175,35 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
       token: session.token,
       projectDir: dirname(configPath(opts.config)),
       names: uploadNames,
+      env: opts.env,
       json: opts.json,
     });
   }
 
+  // Image services the apply started rolling. Their rollouts run in the
+  // background (the apply answers once each has a deployment, instead of
+  // timing out on a slow health gate), so `deploy` follows them to their
+  // outcome whether or not --wait was passed, and a failed rollout is a
+  // non-zero exit. --wait additionally follows builds and every changed
+  // service.
+  const rolloutTargets: WaitTarget[] = result.rollouts.map((r) => ({
+    resourceId: r.resourceId,
+    name: r.name,
+  }));
   let waitOutcomes: WaitOutcome[] = [];
-  if (opts.wait) {
+  const follow = opts.wait || rolloutTargets.length > 0;
+  if (follow) {
     // Include upload services explicitly: an unchanged one isn't in the diff,
     // but it was just rebuilt, so it should still be waited on.
-    const targets = await resolveWaitTargets(client, project.id, [
-      ...new Set([...waitNames, ...uploadNames]),
-    ]);
+    const waited = opts.wait
+      ? await resolveWaitTargets(
+          client,
+          project.id,
+          [...new Set([...waitNames, ...uploadNames])],
+          opts.env,
+        )
+      : [];
+    const targets = uniqueTargets([...waited, ...rolloutTargets]);
     if (targets.length === 0) {
       if (!opts.json) note("No changed services to wait on.");
     } else {
@@ -196,9 +220,19 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   }
 
   if (opts.json) {
-    const payload = opts.wait ? { ...result, wait: waitOutcomes } : result;
+    const payload = follow ? { ...result, wait: waitOutcomes } : result;
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   }
+}
+
+/** One wait per resource, first mention kept. */
+function uniqueTargets(targets: WaitTarget[]): WaitTarget[] {
+  const seen = new Set<string>();
+  return targets.filter((t) => {
+    if (seen.has(t.resourceId)) return false;
+    seen.add(t.resourceId);
+    return true;
+  });
 }
 
 /** Tar the local project and push it to the server for each upload-sourced
@@ -210,12 +244,11 @@ async function uploadServiceSources(args: {
   token: string;
   projectDir: string;
   names: string[];
+  /** The environment the apply targeted: its services get the source. */
+  env?: string;
   json?: boolean;
 }): Promise<void> {
-  const resources = await args.client.project.resource.list({ projectId: args.projectId });
-  const byName = new Map(
-    resources.filter((r) => r.type === "service").map((r) => [r.name, r.resourceId]),
-  );
+  const byName = await environmentServices(args.client, args.projectId, args.env);
 
   for (const name of args.names) {
     const resourceId = byName.get(name);
@@ -223,25 +256,39 @@ async function uploadServiceSources(args: {
       warn(`Upload service \`${name}\` not found after apply; skipping source upload.`);
       continue;
     }
-    if (!args.json) note(`Uploading source for ${name}…`);
-    const tarball = createSourceTarball(args.projectDir, `${Date.now().toString(36)}-${name}`);
-    try {
-      const { deploymentId, sourceSha } = await uploadSource({
-        url: args.url,
-        token: args.token,
-        resourceId,
-        tarballPath: tarball,
-      });
-      if (!args.json) {
-        ok(`Source uploaded for ${name}.`);
-        detail([
-          ["source", sourceSha ? sourceSha.slice(0, 7) : ""],
-          ["build", `${deploymentId} queued`],
-        ]);
-      }
-    } finally {
-      rmSync(tarball, { force: true });
+    await uploadServiceSource({ ...args, resourceId, name });
+  }
+}
+
+/** Tar the local project and push it for one upload-sourced service; the
+ *  server queues a build of it. Shared with `redeploy`. */
+export async function uploadServiceSource(args: {
+  url: string;
+  token: string;
+  projectDir: string;
+  resourceId: string;
+  name: string;
+  json?: boolean;
+}): Promise<{ deploymentId: string }> {
+  if (!args.json) note(`Uploading source for ${args.name}…`);
+  const tarball = createSourceTarball(args.projectDir, `${Date.now().toString(36)}-${args.name}`);
+  try {
+    const { deploymentId, sourceSha } = await uploadSource({
+      url: args.url,
+      token: args.token,
+      resourceId: args.resourceId,
+      tarballPath: tarball,
+    });
+    if (!args.json) {
+      ok(`Source uploaded for ${args.name}.`);
+      detail([
+        ["source", sourceSha ? sourceSha.slice(0, 7) : ""],
+        ["build", `${deploymentId} queued`],
+      ]);
     }
+    return { deploymentId };
+  } finally {
+    rmSync(tarball, { force: true });
   }
 }
 
@@ -249,11 +296,12 @@ async function resolveWaitTargets(
   client: CliClient,
   projectId: string,
   names: string[],
+  env: string | undefined,
 ): Promise<WaitTarget[]> {
   if (names.length === 0) return [];
-  const wanted = new Set(names);
-  const resources = await client.project.resource.list({ projectId });
-  return resources
-    .filter((r) => r.type === "service" && wanted.has(r.name))
-    .map((r) => ({ resourceId: r.resourceId, name: r.name }));
+  const services = await environmentServices(client, projectId, env);
+  return names.flatMap((name) => {
+    const resourceId = services.get(name);
+    return resourceId ? [{ resourceId, name }] : [];
+  });
 }

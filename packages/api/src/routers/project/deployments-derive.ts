@@ -229,6 +229,9 @@ export function deriveDeploymentStatus(
   createdAt: Date,
   buildActive: boolean,
   paused: boolean,
+  /** An in-flight job (a build, an image rollout) owns this row and settles
+   *  it after its readiness gate. See below. */
+  ownerSettling = false,
 ): DerivedDeploymentStatus {
   // Cancelled is terminal by operator intent and outranks every live signal,
   // including `paused`. Cancelling kills the helper container mid-build, which
@@ -247,6 +250,15 @@ export function deriveDeploymentStatus(
   if (isLatest && paused) return "paused";
   if (instances.length === 0) {
     return deriveZeroInstanceStatus(stored, isLatest, createdAt, buildActive);
+  }
+  // The new version's tasks exist but the job rolling it out has not ruled:
+  // a task running mid-gate is not yet a success (it may never pass), and a
+  // failed one swarm is rolling back is not yet a failure the owner has given
+  // its reason for. Reading either off the tasks told a follower (the CLI's
+  // `deploy`, the web header) "running" too early, or "failed" with no reason
+  // seconds before the reason landed.
+  if (isLatest && ownerSettling && (stored === "pending" || stored === "building")) {
+    return "starting";
   }
   return deriveLiveStatus(stored, isLatest, instances, summarizeTasks(instances));
 }

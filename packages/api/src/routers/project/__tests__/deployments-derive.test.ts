@@ -290,3 +290,48 @@ describe("deriveDeploymentStatus, cancelled", () => {
     expect(status).toBe("cancelled");
   });
 });
+
+describe("deriveDeploymentStatus, a row its job is still settling", () => {
+  // An image that never got ready on an unreachable registry: swarm rolled the
+  // new version back, its tasks read failed, and the list said `failed` with
+  // no reason a few seconds before the rollout job wrote one. A follower takes
+  // the first terminal reading, so it reported a failure without its cause.
+  test("failed tasks under an owned pending row read starting, not a reasonless failed", () => {
+    const tasks = [glimpse({ state: "failed", exitCode: 1 }), glimpse({ state: "shutdown" })];
+    expect(deriveDeploymentStatus("pending", true, tasks, fresh(), false, false, true)).toBe(
+      "starting",
+    );
+    // Unowned (the job is gone): the tasks are all there is, as before.
+    expect(deriveDeploymentStatus("pending", true, tasks, fresh(), false, false, false)).toBe(
+      "failed",
+    );
+  });
+
+  test("a task running mid-gate is not yet a success while the job owns the row", () => {
+    const tasks = [glimpse({ state: "running" })];
+    expect(deriveDeploymentStatus("pending", true, tasks, fresh(), false, false, true)).toBe(
+      "starting",
+    );
+    expect(deriveDeploymentStatus("building", true, tasks, fresh(), false, false, true)).toBe(
+      "starting",
+    );
+  });
+
+  test("once the job has settled the row, its stored outcome is read as before", () => {
+    const tasks = [glimpse({ state: "running" })];
+    expect(deriveDeploymentStatus("running", true, tasks, fresh(), false, false, true)).toBe(
+      "running",
+    );
+    expect(
+      deriveDeploymentStatus(
+        "failed",
+        true,
+        [glimpse({ state: "failed" })],
+        fresh(),
+        false,
+        false,
+        true,
+      ),
+    ).toBe("failed");
+  });
+});

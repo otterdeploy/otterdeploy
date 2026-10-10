@@ -10,20 +10,22 @@ import { Result } from "better-result";
 
 import type { SwarmServiceRuntime } from "../../swarm";
 
+import { reconcile } from "../../caddy";
 import { loadPreviewScope } from "../../lib/environment/load";
 import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
-import { markDeploymentFailed } from "../project/deployments";
-import { reconcileDeploySuccess } from "../project/deployments-reconcile";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
+  getPrimaryHttpPort,
   getServiceRecord,
   markServiceEnvApplied,
   type ServiceRecord,
   updateServiceResourceStatus,
 } from "./queries";
+import { rollKey, serializeRoll } from "./roll-lock";
+import { pointRoutesAtPort } from "./route-upstreams";
 import { buildSwarmSpec } from "./spec";
 import { sanitizeSlug } from "./views";
 /**
@@ -32,6 +34,17 @@ import { sanitizeSlug } from "./views";
  * for the create path. Returns the live runtime on success.
  */
 export async function provisionFresh(
+  projectId: ProjectId,
+  record: ServiceRecord,
+  projectSlug: string,
+  log?: RequestLogger,
+): Promise<Result<SwarmServiceRuntime, ResolveError>> {
+  return serializeRoll(rollKey(record.service.resourceId), () =>
+    provisionFreshNow(projectId, record, projectSlug, log),
+  );
+}
+
+async function provisionFreshNow(
   projectId: ProjectId,
   record: ServiceRecord,
   projectSlug: string,
@@ -119,7 +132,21 @@ export interface RedeployOptions {
   imageOverride?: string;
 }
 
+/** Roll one service (see redeployOneNow), after any roll of it already under
+ *  way in this process has finished (./roll-lock.ts). */
 export async function redeployOne(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+  projectSlug: string,
+  log?: RequestLogger,
+  opts?: RedeployOptions,
+): Promise<Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError>> {
+  return serializeRoll(rollKey(resourceId, opts?.previewId), () =>
+    redeployOneNow(projectId, resourceId, projectSlug, log, opts),
+  );
+}
+
+async function redeployOneNow(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,
@@ -196,7 +223,7 @@ export async function redeployOne(
   // still the one serving, only this deploy failed. It is also
   // the one case where the update "succeeded" but the new env is NOT what the
   // container runs, so it does not count as applied.
-  if (!opts?.previewId) await settleBaseRoll(resourceId, result, updated.isOk(), envReadAt);
+  if (!opts?.previewId) await settleBaseRoll(record, result, updated.isOk(), envReadAt);
 
   return Result.ok(result);
 }
@@ -213,13 +240,37 @@ function resourceStatusAfter(result: SwarmServiceRuntime): "valid" | "invalid" {
  * env as read at `envReadAt`; otherwise the saved env stays pending.
  */
 async function settleBaseRoll(
-  resourceId: ResourceId,
+  record: ServiceRecord,
   result: SwarmServiceRuntime,
   reachedRuntime: boolean,
   envReadAt: Date,
 ): Promise<void> {
+  const resourceId = record.service.resourceId;
   await updateServiceResourceStatus(resourceId, resourceStatusAfter(result));
-  if (reachedRuntime && !result.rolledBack) await markServiceEnvApplied(resourceId, envReadAt);
+  if (!reachedRuntime || result.rolledBack) return;
+  await markServiceEnvApplied(resourceId, envReadAt);
+  await followPrimaryPort(record);
+}
+
+/**
+ * The roll landed: the container now listens on the record's primary http
+ * port, so its routes must dial that port too. A port change saved by the
+ * Settings tab or a manifest apply reaches here through the roll it triggers,
+ * and one that rides a build reaches here through the build's own roll, so the
+ * edge moves exactly when the container does. A no-op whenever the routes
+ * already match, which is every roll that did not change a port.
+ */
+async function followPrimaryPort(record: ServiceRecord): Promise<void> {
+  const primary = getPrimaryHttpPort(record.ports);
+  if (!primary) return;
+  const changed = await pointRoutesAtPort(record.service.resourceId, {
+    port: primary.containerPort,
+  });
+  if (changed.length === 0) return;
+  // Best effort: the rows are already right, and they are what the edge
+  // converges on. From the build worker this load cannot reach the edge; the
+  // server's edge watch sees the routes move and loads them within a tick.
+  await Result.tryPromise({ try: () => reconcile(), catch: (cause) => cause });
 }
 
 /** Roll a service, then every service that references it. Ok carries the
@@ -269,27 +320,4 @@ export async function redeployDependents(
   }
 
   return Result.ok(true);
-}
-/**
- * Settle the row a create opened: the driver already waited for the container,
- * so flip pending → running (emits deploy.succeeded exactly once) or mark it
- * failed with the task's reason, never leave it dangling at "pending".
- * No-ops for git/upload creates, which have no row yet.
- */
-export async function settleCreateDeployment(
-  deploymentId: Parameters<typeof markDeploymentFailed>[0] | null,
-  resourceId: Parameters<typeof reconcileDeploySuccess>[1],
-  runtimeStatus: string,
-  runtimeError: string | null | undefined,
-): Promise<void> {
-  if (!deploymentId) return;
-
-  if (runtimeStatus === "error") {
-    await markDeploymentFailed(
-      deploymentId,
-      runtimeError ?? "runtime reported an error state",
-    ).catch(() => undefined);
-    return;
-  }
-  await reconcileDeploySuccess([deploymentId], resourceId);
 }
