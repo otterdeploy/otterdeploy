@@ -27,6 +27,7 @@ import {
   resolveAnalyticsWindow,
 } from "../../edge-logs/analytics-query";
 import { geoAvailable } from "../../edge-logs/geo";
+import { getProjectInOrg } from "../project/queries/project";
 import { runEdgeAccessFeed } from "./access-feed";
 import { runEdgeEventFeed } from "./events-feed";
 import { listProjectRoutes, listRouteUpstreams } from "./queries";
@@ -96,6 +97,15 @@ async function resolveAnalyticsHosts(
   return hosts;
 }
 
+/** No project named (the org-wide tail), or one this organization owns. */
+async function tailProjectIsOwn(
+  organizationId: Parameters<typeof resolveHosts>[0],
+  projectId: ProjectId | undefined,
+): Promise<boolean> {
+  if (projectId === undefined) return true;
+  return (await getProjectInOrg({ projectId, organizationId })) !== undefined;
+}
+
 export const edgeLogsRouter = {
   /**
    * The Access logs pane's feed. Host scope is resolved inside
@@ -139,16 +149,21 @@ export const edgeLogsRouter = {
     return result;
   }),
 
-  tail: orgScopedProcedure.edgeLogs.tail.handler(async function* ({ input, context, signal }) {
+  // Checked before the stream opens, so a refusal is the call's answer and
+  // not an error event a caller may never read.
+  tail: orgScopedProcedure.edgeLogs.tail.handler(async ({ input, context, signal, errors }) => {
     const orgId = context.activeOrganizationId;
+    if (!(await tailProjectIsOwn(orgId, input.projectId))) throw errors.NOT_FOUND();
     const hosts = new Set(await resolveHosts(orgId, input.projectId));
     const upstreams = await listRouteUpstreams(orgId, input.projectId);
-    for await (const line of streamEdgeLogs(hosts, input.host, signal)) {
-      yield {
-        ...line,
-        upstream: line.upstream ?? upstreams[line.host] ?? null,
-      };
-    }
+    return (async function* () {
+      for await (const line of streamEdgeLogs(hosts, input.host, signal)) {
+        yield {
+          ...line,
+          upstream: line.upstream ?? upstreams[line.host] ?? null,
+        };
+      }
+    })();
   }),
 
   // Per-host traffic stats for a project's HTTP routes, joined to the owning
@@ -303,14 +318,13 @@ export const edgeLogsRouter = {
       return { ...result, sinkConfigured: collectionStatus().sinkConfigured };
     }),
 
-    tail: orgScopedProcedure.edgeLogs.events.tail.handler(async function* ({
-      input,
-      context,
-      signal,
-    }) {
-      const orgId = context.activeOrganizationId;
-      const hosts = new Set(await resolveHosts(orgId, input.projectId));
-      yield* streamEdgeEvents(hosts, input.host, signal);
-    }),
+    tail: orgScopedProcedure.edgeLogs.events.tail.handler(
+      async ({ input, context, signal, errors }) => {
+        const orgId = context.activeOrganizationId;
+        if (!(await tailProjectIsOwn(orgId, input.projectId))) throw errors.NOT_FOUND();
+        const hosts = new Set(await resolveHosts(orgId, input.projectId));
+        return streamEdgeEvents(hosts, input.host, signal);
+      },
+    ),
   },
 };

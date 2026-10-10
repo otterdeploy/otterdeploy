@@ -12,12 +12,11 @@ import type { DataConnectionId, OrganizationId, UserId } from "@otterdeploy/shar
 import { db } from "@otterdeploy/db";
 import { dataConnection } from "@otterdeploy/db/schema";
 import { normalizeTags } from "@otterdeploy/shared/data-tags";
-import { Result } from "better-result";
 import { and, desc, eq, or } from "drizzle-orm";
 
 import { requirePermission } from "../..";
 import { describeConnection, parseConnectionUrl, resolveExternalTarget } from "../../data";
-import { toDataError } from "../../data/errors";
+import { resolveTargetOrDataError } from "../../data/errors";
 import { encryptForDomain } from "../../lib/crypto";
 import { publishOrgBusEvent } from "../project/project-event-bus";
 import { raise } from "./plumbing";
@@ -102,10 +101,7 @@ function resolveTestTarget(input: {
   connectionId: DataConnectionId;
   viewerId: UserId | null;
 }) {
-  return Result.tryPromise({
-    try: () => resolveExternalTarget({ ...input, mode: "read-only" }),
-    catch: toDataError,
-  });
+  return resolveTargetOrDataError(() => resolveExternalTarget({ ...input, mode: "read-only" }));
 }
 
 export function makeConnectionHandlers(deps: {

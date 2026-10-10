@@ -25,7 +25,9 @@ const servicePortSchema = z.object({
 });
 
 export const servicePortInputSchema = z.object({
-  containerPort: z.number().int().positive(),
+  // A TCP/UDP port: one past 65535 created a service no runtime can publish,
+  // and the call then waited on its first deploy.
+  containerPort: z.number().int().min(1).max(65_535),
   protocol: z.enum(["tcp", "udp"]).optional(),
   appProtocol: z.enum(["http", "tcp"]).optional(),
   isPrimary: z.boolean().optional(),
