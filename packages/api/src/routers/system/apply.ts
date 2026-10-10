@@ -15,15 +15,17 @@
  */
 import { Docker } from "@otterdeploy/docker";
 import { env } from "@otterdeploy/env/server";
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { log } from "evlog";
 
+import { createRequestDockerClient } from "../../lib/docker-client";
 import { pullImage } from "../../runtime/docker-driver-helpers";
 import { ensureDiskHeadroom } from "../../system-health/disk-guard";
 import { reclaimSpace } from "../../system-health/reclaim";
 import { checkForUpdate, currentVersion, resolveDryRun } from "./check";
 import { isNewer } from "./compare";
-import { readHelperLogs, relayHelperProgress } from "./helper-logs";
 import * as state from "./state";
+import { WATCH_DEADLINE_MS, watchCutover } from "./watch-cutover";
 
 export type ApplyStartResult =
   | { started: true; dryRun: boolean; targetVersion: string }
@@ -40,14 +42,6 @@ const IMAGES = ["server", "builder", "caddy"] as const;
 /** Label that marks the detached updater helper container, so the watchdog and
  *  the boot-time sweep can find it. */
 const UPDATER_LABEL = "otterdeploy.role=updater";
-
-/** How often the watchdog inspects the helper, and the hard backstop after which
- *  a cutover that never reported back is declared failed so the UI un-wedges.
- *  The helper's own `up -d --wait --wait-timeout 120` plus image-pull time fits
- *  comfortably inside this; the deadline only bites if the helper vanishes or
- *  hangs. */
-const WATCH_POLL_MS = 3_000;
-const WATCH_DEADLINE_MS = 15 * 60 * 1_000;
 
 /** Disk the update must have free before it touches the running stack. A full
  *  `compose pull`/`up` can corrupt redis's AOF and half-recreate the stack,
@@ -109,11 +103,34 @@ function reclaimAfterUpdate(version: string): void {
  */
 export async function cancelUpdate(): Promise<{ cancelled: boolean; reason: string }> {
   if (!state.isRunning()) return { cancelled: false, reason: "no-run" };
-  await removeUpdaterContainers({ runningToo: true });
+  // Settle first: the escape hatch must work on the very daemon that wedged
+  // the run, so the run is released before any Docker call is made.
   state.cancel(
     "Update reset by operator. The cutover did not complete, and the control plane is still on the previous version.",
   );
+  await removeUpdaterContainers({ runningToo: true });
   return { cancelled: true, reason: "reset" };
+}
+
+/** A run still `running` this long after it began is wedged, whatever wedged
+ *  it: the watchdog's own deadline, plus room for the disk preflight and the
+ *  helper-image pull that run before it starts. */
+export const STALE_RUN_MS = WATCH_DEADLINE_MS + 15 * 60 * 1_000;
+
+/**
+ * Release a run that has been `running` past {@link STALE_RUN_MS}, recording
+ * why. The watchdog settles every run it watches, but a step before it (a
+ * helper-image pull on a wedged daemon) or a watchdog that never got to run
+ * would otherwise hold the run open until an operator found the reset: the
+ * Update button stays disabled and every apply answers "already-running".
+ * Called on every read of the run and before every apply.
+ */
+export function settleStaleRun(now: Temporal.Instant = Temporal.Now.instant()): void {
+  state.expireIfOlderThan(
+    STALE_RUN_MS,
+    `Update did not finish within ${Math.round(STALE_RUN_MS / 60_000)} minutes and was marked failed. The control plane is still running the previous version; you can start the update again.`,
+    now,
+  );
 }
 
 /** Remove exited updater helpers left behind by a completed cutover (the happy
@@ -124,7 +141,9 @@ async function sweepUpdaterContainers(): Promise<void> {
 }
 
 async function removeUpdaterContainers(opts: { runningToo: boolean }): Promise<void> {
-  const docker = Docker.fromEnv();
+  // List and remove are request/response: bounded, so a wedged daemon cannot
+  // hold the boot sweep or the operator reset.
+  const docker = createRequestDockerClient();
   try {
     const listed = await docker.containers.list({ all: true, filters: { label: [UPDATER_LABEL] } });
     if (listed.isErr()) return;
@@ -138,6 +157,7 @@ async function removeUpdaterContainers(opts: { runningToo: boolean }): Promise<v
 }
 
 export async function startApply(): Promise<ApplyStartResult> {
+  settleStaleRun();
   if (state.isRunning()) return { started: false, reason: "already-running" };
 
   const check = await checkForUpdate();
@@ -210,9 +230,31 @@ function buildHelperScript(target: string, installDir: string): string {
 }
 
 async function applyReal(target: string): Promise<void> {
+  const generation = state.currentGeneration();
+  const docker = Docker.fromEnv();
+  let helperId: string | null;
+  try {
+    helperId = await launchHelper(docker, target, generation);
+  } finally {
+    docker.destroy();
+  }
+  // On the happy path the helper recreates `server`, this process is killed
+  // mid-watch, and the NEW server settles the run on boot. The watchdog exists
+  // for the UNhappy path: the helper fails (disk full, bad pull, wait-timeout)
+  // WITHOUT replacing us, so we survive and must record the failure ourselves.
+  // Otherwise the run stays "running" forever and every future apply reports
+  // "already-running". The watchdog polls on a REQUEST client (every call
+  // bounded) and always settles the run, whatever the daemon does.
+  if (helperId) await watchCutover(createRequestDockerClient(), helperId, target);
+}
+
+async function launchHelper(
+  docker: Docker,
+  target: string,
+  generation: number,
+): Promise<string | null> {
   const installDir = env.OTTERDEPLOY_INSTALL_DIR;
   const helperImage = env.OTTERDEPLOY_UPDATE_HELPER_IMAGE;
-  const docker = Docker.fromEnv();
 
   // Disk preflight: BEFORE any handoff or pull. A full disk mid-update can
   // corrupt redis's AOF and leave a half-recreated stack with no control plane
@@ -228,7 +270,7 @@ async function applyReal(target: string): Promise<void> {
       false,
       `Update aborted before touching the stack: ${headroom.reason}. Free disk space and retry.`,
     );
-    return;
+    return null;
   }
   if (headroom.reclaimedBytes > 0) {
     state.emit(
@@ -241,6 +283,9 @@ async function applyReal(target: string): Promise<void> {
   state.emit("validate", `Preparing update to ${target} (install dir ${installDir}).`);
   state.emit("pull", `Ensuring update helper image ${helperImage} is available…`);
   await pullImage(docker, helperImage);
+  // A pull that hung long enough for this run to be expired as stale (and a
+  // new one begun) must not launch a second helper into someone else's run.
+  if (state.currentGeneration() !== generation) return null;
 
   state.emit(
     "recreate",
@@ -268,79 +313,14 @@ async function applyReal(target: string): Promise<void> {
   });
   if (created.isErr()) {
     state.finish(false, `Could not create update helper: ${errText(created.error)}`);
-    return;
+    return null;
   }
   const helper = created.value;
   const start = await helper.start();
   if (start.isErr()) {
     state.finish(false, `Could not start update helper: ${errText(start.error)}`);
-    return;
+    return null;
   }
 
-  // On the happy path the helper recreates `server`, this process is killed
-  // mid-watch, and the NEW server settles the run on boot. The watchdog exists
-  // for the UNhappy path: the helper fails (disk full, bad pull, wait-timeout)
-  // WITHOUT replacing us, so we survive and must record the failure ourselves.
-  // Otherwise the run stays "running" forever and every future apply reports
-  // "already-running". Resolve the id via inspect (well-typed, matches the rest
-  // of the codebase); skip the watchdog only if we can't (nothing else to do).
-  const idRes = await helper.inspect();
-  const helperId = idRes.isOk() ? idRes.value.Id : null;
-  if (helperId) await watchCutover(docker, helperId, target);
+  return helper.id;
 }
-
-/** Poll the detached helper to its exit; record the terminal outcome the old
- *  server would otherwise never write. A no-op on the happy path. This process
- *  is gone before the loop notices success. */
-async function watchCutover(docker: Docker, helperId: string, target: string): Promise<void> {
-  const container = docker.containers.getContainer(helperId);
-  const deadlineAt = Date.now() + WATCH_DEADLINE_MS;
-  try {
-    // Lines of helper output already relayed, so each poll emits only what is
-    // new. The helper is where the update actually happens, and until now none
-    // of it was visible: handoff emitted "launching helper" and the pane sat
-    // frozen through the image pull, the migrations and the recreate — the
-    // slowest minutes of the whole operation, reported as nothing at all.
-    let relayed = 0;
-    while (Date.now() < deadlineAt) {
-      await sleep(WATCH_POLL_MS);
-      const inspected = await container.inspect();
-      if (inspected.isErr()) continue; // transient socket blip: let the deadline decide
-      const st = inspected.value.State;
-      relayed = await relayHelperProgress(container, relayed);
-      if (st?.Running !== false) continue; // still pulling / recreating
-      // Helper has exited. If it succeeded AND we somehow booted the target,
-      // it's done; otherwise the cutover did not replace us, a failure.
-      const exitCode = st?.ExitCode ?? 0;
-      const reachedTarget = currentVersion() === target || isNewer(currentVersion(), target);
-      const logs = await readHelperLogs(container);
-      if (exitCode === 0 && reachedTarget) {
-        state.emit(
-          "done",
-          `Update to ${target} complete. Control plane is running ${currentVersion()}.`,
-          "success",
-        );
-        state.finish(true);
-      } else {
-        const why =
-          exitCode === 0
-            ? `finished but the control plane is still on ${currentVersion()} (expected ${target})`
-            : `failed (exit ${exitCode})`;
-        const msg = `Update helper ${why}. The control plane was not replaced and is still running the previous version.${logs ? `\n${logs}` : ""}`;
-        state.emit("done", msg, "error");
-        state.finish(false, msg);
-      }
-      await container.remove({ force: true });
-      return;
-    }
-    const msg = `Update to ${target} did not complete within ${Math.round(WATCH_DEADLINE_MS / 60_000)} minutes. The control plane is still running the previous version. Inspect the update helper container for details.`;
-    state.emit("done", msg, "error");
-    state.finish(false, msg);
-    await container.remove({ force: true });
-  } finally {
-    docker.destroy();
-  }
-}
-
-/** Tail the helper's combined output for the failure message. Best-effort. An
- *  empty string when logs can't be read. */

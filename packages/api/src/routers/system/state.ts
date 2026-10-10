@@ -11,6 +11,7 @@
  * so it completes over the live stream and never needs the file.
  */
 import { updateStatusPath } from "@otterdeploy/shared/paths";
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { Result } from "better-result";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -60,6 +61,14 @@ function idle(): UpdateRunSnapshot {
 
 let run: UpdateRunSnapshot = idle();
 let seq = 0;
+/** Bumped by every begin(), so a run's own async work can tell it is no
+ *  longer the current run (it was expired as stale and another began). */
+let generation = 0;
+
+/** The current run's generation; see {@link generation}. */
+export function currentGeneration(): number {
+  return generation;
+}
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -99,6 +108,7 @@ export function begin(targetVersion: string): void {
     logs: [],
   };
   seq = 0;
+  generation += 1;
   notify();
   void persist();
 }
@@ -145,6 +155,28 @@ export function cancel(reason: string): boolean {
   emit("done", reason, "error");
   finish(false, reason);
   return true;
+}
+
+/**
+ * Fail a run that has been `running` for at least `maxAgeMs`, with `reason`
+ * as its visible last line and its error. Returns true when it did. A start
+ * time that will not parse counts as stale: a run nobody can date is a run
+ * nobody can wait out.
+ */
+export function expireIfOlderThan(
+  maxAgeMs: number,
+  reason: string,
+  now: Temporal.Instant = Temporal.Now.instant(),
+): boolean {
+  if (run.status !== "running") return false;
+  const startedAt = run.startedAt;
+  const started = Result.try(() => (startedAt ? Temporal.Instant.from(startedAt) : null));
+  const age =
+    started.isOk() && started.value
+      ? now.epochMilliseconds - started.value.epochMilliseconds
+      : Number.POSITIVE_INFINITY;
+  if (age < maxAgeMs) return false;
+  return cancel(reason);
 }
 
 /** Replay accumulated events then tail new ones until the run is terminal (and
