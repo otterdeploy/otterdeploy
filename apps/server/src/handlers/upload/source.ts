@@ -1,6 +1,10 @@
 import type { Context } from "hono";
 
-import { resolveRequestActor } from "@otterdeploy/api/authz/actor";
+import {
+  type ApiKeyRateLimitedError,
+  type AuthStoreUnavailableError,
+  resolveRequestActor,
+} from "@otterdeploy/api/authz/actor";
 import { authorizeCapability } from "@otterdeploy/api/authz/capability";
 import { prepareSourceTarballPath, removeSourceTarball } from "@otterdeploy/api/lib/data-dir";
 import { markDeploymentFailed } from "@otterdeploy/api/routers/project/deployments";
@@ -70,12 +74,21 @@ async function streamBodyToFile(c: Context, path: string): Promise<string> {
   return hasher.digest("hex");
 }
 
+function actorFailureResponse(
+  c: Context,
+  failure: ApiKeyRateLimitedError | AuthStoreUnavailableError,
+): Response {
+  // The credential store did not answer: retry later, not 401.
+  if (failure._tag === "AuthStoreUnavailableError") {
+    return c.json({ error: failure.message }, 503);
+  }
+  c.header("Retry-After", String(failure.retryAfterSeconds));
+  return c.json({ error: failure.message }, 429);
+}
+
 export async function uploadSourceHandler(c: Context): Promise<Response> {
   const resolved = await resolveRequestActor(c.req.raw.headers);
-  if (resolved.isErr()) {
-    c.header("Retry-After", String(resolved.error.retryAfterSeconds));
-    return c.json({ error: resolved.error.message }, 429);
-  }
+  if (resolved.isErr()) return actorFailureResponse(c, resolved.error);
   const actor = resolved.value;
   if (!actor) {
     return c.json({ error: "Authentication required." }, 401);

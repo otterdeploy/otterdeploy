@@ -9,6 +9,7 @@ import type { AuditDraft } from "./audit/changes";
 import type {
   ApiKeyActor,
   ApiKeyRateLimitedError,
+  AuthStoreUnavailableError,
   ResolvedActor,
   SessionActor,
 } from "./authz/actor";
@@ -37,6 +38,10 @@ export interface RequestContext {
    *  Optional so contexts built by hand (tests, internal callers) need not
    *  spell out the "not rate limited" case. */
   apiKeyRateLimited?: ApiKeyRateLimitedError | null;
+  /** Set when the session/API-key store could not be read at all (Postgres
+   *  down); `actor` is null then, and the auth middlewares answer 503, not a
+   *  401 that would sign the dashboard out. */
+  authUnavailable?: AuthStoreUnavailableError | null;
   activeOrganizationId: OrgId | null;
   headers: Headers;
   log: RequestLogger;
@@ -50,6 +55,18 @@ export interface RequestContext {
   auditDraft?: AuditDraft;
 }
 
+/** Why no actor was resolved, when it was not simply "no credential". */
+function actorFailure(resolved: Awaited<ReturnType<typeof resolveRequestActor>>): {
+  apiKeyRateLimited: ApiKeyRateLimitedError | null;
+  authUnavailable: AuthStoreUnavailableError | null;
+} {
+  if (resolved.isOk()) return { apiKeyRateLimited: null, authUnavailable: null };
+  const failure = resolved.error;
+  return failure._tag === "ApiKeyRateLimitedError"
+    ? { apiKeyRateLimited: failure, authUnavailable: null }
+    : { apiKeyRateLimited: null, authUnavailable: failure };
+}
+
 export async function createContext({
   context,
   broadcast,
@@ -57,7 +74,7 @@ export async function createContext({
   const headers = context.req.raw.headers;
   const resolved = await resolveRequestActor(headers);
   const actor = resolved.isOk() ? resolved.value : null;
-  const apiKeyRateLimited = resolved.isErr() ? resolved.error : null;
+  const { apiKeyRateLimited, authUnavailable } = actorFailure(resolved);
   const session = actor?.kind === "session" ? actor : null;
   const apiKey = actor?.kind === "api-key" ? actor : null;
 
@@ -80,6 +97,7 @@ export async function createContext({
     session,
     apiKey,
     apiKeyRateLimited,
+    authUnavailable,
     activeOrganizationId,
     // Raw request headers, carried so org-scoped middleware can delegate
     // role/permission checks to better-auth's `auth.api.hasPermission`
