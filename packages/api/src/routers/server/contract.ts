@@ -167,8 +167,12 @@ const stepUpFields = {
     .string()
     .regex(/^\d{6}(\d{2})?$/, "Enter the current authenticator code.")
     .optional(),
-  /** Required otherwise. */
+  /** Required when the account has a password (and no authenticator). */
   password: z.string().min(1, "Enter your password.").optional(),
+  /** Required when the account has neither: the one-time code emailed by
+   *  `terminal.sendStepUpCode` (the same step-up code, whichever gated action
+   *  asked for it). */
+  emailCode: z.string().min(1, "Enter the code we emailed you.").optional(),
   managerConfirmation: z.string().optional(),
 };
 const enrollmentErrors = {
@@ -179,6 +183,13 @@ const enrollmentErrors = {
   PASSWORD_REQUIRED: {
     status: 400,
     message: "Enter your password." as const,
+  },
+  /** A passwordless account without an authenticator steps up with an
+   *  emailed code: this says "send one and enter it", where it
+   *  used to fall through to INVALID_STEP_UP although nothing had been sent. */
+  EMAIL_CODE_REQUIRED: {
+    status: 400,
+    message: "Enter the code we emailed you." as const,
   },
   INVALID_STEP_UP: {
     status: 403,
