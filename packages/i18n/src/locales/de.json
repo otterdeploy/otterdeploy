@@ -235,6 +235,8 @@
     "secureEnrollment": "Sichere Aufnahme",
     "nodeDescription_one": "{{count}} Node in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
     "nodeDescription_other": "{{count}} Nodes in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
+    "nodeDescriptionDocker_one": "{{count}} Server · einfaches Docker: alle Dienste laufen auf der Control Plane",
+    "nodeDescriptionDocker_other": "{{count}} Server · einfaches Docker: alle Dienste laufen auf der Control Plane",
     "addServerTitle": "Server hinzufügen",
     "form": {
       "host": "Host / IP",

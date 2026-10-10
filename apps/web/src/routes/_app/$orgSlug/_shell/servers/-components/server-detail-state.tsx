@@ -16,6 +16,7 @@ import type { Server } from "@/features/servers/data/server";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { SERVER_TAB_PATHS } from "./server-tab-paths";
+import { workloadCount } from "@/features/servers/detail/server-facts";
 
 const BADGE: Record<ServerStateTone, string> = {
   good: "bg-success/10 text-success",
@@ -71,9 +72,14 @@ interface BannerCopy {
   action?: { label: string; tab: "containers" | "settings" };
 }
 
-function bannerCopy(state: ServerState, server: Server, tasks: number | null): BannerCopy | null {
+function bannerCopy(
+  state: ServerState,
+  server: Server,
+  tasks: number | null,
+  isSwarm: boolean,
+): BannerCopy | null {
   const placed =
-    tasks === null ? "Anything placed here" : `${tasks} task${tasks === 1 ? "" : "s"} placed here`;
+    tasks === null ? "Anything placed here" : `${workloadCount(tasks, isSwarm)} placed here`;
   switch (state.kind) {
     case "down":
       return {
@@ -119,14 +125,16 @@ export function ServerStateBanner({
   state,
   server,
   tasks,
+  isSwarm,
   orgSlug,
 }: {
   state: ServerState;
   server: Server;
   tasks: number | null;
+  isSwarm: boolean;
   orgSlug: string;
 }) {
-  const copy = bannerCopy(state, server, tasks);
+  const copy = bannerCopy(state, server, tasks, isSwarm);
   if (!copy) return null;
   return (
     <div

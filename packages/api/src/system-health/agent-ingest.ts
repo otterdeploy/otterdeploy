@@ -67,7 +67,7 @@ export type AgentHealthReport = z.infer<typeof reportSchema>;
  *  parsed ingest payload and a locally-sampled HostHealth satisfy it. */
 export interface HealthSampleWrite {
   hostname: string;
-  health: { memory: { totalBytes: number }; sampledAt: string };
+  health: { memory: { totalBytes: number }; sampledAt: string; dockerVersion?: unknown };
   capacity?: { cpuTotal: number; memTotalGb: number } | null;
 }
 
@@ -76,8 +76,28 @@ type ServerRow = typeof server.$inferSelect;
 /** Upsert the latest snapshot for each matched row, append the time-series
  *  row, and backfill placeholder capacity. Shared by the ingest route and the
  *  local sampler. */
+/**
+ * The Docker engine version to write on the server row, or null to leave it.
+ *
+ * The row's `daemonVersion` was only ever set by the SSH provisioning probe,
+ * so the control plane (never provisioned over SSH) and any node joined
+ * another way showed "–" while the daemon reported its version on every
+ * sample. A report without one (an older agent, a daemon that did not answer)
+ * never blanks a version already known.
+ */
+export function daemonVersionToWrite(
+  current: string | null,
+  health: { dockerVersion?: unknown },
+): string | null {
+  const reported = typeof health.dockerVersion === "string" ? health.dockerVersion.trim() : "";
+  if (!reported || reported === current) return null;
+  return reported;
+}
+
 export async function recordHealthSample(
-  rows: Array<Pick<ServerRow, "id" | "organizationId" | "cpuTotal" | "memTotalGb">>,
+  rows: Array<
+    Pick<ServerRow, "id" | "organizationId" | "cpuTotal" | "memTotalGb" | "daemonVersion">
+  >,
   report: HealthSampleWrite,
 ): Promise<void> {
   const sampledAtDate = new Date(report.health.sampledAt);
@@ -125,6 +145,11 @@ export async function recordHealthSample(
       });
     }
 
+    const daemonVersion = daemonVersionToWrite(row.daemonVersion, report.health);
+    if (daemonVersion) {
+      await db.update(server).set({ daemonVersion }).where(eq(server.id, row.id));
+    }
+
     // Self-registration: fill capacity only where the join flow left zeros.
     // An operator-entered value is never overwritten by an agent.
     const capacity = report.capacity;
@@ -148,6 +173,7 @@ async function matchServersByHostname(hostname: string) {
       organizationId: server.organizationId,
       cpuTotal: server.cpuTotal,
       memTotalGb: server.memTotalGb,
+      daemonVersion: server.daemonVersion,
     })
     .from(server)
     .where(or(eq(server.hostname, hostname), eq(server.name, hostname)));

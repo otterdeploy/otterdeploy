@@ -39,6 +39,7 @@ import { cn } from "@/shared/lib/utils";
 
 import { ServerStateBadge } from "./server-detail-state";
 import { ProvisionRetryCell } from "./servers-row-retry";
+import { serverDisplayName, workloadCount } from "@/features/servers/detail/server-facts";
 
 type HostHealth = NonNullable<ServerHealthEntry["health"]>;
 
@@ -97,11 +98,12 @@ function roleText(server: Server, node: SwarmNode | null): string {
   return node?.leader ? `${role} · leader` : role;
 }
 
-/** "3 tasks · 1 project · 100.64.0.2 · 1 to review": what is on it. */
-function metaText(stats: ServerNodeStats | null, server: Server): string[] {
+/** "3 containers · 1 project · 100.64.0.2 · 1 to review": what is on it.
+ *  Tasks on Swarm, containers on plain Docker (see server-facts). */
+function metaText(stats: ServerNodeStats | null, server: Server, isSwarm: boolean): string[] {
   const parts: string[] = [];
   if (stats) {
-    parts.push(`${stats.tasksRunning} task${stats.tasksRunning === 1 ? "" : "s"}`);
+    parts.push(workloadCount(stats.tasksRunning, isSwarm));
     if (stats.projects.length > 0) {
       parts.push(`${stats.projects.length} project${stats.projects.length === 1 ? "" : "s"}`);
     }
@@ -116,6 +118,7 @@ function FleetCard({
   entry,
   node,
   attention,
+  isSwarm,
   orgSlug,
   onReAdd,
 }: {
@@ -124,12 +127,14 @@ function FleetCard({
   entry: ServerHealthEntry | null;
   node: SwarmNode | null;
   attention: number;
+  isSwarm: boolean;
   orgSlug: string;
   onReAdd: (initial: ProvisionInitialValues) => void;
 }) {
   const state = deriveServerState(server, entry);
   const health = hasReadings(state.kind) ? (entry?.health ?? null) : null;
-  const meta = metaText(stats, server);
+  const meta = metaText(stats, server, isSwarm);
+  const name = serverDisplayName(server);
 
   return (
     // The whole card opens the server. A stretched link covers the card;
@@ -140,7 +145,7 @@ function FleetCard({
       <Link
         to="/$orgSlug/servers/$serverId"
         params={{ orgSlug, serverId: server.id }}
-        aria-label={`Open ${server.name}`}
+        aria-label={`Open ${name}`}
         className="absolute inset-0 rounded-md outline-none"
       />
       <div className="pointer-events-none relative flex min-w-0 flex-col gap-0.5">
@@ -149,7 +154,7 @@ function FleetCard({
               place: one tab stop per card, and no 19 px target crowding the
               card-sized one (axe target-size). */}
           <span className="min-w-0 truncate font-mono text-sm font-medium underline-offset-4 group-hover:underline">
-            {server.name}
+            {name}
           </span>
           <ServerStateBadge state={state} className="ml-auto" />
         </div>
@@ -206,11 +211,14 @@ export function ServerFleetGrid({
   healthByServer,
   nodesByServer,
   attentionByServer,
+  isSwarm,
   orgSlug,
   onCreate,
   onReAdd,
 }: {
   servers: Server[];
+  /** Swarm runtime: workload is counted in tasks there, containers otherwise. */
+  isSwarm: boolean;
   statsByServer: ReadonlyMap<string, ServerNodeStats>;
   healthByServer: ReadonlyMap<string, ServerHealthEntry>;
   /** Swarm node per server id: empty on the plain-docker runtime, where the
@@ -255,6 +263,7 @@ export function ServerFleetGrid({
           entry={healthByServer.get(server.id) ?? null}
           node={nodesByServer.get(server.id) ?? null}
           attention={attentionByServer.get(server.id) ?? 0}
+          isSwarm={isSwarm}
           orgSlug={orgSlug}
           onReAdd={onReAdd}
         />

@@ -23,6 +23,7 @@ import {
   ServerNotFoundError,
 } from "./errors";
 import { enqueueProvision } from "./provision-runner";
+import { readPublicIp } from "./public-ip";
 import {
   bootstrapLocalhostIfMissing,
   createServerRecord,
@@ -33,12 +34,19 @@ import {
   patchServerProvision,
   type ServerRecord,
 } from "./queries";
+import { serverAddress } from "./server-address";
 
-export async function listServers(input: OrgRef): Promise<ServerRecord[]> {
+export async function listServers(
+  input: OrgRef,
+): Promise<Array<ServerRecord & { address: string | null }>> {
   // Guarantee at least the bootstrap localhost row exists for every org.
   // No-op once the row is present (ON CONFLICT DO NOTHING).
   await bootstrapLocalhostIfMissing(input.organizationId);
-  return listServersByOrg(input.organizationId);
+  const [rows, publicIp] = await Promise.all([
+    listServersByOrg(input.organizationId),
+    readPublicIp(),
+  ]);
+  return rows.map((row) => ({ ...row, address: serverAddress(row, publicIp) }));
 }
 
 export async function getServer(

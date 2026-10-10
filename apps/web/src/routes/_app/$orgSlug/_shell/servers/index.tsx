@@ -30,6 +30,7 @@ import { ServerFleetGrid } from "./-components/servers-fleet-grid";
 import { ManagersQuorumCard } from "./-components/servers-managers-card";
 import { FleetTiles, ProjectFilters, SectionHeading } from "./-components/servers-parts";
 import { ServersPending } from "./-components/servers-pending";
+import { serverDisplayName } from "@/features/servers/detail/server-facts";
 
 // Pulled out of ServersRoute (rather than inline IIFEs) to keep the
 // component's own branching under the complexity budget. These are pure
@@ -62,6 +63,12 @@ function countBy(items: ReadonlyArray<{ serverId: string }>): Map<string, number
   const map = new Map<string, number>();
   for (const item of items) map.set(item.serverId, (map.get(item.serverId) ?? 0) + 1);
   return map;
+}
+
+/** The subtitle names the runtime: a swarm places replicas across nodes;
+ *  plain Docker runs every service on the control plane. */
+function fleetSubtitleKey(isSwarm: boolean) {
+  return isSwarm ? "servers.nodeDescription" : "servers.nodeDescriptionDocker";
 }
 
 function ServerPageActions({
@@ -126,7 +133,12 @@ function ServersRoute() {
   const perServerStats = toMapBy(perServerArr, (s) => s.serverId);
 
   const visibleServers = visibleServersForProject(servers, perServerStats, projectFilter);
-  const attention = fleetAttention(servers, healthByServer);
+  // The control plane is named by its hostname everywhere it is listed.
+  const attention = fleetAttention(
+    servers.map((s) => ({ ...s, name: serverDisplayName(s) })),
+    healthByServer,
+  );
+  const isSwarm = swarmView?.swarm ?? false;
   const reporting = servers.filter((s) =>
     isReporting(deriveServerState(s, healthByServer.get(s.id) ?? null).kind),
   ).length;
@@ -136,7 +148,7 @@ function ServersRoute() {
       <div className="px-4 pt-4 sm:px-6 sm:pt-6">
         <PageHeader
           title={t("servers.title")}
-          description={t("servers.nodeDescription", { count: servers.length })}
+          description={t(fleetSubtitleKey(isSwarm), { count: servers.length })}
           actions={
             <ServerPageActions onEnroll={() => setTokenOpen(true)} onCreate={addDialog.openFresh} />
           }
@@ -183,6 +195,7 @@ function ServersRoute() {
             healthByServer={healthByServer}
             nodesByServer={nodesByServer}
             attentionByServer={countBy(attention)}
+            isSwarm={isSwarm}
             orgSlug={orgSlug}
             onCreate={addDialog.openFresh}
             onReAdd={addDialog.openWith}

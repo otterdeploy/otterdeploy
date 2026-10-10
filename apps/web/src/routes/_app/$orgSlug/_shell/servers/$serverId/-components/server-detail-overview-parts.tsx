@@ -14,6 +14,7 @@ import { toProjectSlug } from "@/features/servers/detail/project-slug";
 import { isControlPlaneRow } from "@/features/servers/detail/server-state";
 import { timeAgo } from "@/shared/lib/time";
 import { SERVER_TAB_PATHS } from "../../-components/server-tab-paths";
+import { serverDisplayAddress } from "@/features/servers/detail/server-facts";
 
 function ProjectChip({ slug, orgSlug }: { slug: string; orgSlug: string }) {
   const branded = toProjectSlug(slug);
@@ -79,7 +80,7 @@ export function PlacementSummary({
 
 export function machineFacts(server: Server, health: HostHealth | null) {
   return [
-    { label: "Host", value: server.host },
+    { label: "Host", value: serverDisplayAddress(server) },
     { label: "Hostname", value: server.hostname ?? "–" },
     {
       label: "Mesh",

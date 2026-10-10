@@ -20,6 +20,7 @@ import { cn } from "@/shared/lib/utils";
 
 import { KeyValueList, SectionCard } from "./server-detail-parts";
 import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
+import { serverDisplayName } from "@/features/servers/detail/server-facts";
 
 function Reservation({
   label,
@@ -91,6 +92,12 @@ function ProjectRows({
   );
 }
 
+function emptyPlacementCopy(isSwarm: boolean): string {
+  return isSwarm
+    ? "Nothing is scheduled on this server. Pin a service here from its Settings → Placement."
+    : "Nothing runs on this server. On plain Docker every service runs on the control plane.";
+}
+
 export function ServerServicesTab({
   server,
   stats,
@@ -107,13 +114,12 @@ export function ServerServicesTab({
   const isSwarm = swarmView?.swarm ?? false;
   return (
     <>
+      {/* Reservations are swarm's: plain Docker sets limits, never
+          reservations, so the numbers would read zero forever. */}
+      {isSwarm ? (
       <SectionCard
-        title={`Placed on ${server.name}`}
-        hint={
-          isSwarm
-            ? `${stats?.tasksRunning ?? "–"} task${stats?.tasksRunning === 1 ? "" : "s"} scheduled here by swarm`
-            : "plain Docker runtime: every service runs on the control-plane host"
-        }
+        title={`Placed on ${serverDisplayName(server)}`}
+        hint={`${stats?.tasksRunning ?? "–"} task${stats?.tasksRunning === 1 ? "" : "s"} scheduled here by swarm`}
       >
         {stats ? (
           <div className="grid grid-cols-1 gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-2">
@@ -129,16 +135,17 @@ export function ServerServicesTab({
           <p className="px-4 py-3 text-[12.5px] text-muted-foreground">No placement data yet.</p>
         )}
       </SectionCard>
+      ) : null}
 
       <SectionCard
         title="Projects with work here"
-        hint="each project's graph names the tasks"
+        hint="each project's canvas names its services"
       >
         {stats && stats.projects.length > 0 ? (
           <ProjectRows slugs={stats.projects} orgSlug={orgSlug} />
         ) : (
           <p className="px-4 py-3 text-[12.5px] text-muted-foreground">
-            Nothing is scheduled on this server. Pin a service here from its Settings → Placement.
+            {emptyPlacementCopy(isSwarm)}
           </p>
         )}
       </SectionCard>

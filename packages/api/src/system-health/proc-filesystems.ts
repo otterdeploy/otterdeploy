@@ -10,7 +10,7 @@
 import { Result } from "better-result";
 import { statfs } from "node:fs/promises";
 
-import { procRoot, readProcFile } from "./proc-util";
+import { procRoot, readFirstProcFile } from "./proc-util";
 
 export interface HostFilesystem {
   device: string;
@@ -60,12 +60,18 @@ const PSEUDO_FS_TYPES = new Set([
  *  looks real (bind mounts under /run, per-container /dev nodes). */
 const PSEUDO_MOUNT_PREFIXES = ["/proc/", "/sys/", "/dev/", "/run/"];
 
+/** The files Docker bind-mounts into every container. They sit on the host's
+ *  disk device, so they look real, but they are single files, not disks. A
+ *  reader that ends up with its own container's table must not report them. */
+const CONTAINER_FILE_BINDS = new Set(["/etc/hostname", "/etc/hosts", "/etc/resolv.conf"]);
+
 export function isRealFilesystem(fsType: string, mountPoint: string): boolean {
   if (PSEUDO_FS_TYPES.has(fsType)) return false;
   // fuse.gvfsd, fuse.portal, … are desktop plumbing; fuseblk (ntfs-3g) is real.
   if (fsType.startsWith("fuse.")) return false;
   if (fsType.startsWith("cgroup")) return false;
   if (mountPoint === "/proc" || mountPoint === "/sys" || mountPoint === "/dev") return false;
+  if (CONTAINER_FILE_BINDS.has(mountPoint)) return false;
   return !PSEUDO_MOUNT_PREFIXES.some((prefix) => mountPoint.startsWith(prefix));
 }
 
@@ -105,9 +111,40 @@ export function parseProcMounts(text: string): MountEntry[] {
  *  is what we are bounding, not the truth. */
 const MAX_FILESYSTEMS = 64;
 
-async function measure(entry: MountEntry): Promise<HostFilesystem | null> {
+/**
+ * Where to read the host's mount table and how to reach a mount point, given
+ * the procfs root.
+ *
+ * `<proc>/mounts` is a symlink to `self/mounts`, the READER's mount
+ * namespace. The health agent runs in a container with the host's /proc
+ * bind-mounted (HOST_PROC_PATH), so reading `<proc>/mounts` there listed the
+ * container's own mounts (Docker's /etc/hostname, /etc/hosts and
+ * /etc/resolv.conf binds) as the node's filesystems. Pid 1 in the host's
+ * procfs is the host's init: its table is the host's, and its `root` is the
+ * host's `/`, which is where a mount point has to be measured from (statfs on
+ * the bare path would measure the container's overlay). When pid 1 is not
+ * readable the plain table is the fallback, and a mount that cannot be
+ * measured is dropped rather than reported with someone else's numbers.
+ */
+export function hostMountSources(root: string): {
+  tables: string[];
+  statPath: (mountPoint: string) => string;
+} {
+  if (root === "/proc") {
+    return { tables: ["/proc/mounts"], statPath: (mountPoint) => mountPoint };
+  }
+  return {
+    tables: [`${root}/1/mounts`, `${root}/mounts`],
+    statPath: (mountPoint) => `${root}/1/root${mountPoint}`,
+  };
+}
+
+async function measure(
+  entry: MountEntry,
+  statPath: (mountPoint: string) => string,
+): Promise<HostFilesystem | null> {
   const stat = await Result.tryPromise({
-    try: () => statfs(entry.mountPoint),
+    try: () => statfs(statPath(entry.mountPoint)),
     catch: () => null,
   });
   if (stat.isErr()) return null;
@@ -129,9 +166,13 @@ async function measure(entry: MountEntry): Promise<HostFilesystem | null> {
 /** Null (not an empty list) when there is no /proc/mounts to read: "we could
  *  not look" and "we looked and found nothing" are different answers. */
 export async function readFilesystems(): Promise<HostFilesystem[] | null> {
-  const text = await readProcFile(`${procRoot()}/mounts`);
+  const sources = hostMountSources(procRoot());
+  const text = await readFirstProcFile(sources.tables);
   if (text === null) return null;
   const entries = parseProcMounts(text).slice(0, MAX_FILESYSTEMS);
-  const results = await Promise.all(entries.map(measure));
-  return results.filter((fs): fs is HostFilesystem => fs !== null);
+  const results = await Promise.all(entries.map((entry) => measure(entry, sources.statPath)));
+  const measured = results.filter((fs): fs is HostFilesystem => fs !== null);
+  // Mounts listed but none measurable (the host's root is not reachable from
+  // here): "unknown", not "this host has no disks".
+  return entries.length > 0 && measured.length === 0 ? null : measured;
 }

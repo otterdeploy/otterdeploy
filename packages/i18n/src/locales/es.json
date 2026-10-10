@@ -255,6 +255,8 @@
     "secureEnrollment": "Inscripción segura",
     "nodeDescription_one": "{{count}} nodo en este swarm · réplicas colocadas mediante actualizaciones progresivas de Docker Stack",
     "nodeDescription_other": "{{count}} nodos en este swarm · réplicas colocadas mediante actualizaciones progresivas de Docker Stack",
+    "nodeDescriptionDocker_one": "{{count}} servidor · Docker simple: todos los servicios se ejecutan en el plano de control",
+    "nodeDescriptionDocker_other": "{{count}} servidores · Docker simple: todos los servicios se ejecutan en el plano de control",
     "addServerTitle": "Añadir servidor",
     "form": {
       "host": "Host / IP",

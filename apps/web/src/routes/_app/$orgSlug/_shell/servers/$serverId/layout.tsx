@@ -21,6 +21,7 @@ import { pickView, useRouteView } from "@/shared/hooks/use-route-view";
 
 import { ServerStateBadge, ServerStateBanner } from "../-components/server-detail-state";
 import { SERVER_TAB_PATHS, SERVER_TABS, type ServerTab } from "../-components/server-tab-paths";
+import { serverDisplayName } from "@/features/servers/detail/server-facts";
 
 const TAB_LABEL: Record<ServerTab, string> = {
   overview: "Overview",
@@ -111,7 +112,7 @@ function ServerRoute() {
           </Link>
           <span className="shrink-0 text-muted-foreground/50">/</span>
           <h1 className="min-w-0 truncate font-mono text-lg font-semibold tracking-tight">
-            {server.name}
+            {serverDisplayName(server)}
           </h1>
           <ServerStateBadge state={state} />
         </div>
@@ -141,6 +142,7 @@ function ServerRoute() {
           state={state}
           server={server}
           tasks={stats?.tasksRunning ?? null}
+          isSwarm={detail.swarmView?.swarm ?? false}
           orgSlug={orgSlug}
         />
       </div>

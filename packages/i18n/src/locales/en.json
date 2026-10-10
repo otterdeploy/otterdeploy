@@ -235,6 +235,8 @@
     "secureEnrollment": "Secure enrollment",
     "nodeDescription_one": "{{count}} node in this swarm · replicas placed via Docker Stack rolling updates",
     "nodeDescription_other": "{{count}} nodes in this swarm · replicas placed via Docker Stack rolling updates",
+    "nodeDescriptionDocker_one": "{{count}} server · plain Docker: every service runs on the control plane",
+    "nodeDescriptionDocker_other": "{{count}} servers · plain Docker: every service runs on the control plane",
     "addServerTitle": "Add server",
     "form": {
       "host": "Host / IP",
