@@ -27,13 +27,14 @@ import { webhook, webhookDelivery } from "@otterdeploy/db/schema";
  */
 import { hmacSha256Hex } from "@otterdeploy/shared/crypto";
 import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
-import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
-import { and, arrayContains, eq } from "drizzle-orm";
+import { hasPrefix, ID_PREFIX, type OrganizationId } from "@otterdeploy/shared/id";
+import { and, arrayOverlaps, eq } from "drizzle-orm";
 import * as z from "zod";
 
 import { defineJob } from "../define";
 import { controlPlaneEgressDenylist, egressAllowlist } from "../delivery/egress-denylist";
 import { decryptSecret } from "../delivery/secret-crypto";
+import { subscriberEventIds } from "../delivery/subscribed-events";
 
 const SIGNATURE_HEADER = "X-Otterdeploy-Signature";
 const DELIVERY_TIMEOUT_MS = 10_000;
@@ -155,6 +156,24 @@ export function buildWebhookBody(payload: WebhookEventPayload): WebhookBody {
   };
 }
 
+/**
+ * Active webhooks in the org subscribed to the event or to an event it is a
+ * kind of (../delivery/subscribed-events.ts). One row per webhook, so a hook
+ * subscribed to both ids still gets one delivery.
+ */
+function subscribedWebhooks(organizationId: OrganizationId, eventId: string) {
+  return db
+    .select({ id: webhook.id })
+    .from(webhook)
+    .where(
+      and(
+        eq(webhook.organizationId, organizationId),
+        eq(webhook.status, "active"),
+        arrayOverlaps(webhook.events, subscriberEventIds(eventId)),
+      ),
+    );
+}
+
 export const webhookEventJob = defineJob({
   name: "webhook.event",
   schema: WebhookEventPayload,
@@ -171,16 +190,7 @@ export const webhookEventJob = defineJob({
       // webhooks anyway. Same outcome, minus the round trip.
       return { eventId: payload.eventId, enqueued: 0 };
     }
-    const subscribed = await db
-      .select({ id: webhook.id })
-      .from(webhook)
-      .where(
-        and(
-          eq(webhook.organizationId, orgId),
-          eq(webhook.status, "active"),
-          arrayContains(webhook.events, [payload.eventId]),
-        ),
-      );
+    const subscribed = await subscribedWebhooks(orgId, payload.eventId);
 
     log.info({
       webhook: { step: "fanout", eventId: payload.eventId, targets: subscribed.length },

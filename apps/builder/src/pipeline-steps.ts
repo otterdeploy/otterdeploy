@@ -287,7 +287,8 @@ export async function handleFailure(
   });
   // Best-effort: fan a `build.failed` event out to subscribed channels. The
   // only failure notification the builder produces (the row is marked failed
-  // here, not via the API's deploy.failed path). Never blocks the failure flow.
+  // here, not via the API's deploy.failed path); the fan-out also delivers it
+  // to `deploy.failed` subscribers. Never blocks the failure flow.
   await emitBuildFailed(deploymentId, message).catch(() => undefined);
   if (err instanceof PipelineLoadError) {
     globalLog.warn({
