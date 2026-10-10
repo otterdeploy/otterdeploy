@@ -143,6 +143,15 @@ const channelNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Channel not found" as const },
 };
 
+/** An update that names a channel and nothing to change on it:
+ *  it used to reach the database as an empty SET, an untyped 500. */
+const nothingToChange = {
+  NOTHING_TO_CHANGE: {
+    status: 400 as const,
+    message: "Nothing to change: pass at least one field to update." as const,
+  },
+};
+
 const createChannelInput = z.object({
   kind: channelKind,
   name: z.string().min(1).max(120),
@@ -192,7 +201,7 @@ export const notificationsContract = {
       .route({ method: "PATCH", path: `${basePath}/channels`, tags: [tag] })
       .input(updateChannelInput)
       .output(channelSchema)
-      .errors(channelNotFound),
+      .errors({ ...channelNotFound, ...nothingToChange }),
 
     delete: oc
       .meta(projectRefs({ id: "none" }))

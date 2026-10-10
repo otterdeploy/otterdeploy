@@ -116,6 +116,15 @@ const endpointNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Endpoint not found" as const },
 };
 
+/** An update that names a row and nothing to change on it: it
+ *  used to reach the database as an empty SET, an untyped 500. */
+const nothingToChange = {
+  NOTHING_TO_CHANGE: {
+    status: 400 as const,
+    message: "Nothing to change: pass at least one field to update." as const,
+  },
+};
+
 const createWebhookInput = z.object({
   url: z.url().max(2048),
   events: z.array(eventId).min(1),
@@ -173,7 +182,7 @@ export const webhooksContract = {
       .route({ method: "PATCH", path: `${basePath}/outbound`, tags: [tag] })
       .input(updateWebhookInput)
       .output(webhookSchema)
-      .errors(webhookNotFound),
+      .errors({ ...webhookNotFound, ...nothingToChange }),
 
     delete: oc
       .meta(projectRefs({ id: "none" }))
@@ -231,7 +240,7 @@ export const webhooksContract = {
       .route({ method: "PATCH", path: `${basePath}/inbound`, tags: [tag] })
       .input(updateInboundInput)
       .output(inboundEndpointSchema)
-      .errors(endpointNotFound),
+      .errors({ ...endpointNotFound, ...nothingToChange }),
 
     delete: oc
       .meta(projectRefs({ id: "inboundEndpoint" }))

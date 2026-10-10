@@ -6,6 +6,7 @@
  */
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
 import { encryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import * as z from "zod";
 
 import { orgScopedProcedure, requirePermission } from "../..";
@@ -78,17 +79,21 @@ export const notificationsRouter = {
           : input.secret === ""
             ? null
             : await encryptSecret(input.secret);
-      const row = await updateChannel(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        {
-          name: input.name,
-          target: input.target,
-          transport: input.transport,
-          config: input.config,
-          ...(encryptedSecret !== undefined ? { encryptedSecret } : {}),
-        },
-      );
+      const patch = omitUndefined({
+        name: input.name,
+        target: input.target,
+        transport: input.transport,
+        config: input.config,
+        encryptedSecret,
+      });
+      // Only an id: there is nothing to write, and an empty SET is a database
+      // error. Read the row instead, so a wrong id is still NOT_FOUND, then
+      // say there was nothing to change.
+      const empty = Object.keys(patch).length === 0;
+      const scope = { organizationId: context.activeOrganizationId, id: input.id };
+      const row = empty ? await getChannelRow(scope) : await updateChannel(scope, patch);
       if (!row) throw errors.NOT_FOUND();
+      if (empty) throw errors.NOTHING_TO_CHANGE();
       const stats = await statsByChannel(context.activeOrganizationId);
       return toChannelView(row, stats.get(row.id));
     }),
