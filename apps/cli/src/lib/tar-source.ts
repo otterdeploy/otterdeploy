@@ -18,6 +18,19 @@ import { join } from "node:path";
 const ALWAYS_EXCLUDE = [".git", "node_modules"];
 const IGNORE_FILES = [".gitignore", ".dockerignore", ".otterignore"];
 
+/**
+ * macOS's bsdtar writes every file that carries an extended attribute (and
+ * nearly all do: `com.apple.provenance`) twice: the file, and an AppleDouble
+ * `._<name>` copy holding the attributes. On the Linux builder those are real
+ * files in the build context: `._app.csproj` matched Railpack's `*.csproj`, so
+ * a .NET 9 project parsed as garbage XML and built with the default .NET 8
+ * SDK. COPYFILE_DISABLE=1 stops bsdtar writing them; other tars ignore it.
+ */
+export function tarEnv(): NodeJS.ProcessEnv {
+  // oxlint-disable-next-line node/no-process-env -- standalone CLI env boundary
+  return { ...process.env, COPYFILE_DISABLE: "1" };
+}
+
 /** Build a gzipped tarball of `projectDir` and return its temp path. Throws on
  *  a `tar` failure (missing binary, unreadable dir). */
 export function createSourceTarball(projectDir: string, stamp: string): string {
@@ -32,7 +45,7 @@ export function createSourceTarball(projectDir: string, stamp: string): string {
   // Excludes must precede the path list. `-C projectDir .` archives the tree
   // with paths relative to the root (no leading project-dir component).
   const args = ["-czf", out, "-C", projectDir, ...excludeArgs, ...ignoreArgs, "."];
-  const proc = spawnSync("tar", args, { encoding: "utf8" });
+  const proc = spawnSync("tar", args, { encoding: "utf8", env: tarEnv() });
   if (proc.error) {
     throw new Error(`could not run tar (${proc.error.message}): is tar installed?`);
   }
