@@ -1,6 +1,7 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
+import { authorizeCapability } from "../../authz/capability";
 import { listOrganizationRoutePlacements, reportDomainPlacement } from "../../caddy/dns-placement";
 import { chooseServerBucketSeconds, queryServerMetrics } from "../../metrics/server-query";
 import { setServerAvailability } from "./availability";
@@ -26,7 +27,13 @@ import { getServerUnits } from "./units";
 
 export const serverRouter = {
   list: orgScopedProcedure.server.list.handler(async ({ context }) => {
-    return listServers({ organizationId: context.activeOrganizationId });
+    // The control plane's row resolves to the install's public IP, which is
+    // for installation admins only (as in organization.checkBaseDomainDns).
+    const admin = await authorizeCapability(context.actor, { scope: "install", mode: "read" });
+    return listServers(
+      { organizationId: context.activeOrganizationId },
+      { revealInstallAddress: admin.allowed },
+    );
   }),
 
   dnsPlacement: orgScopedProcedure.server.dnsPlacement.handler(async ({ context }) => {
