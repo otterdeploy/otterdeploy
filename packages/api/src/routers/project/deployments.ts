@@ -89,6 +89,21 @@ interface InsertInput {
   };
 }
 
+/**
+ * What a build of this service is, for its deployment history: its first
+ * (`create`), or a later one (`redeploy`). Any deployment already recorded,
+ * whatever became of it, makes this one not the first.
+ */
+export async function gitBuildReason(resourceId: ResourceId): Promise<"create" | "redeploy"> {
+  const [prior] = await db
+    .select({ id: deployment.id })
+    .from(deployment)
+    .where(and(eq(deployment.resourceId, resourceId), isNull(deployment.previewId)))
+    .limit(1)
+    .$withCache(false);
+  return prior ? "redeploy" : "create";
+}
+
 export async function insertDeployment(input: InsertInput): Promise<DeploymentRow> {
   const [row] = await db
     .insert(deployment)

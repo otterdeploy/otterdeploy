@@ -7,6 +7,7 @@
 import { matchError } from "better-result";
 
 import { requirePermission } from "../..";
+import { gitBuildReason } from "../project/deployments";
 import { enqueueGitBuild } from "../project/manifest-apply";
 import { setServiceBuildServer } from "./build-server";
 import { loadResource } from "./context";
@@ -38,6 +39,9 @@ export const serviceRuntimeRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         resourceId: input.resourceId,
+        // Deploy on a service that has run before is a redeploy, and its
+        // history should say so rather than read as the first deploy again.
+        reason: await gitBuildReason(input.resourceId),
         noCache: input.noCache ?? false,
         log: context.log,
       });

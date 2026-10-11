@@ -253,6 +253,9 @@ export async function runGitBuilds(
         projectId: ctx.projectId,
         organizationId: ctx.organizationId,
         resourceId: b.resourceId,
+        // Apply only ever builds a service that has not built yet: one it just
+        // created, or one still on its placeholder image.
+        reason: "create",
         log: ctx.log,
       }),
     })),
