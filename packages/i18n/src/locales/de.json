@@ -1871,17 +1871,107 @@
     "statusCloudflare": "Cloudflare",
     "statusNotPointed": "DNS zeigt nicht hierher",
     "statusChecking": "Prüfe…",
-    "dnsHintGenerated": "Dieser Host löst noch nicht zu diesem Server auf. Richte ihn mit dem A-Record unten hierher (ein Wildcard-Eintrag auf der Basisdomain deckt alle generierten Hosts ab) und prüfe dann erneut.",
-    "dnsHintCustom": "Füge den TXT-Record zum Inhaberschaftsnachweis hinzu und richte den Host auf diesen Server, dann erneut prüfen. Die Route bleibt deaktiviert, bis die Inhaberschaft bestätigt ist.",
     "configureDns": "DNS konfigurieren",
-    "sslipNote": "Temporäre Adresse mit selbstsigniertem Zertifikat – Browser zeigen eine Warnung. Füge eine eigene Domain für eine vertrauenswürdige URL hinzu.",
-    "certSelfSigned": "Selbstsigniert",
-    "certIssuing": "Wird ausgestellt…",
-    "certFailed": "Zertifikat fehlgeschlagen",
-    "certSelfSignedHint": "Es wird ein selbstsigniertes Zertifikat ausgeliefert – Browser lehnen es ab. DNS erneut prüfen, sobald dieser Host auf diesen Server zeigt.",
-    "certSelfSignedProxiedHint": "Cloudflare liefert Besuchern ein gültiges Zertifikat, der Ursprung hier ist jedoch selbstsigniert. SSL-Modus auf Full (nicht Full strict) belassen oder den Eintrag kurz auf grau stellen, damit ein echtes Zertifikat ausgestellt werden kann.",
-    "certFailedHint": "Ausstellung des Zertifikats fehlgeschlagen.",
-    "certOriginSelfSigned": "Ursprung selbstsigniert"
+    "globeLabel": "{{domain}}: {{state}}. Details anzeigen",
+    "checked": "Geprüft {{ago}}",
+    "recordName": "Name",
+    "recordValue": "Wert",
+    "copyRecord": "{{type}}-Wert kopieren",
+    "serverIp": "Server-IP",
+    "resume": "Fortsetzen",
+    "openEdgeLogs": "Edge-Logs öffnen",
+    "openSite": "Website öffnen",
+    "cloudflareLink": "Bei Cloudflare? Automatisch anlegen",
+    "moreActions": "Weitere Aktionen für {{domain}}",
+    "primaryMarker": "primär",
+    "removeTitle": "{{domain}} entfernen?",
+    "removeBody": "Besucher von {{url}} erreichen diesen Dienst nicht mehr. Die Einträge bei deinem DNS-Anbieter bleiben unverändert.",
+    "factLabel": {
+      "ownership": "Inhaberschaft",
+      "dns": "DNS",
+      "certificate": "Zertifikat",
+      "proxy": "Proxy"
+    },
+    "fact": {
+      "verified": "Bestätigt",
+      "txtMissing": "TXT-Eintrag nicht gefunden",
+      "pointsHere": "Zeigt hierher",
+      "proxiedCf": "Über Cloudflare",
+      "notPointed": "Zeigt nicht hierher",
+      "notChecked": "Noch nicht geprüft",
+      "byDesign": "Löst automatisch auf",
+      "trusted": "Vertrauenswürdig",
+      "issuing": "Wird ausgestellt…",
+      "failed": "Fehlgeschlagen",
+      "selfSigned": "Selbstsigniert",
+      "cfEdge": "Cloudflare-Edge, Ursprung selbstsigniert",
+      "waitsForDns": "Wird ausgestellt, sobald DNS hierher zeigt",
+      "notServed": "Nicht ausgeliefert",
+      "serving": "Wird ausgeliefert",
+      "applying": "Änderung wird angewendet…",
+      "notApplied": "Letzte Änderung nicht angewendet",
+      "pausedByYou": "Pausiert",
+      "notRouted": "Nicht geroutet",
+      "notVerified": "Nicht geroutet bis zur Bestätigung"
+    },
+    "state": {
+      "paused": {
+        "title": "Pausiert",
+        "body": "Du hast diesen Host pausiert. Die Einstellungen bleiben erhalten, aber der Proxy liefert ihn nicht aus."
+      },
+      "ownershipPending": {
+        "title": "Warte auf DNS-Einträge",
+        "body": "Lege beide Einträge bei deinem DNS-Anbieter an und prüfe dann erneut. Der Datenverkehr wird erst geroutet, wenn der TXT-Eintrag gefunden wird."
+      },
+      "disabled": {
+        "title": "Nicht geroutet",
+        "body": "Der öffentliche Zugriff für diesen Dienst ist aus, daher liefert der Proxy diesen Host nicht aus."
+      },
+      "edgeFailed": {
+        "title": "Änderung nicht angewendet",
+        "body": "Der Proxy hat das letzte Neuladen abgelehnt, daher läuft dieser Host noch mit der vorherigen Konfiguration. Es wird automatisch erneut versucht."
+      },
+      "certFailed": {
+        "title": "Zertifikat fehlgeschlagen",
+        "body": "Die Zertifizierungsstelle hat kein Zertifikat ausgestellt, daher warnen Browser die Besucher. Behebe die Ursache unten und prüfe dann erneut."
+      },
+      "notPointed": {
+        "title": "Zeigt nicht hierher",
+        "body": "Dieser Host löst nicht auf diesen Server auf, daher kann kein Zertifikat ausgestellt werden. Richte den A-Eintrag hierher und prüfe dann erneut."
+      },
+      "edgeApplying": {
+        "title": "Änderung wird angewendet",
+        "body": "Der Proxy lädt neu, um deine letzte Änderung auszuliefern. Das aktualisiert sich von selbst."
+      },
+      "certIssuing": {
+        "title": "Zertifikat wird ausgestellt",
+        "body": "DNS zeigt hierher und das Zertifikat wird ausgestellt, meist innerhalb einer Minute. Bis dahin können Browser warnen."
+      },
+      "baseDomainPending": {
+        "title": "Warte auf die Basisdomain",
+        "body": "Generierte Hosts laufen unter deiner Basisdomain, die noch nicht bestätigt ist. Schließe das in den Workspace-Einstellungen ab."
+      },
+      "dnsUnchecked": {
+        "title": "DNS noch nicht geprüft",
+        "body": "Das DNS dieses Hosts wurde noch nicht geprüft. Prüfe erneut, um zu sehen, ob er hierher zeigt."
+      },
+      "temporary": {
+        "title": "Temporäre Adresse",
+        "body": "Funktioniert ohne DNS-Einrichtung, kann aber kein vertrauenswürdiges Zertifikat haben, daher zeigen Browser eine Warnung. Füge eine eigene Domain für eine vertrauenswürdige URL hinzu."
+      },
+      "selfSigned": {
+        "title": "Selbstsigniertes Zertifikat",
+        "body": "DNS zeigt hierher, aber der Proxy liefert ein selbstsigniertes Zertifikat aus, das Browser ablehnen. Prüfe erneut, sobald dieser Host auf diesen Server auflöst."
+      },
+      "proxied": {
+        "title": "Live über Cloudflare",
+        "body": "Cloudflare liefert Besuchern ein vertrauenswürdiges Zertifikat. Der Ursprung hier ist selbstsigniert, daher den SSL-Modus von Cloudflare auf Full lassen, nicht Full (strict)."
+      },
+      "live": {
+        "title": "Live",
+        "body": "Liefert HTTPS unter diesem Host mit einem vertrauenswürdigen Zertifikat aus."
+      }
+    }
   },
   "backups": {
     "restoreDialogTitle": "Wiederherstellen · {{source}}",

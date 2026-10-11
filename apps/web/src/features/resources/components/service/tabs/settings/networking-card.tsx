@@ -201,6 +201,7 @@ function DomainList({
           onSettled={onSettled}
           baseDomainStatus={baseDomainStatus}
           ports={ports}
+          multiple={rows.length > 1}
         />
       ))}
     </div>

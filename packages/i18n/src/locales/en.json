@@ -1871,17 +1871,107 @@
     "statusCloudflare": "Cloudflare",
     "statusNotPointed": "DNS not pointed",
     "statusChecking": "Checking…",
-    "dnsHintGenerated": "This host doesn't resolve to this server yet. Point it here with the A record below (a wildcard on the base domain covers every generated host), then Recheck.",
-    "dnsHintCustom": "Add the ownership TXT record and point the host at this server, then Recheck. The route stays disabled until ownership is verified.",
     "configureDns": "Configure DNS",
-    "sslipNote": "Temporary address with a self-signed certificate, so browsers will warn. Add a domain of your own for a trusted URL.",
-    "certSelfSigned": "Self-signed",
-    "certIssuing": "Issuing…",
-    "certFailed": "Cert failed",
-    "certSelfSignedHint": "Serving a self-signed certificate — browsers will reject it. Run Recheck DNS once this host resolves to this server.",
-    "certSelfSignedProxiedHint": "Cloudflare serves a trusted certificate to visitors, but the origin here is self-signed. Keep Cloudflare SSL mode on Full (not Full strict), or grey-cloud the record briefly so a real certificate can issue.",
-    "certFailedHint": "Certificate issuance failed.",
-    "certOriginSelfSigned": "Self-signed origin"
+    "globeLabel": "{{domain}}: {{state}}. Show details",
+    "checked": "Checked {{ago}}",
+    "recordName": "Name",
+    "recordValue": "Value",
+    "copyRecord": "Copy {{type}} value",
+    "serverIp": "server IP",
+    "resume": "Resume",
+    "openEdgeLogs": "Open edge logs",
+    "openSite": "Open site",
+    "cloudflareLink": "On Cloudflare? Add them for me",
+    "moreActions": "More actions for {{domain}}",
+    "primaryMarker": "primary",
+    "removeTitle": "Remove {{domain}}?",
+    "removeBody": "Visitors to {{url}} stop reaching this service. Records at your DNS provider are left as they are.",
+    "factLabel": {
+      "ownership": "Ownership",
+      "dns": "DNS",
+      "certificate": "Certificate",
+      "proxy": "Proxy"
+    },
+    "fact": {
+      "verified": "Verified",
+      "txtMissing": "TXT record not found",
+      "pointsHere": "Points here",
+      "proxiedCf": "Proxied by Cloudflare",
+      "notPointed": "Not pointed here",
+      "notChecked": "Not checked yet",
+      "byDesign": "Resolves by design",
+      "trusted": "Trusted",
+      "issuing": "Issuing…",
+      "failed": "Failed",
+      "selfSigned": "Self-signed",
+      "cfEdge": "Cloudflare edge, origin self-signed",
+      "waitsForDns": "Issues once DNS points here",
+      "notServed": "Not served",
+      "serving": "Serving",
+      "applying": "Applying change…",
+      "notApplied": "Last change not applied",
+      "pausedByYou": "Paused",
+      "notRouted": "Not routed",
+      "notVerified": "Not routed until verified"
+    },
+    "state": {
+      "paused": {
+        "title": "Paused",
+        "body": "You paused this host. Its settings are kept, but the proxy doesn't serve it."
+      },
+      "ownershipPending": {
+        "title": "Waiting for DNS records",
+        "body": "Add both records at your DNS provider, then recheck. Traffic isn't routed here until the TXT record is found."
+      },
+      "disabled": {
+        "title": "Not routed",
+        "body": "Public access for this service is off, so the proxy doesn't serve this host."
+      },
+      "edgeFailed": {
+        "title": "Change not applied",
+        "body": "The proxy refused the last reload, so this host still runs its previous configuration. It retries on its own."
+      },
+      "certFailed": {
+        "title": "Certificate failed",
+        "body": "The certificate authority refused to issue a certificate, so browsers warn visitors. Fix the cause below, then recheck to try again."
+      },
+      "notPointed": {
+        "title": "Not pointed here",
+        "body": "This host doesn't resolve to this server, so no certificate can be issued. Point the A record here, then recheck."
+      },
+      "edgeApplying": {
+        "title": "Applying change",
+        "body": "The proxy is reloading to serve your last change. This updates on its own."
+      },
+      "certIssuing": {
+        "title": "Issuing certificate",
+        "body": "DNS points here and the certificate is being issued, usually within a minute. Until it lands, browsers may warn."
+      },
+      "baseDomainPending": {
+        "title": "Waiting for the base domain",
+        "body": "Generated hosts are served under your base domain, which isn't verified yet. Finish it in Workspace settings."
+      },
+      "dnsUnchecked": {
+        "title": "DNS not checked yet",
+        "body": "This host's DNS hasn't been checked. Recheck to see whether it points here."
+      },
+      "temporary": {
+        "title": "Temporary address",
+        "body": "Works with no DNS setup, but it can't hold a trusted certificate, so browsers show a warning. Add a domain you own for a trusted URL."
+      },
+      "selfSigned": {
+        "title": "Self-signed certificate",
+        "body": "DNS points here, but the proxy serves a self-signed certificate, so browsers reject it. Recheck once this host resolves to this server."
+      },
+      "proxied": {
+        "title": "Live via Cloudflare",
+        "body": "Cloudflare serves visitors a trusted certificate. The origin here is self-signed, so keep Cloudflare's SSL mode on Full, not Full (strict)."
+      },
+      "live": {
+        "title": "Live",
+        "body": "Serving HTTPS at this host with a trusted certificate."
+      }
+    }
   },
   "backups": {
     "restoreDialogTitle": "Restore · {{source}}",

@@ -1,17 +1,17 @@
 /**
- * The read-only pieces of the service Public Networking card. The domain
- * view types, the connection-status chip, and the DNS-records hint. The
- * interactive row controls live in ./domain-row-parts. All stateless.
- * Handlers and busy flags come in as props.
+ * The read-only pieces of the service Public Networking card: the domain view
+ * types and the connection-status chip that the stack's "Exposed services"
+ * card reads. The service row's own state lives in ./domain-status (which
+ * state wins) and ./domain-status-card (the globe and its card).
  */
 
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 type CertState = "unknown" | "obtaining" | "valid" | "failed";
+type EdgeState = "synced" | "pending" | "failed";
 
 /** Verification state of the org's base domain. Generated hostnames are
  *  `<slug>.<baseDomain>`, so a not-yet-verified custom base domain
@@ -38,6 +38,10 @@ export interface DomainView {
    *  (packages/api/src/edge-logs/cert-promote.ts). */
   certState: CertState;
   certError: string | null;
+  /** Whether the edge runs this host's latest change: "pending" until the
+   *  proxy reload lands, "failed" (with `edgeError`) when it was refused. */
+  edgeState: EdgeState;
+  edgeError: string | null;
   protected: boolean;
   ownershipVerified: boolean;
   verifyRecord: string | null;
@@ -52,84 +56,6 @@ export type DomainStatusView = Pick<
   DomainView,
   "domain" | "source" | "status" | "dnsState" | "dnsCheckedAt" | "usesAcme" | "ownershipVerified"
 >;
-
-/** Just the fields the TLS chip reads. */
-type DomainCertView = Pick<
-  DomainView,
-  "domain" | "status" | "dnsState" | "usesAcme" | "certState" | "certError"
->;
-
-/** A name no public CA will ever issue for, so "self-signed" is its correct
- *  and permanent state rather than a problem to report. Mirrors
- *  `canHoldPublicCert` in packages/api/src/routers/service/domain-rules.ts. */
-function canHoldPublicCert(domain: string): boolean {
-  return !domain.endsWith(".localhost") && !domain.endsWith(".sslip.io");
-}
-
-/**
- * Whether TLS is actually trusted, which {@link StatusBadge} does NOT say.
- *
- * That chip answers "does DNS reach this host", and the two facts come apart:
- * a domain proxied through Cloudflare reads `Cloudflare` there while its
- * ORIGIN still serves a self-signed certificate. A route showed `Live` while
- * browsers rejected it with ERR_CERT_AUTHORITY_INVALID, and nothing on the
- * page said otherwise — the operator found out by visiting the site.
- *
- * Keyed off `usesAcme`, NOT off `certState` alone. A route on `tls internal`
- * makes Caddy emit no ACME events at all, so its `certState` stays `unknown`
- * forever — indistinguishable from "issued, just not logged yet". `usesAcme`
- * is the decision the reconciler actually wrote into the Caddyfile, so it is
- * the only field that can tell those apart.
- *
- * Silent on the healthy path: a badge on every working row is noise, and
- * StatusBadge already says Live. This speaks only when something is wrong or
- * in flight.
- */
-export function CertBadge({ domain }: { domain: DomainCertView }) {
-  const { t } = useTranslation();
-
-  // Nothing is being served, so TLS is not the operator's current problem.
-  if (domain.status !== "live") return null;
-  if (!canHoldPublicCert(domain.domain)) return null;
-
-  if (!domain.usesAcme) {
-    // A proxied host is NOT the same failure as a pointed one, and painting
-    // both amber said it was. Behind Cloudflare, visitors get a valid edge
-    // certificate — the self-signed origin only bites on SSL mode Full
-    // (strict). Pointed and self-signed means every visitor gets a browser
-    // warning right now. One is a caution to read, the other is an outage, so
-    // the proxied case states the fact quietly and lets the Cloudflare chip
-    // beside it carry the context.
-    const proxied = domain.dnsState === "proxied";
-    return (
-      <Badge
-        variant={proxied ? "outline" : "secondary"}
-        className={
-          proxied
-            ? "text-muted-foreground"
-            : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-500"
-        }
-        title={proxied ? t("domains.certSelfSignedProxiedHint") : t("domains.certSelfSignedHint")}
-      >
-        {proxied ? t("domains.certOriginSelfSigned") : t("domains.certSelfSigned")}
-      </Badge>
-    );
-  }
-
-  if (domain.certState === "failed") {
-    return (
-      <Badge variant="destructive" title={domain.certError ?? t("domains.certFailedHint")}>
-        {t("domains.certFailed")}
-      </Badge>
-    );
-  }
-
-  if (domain.certState === "obtaining") {
-    return <Badge variant="outline">{t("domains.certIssuing")}</Badge>;
-  }
-
-  return null;
-}
 
 /** Connection chip. Generated hosts whose DNS has actually been measured
  *  (minted under a real apex, or Recheck was run) surface that observation:
@@ -191,70 +117,4 @@ export function StatusBadge({
     default:
       return <Badge variant="secondary">{t("domains.statusChecking")}</Badge>;
   }
-}
-
-/**
- * Ownership TXT proof plus the A record that routes traffic here.
- *
- * Keeps the inline records (they are what someone reads at a glance) and adds
- * the "Configure DNS records" entry point, which is where Cloudflare detection
- * and one-click setup live (shared/components/domains/dns-records-dialog.tsx).
- * The same dialog serves the control-plane and workspace domains, so the flow
- * reads identically wherever a domain is added.
- */
-export function DnsHint({
-  domain,
-  onConfigure,
-}: {
-  domain: DomainView;
-  /** Opens the shared DNS dialog. Omitted where the surface can't offer it. */
-  onConfigure?: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[11.5px]">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <p className="text-muted-foreground">
-          {domain.source === "generated"
-            ? t("domains.dnsHintGenerated")
-            : t("domains.dnsHintCustom")}
-        </p>
-        {onConfigure ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 shrink-0 px-2 text-[11px]"
-            onClick={onConfigure}
-          >
-            {t("domains.configureDns")}
-          </Button>
-        ) : null}
-      </div>
-      <div className="flex flex-col gap-2 font-mono">
-        {domain.verifyRecord && domain.verifyToken ? (
-          <DnsRecord type="TXT" name={domain.verifyRecord} value={domain.verifyToken} />
-        ) : null}
-        {domain.dnsTarget ? (
-          <DnsRecord type="A" name={domain.domain} value={domain.dnsTarget} />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** A single DNS record line. Type + name share a row that wraps, and the
- *  value sits below so long record names and tokens both flow full-width
- *  instead of collapsing into a thin, character-wrapped column. */
-function DnsRecord({ type, name, value }: { type: string; name: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex min-w-0 items-baseline gap-2 text-muted-foreground">
-        <span className="shrink-0 rounded bg-muted px-1 py-px text-[10px] font-medium tracking-wide uppercase">
-          {type}
-        </span>
-        <span className="min-w-0 break-all">{name}</span>
-      </div>
-      <span className="pl-1 break-all text-foreground">{value}</span>
-    </div>
-  );
 }

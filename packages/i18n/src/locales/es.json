@@ -1871,17 +1871,107 @@
     "statusCloudflare": "Cloudflare",
     "statusNotPointed": "El DNS no apunta aquí",
     "statusChecking": "Comprobando…",
-    "dnsHintGenerated": "Este host aún no resuelve a este servidor. Apúntalo aquí con el registro A de abajo (un comodín en el dominio base cubre todos los hosts generados) y vuelve a comprobar.",
-    "dnsHintCustom": "Añade el registro TXT de verificación de propiedad y apunta el host a este servidor; luego vuelve a comprobar. La ruta permanece desactivada hasta verificar la propiedad.",
     "configureDns": "Configurar DNS",
-    "sslipNote": "Dirección temporal con certificado autofirmado; los navegadores mostrarán una advertencia. Añade tu propio dominio para una URL de confianza.",
-    "certSelfSigned": "Autofirmado",
-    "certIssuing": "Emitiendo…",
-    "certFailed": "Error de certificado",
-    "certSelfSignedHint": "Se sirve un certificado autofirmado: los navegadores lo rechazarán. Vuelve a comprobar el DNS cuando este host resuelva a este servidor.",
-    "certSelfSignedProxiedHint": "Cloudflare sirve un certificado válido a los visitantes, pero el origen aquí es autofirmado. Mantén el modo SSL en Full (no Full strict), o desactiva el proxy brevemente para poder emitir un certificado real.",
-    "certFailedHint": "Fallo al emitir el certificado.",
-    "certOriginSelfSigned": "Origen autofirmado"
+    "globeLabel": "{{domain}}: {{state}}. Ver detalles",
+    "checked": "Comprobado {{ago}}",
+    "recordName": "Nombre",
+    "recordValue": "Valor",
+    "copyRecord": "Copiar valor {{type}}",
+    "serverIp": "IP del servidor",
+    "resume": "Reanudar",
+    "openEdgeLogs": "Abrir registros del edge",
+    "openSite": "Abrir sitio",
+    "cloudflareLink": "¿Usas Cloudflare? Créalos por mí",
+    "moreActions": "Más acciones para {{domain}}",
+    "primaryMarker": "principal",
+    "removeTitle": "¿Quitar {{domain}}?",
+    "removeBody": "Los visitantes de {{url}} dejan de llegar a este servicio. Los registros en tu proveedor de DNS no se modifican.",
+    "factLabel": {
+      "ownership": "Propiedad",
+      "dns": "DNS",
+      "certificate": "Certificado",
+      "proxy": "Proxy"
+    },
+    "fact": {
+      "verified": "Verificada",
+      "txtMissing": "Registro TXT no encontrado",
+      "pointsHere": "Apunta aquí",
+      "proxiedCf": "A través de Cloudflare",
+      "notPointed": "No apunta aquí",
+      "notChecked": "Aún sin comprobar",
+      "byDesign": "Resuelve por diseño",
+      "trusted": "De confianza",
+      "issuing": "Emitiendo…",
+      "failed": "Falló",
+      "selfSigned": "Autofirmado",
+      "cfEdge": "Edge de Cloudflare, origen autofirmado",
+      "waitsForDns": "Se emite cuando el DNS apunte aquí",
+      "notServed": "No se sirve",
+      "serving": "Sirviendo",
+      "applying": "Aplicando cambio…",
+      "notApplied": "Último cambio no aplicado",
+      "pausedByYou": "En pausa",
+      "notRouted": "Sin enrutar",
+      "notVerified": "Sin enrutar hasta verificar"
+    },
+    "state": {
+      "paused": {
+        "title": "En pausa",
+        "body": "Pausaste este host. Su configuración se conserva, pero el proxy no lo sirve."
+      },
+      "ownershipPending": {
+        "title": "Esperando registros DNS",
+        "body": "Añade ambos registros en tu proveedor de DNS y vuelve a comprobar. El tráfico no se enruta aquí hasta que se encuentre el registro TXT."
+      },
+      "disabled": {
+        "title": "Sin enrutar",
+        "body": "El acceso público de este servicio está desactivado, así que el proxy no sirve este host."
+      },
+      "edgeFailed": {
+        "title": "Cambio no aplicado",
+        "body": "El proxy rechazó la última recarga, así que este host sigue con su configuración anterior. Se reintenta solo."
+      },
+      "certFailed": {
+        "title": "Falló el certificado",
+        "body": "La autoridad de certificación se negó a emitir un certificado, así que los navegadores avisan a los visitantes. Corrige la causa de abajo y vuelve a comprobar."
+      },
+      "notPointed": {
+        "title": "No apunta aquí",
+        "body": "Este host no resuelve a este servidor, así que no se puede emitir un certificado. Apunta el registro A aquí y vuelve a comprobar."
+      },
+      "edgeApplying": {
+        "title": "Aplicando cambio",
+        "body": "El proxy se está recargando para servir tu último cambio. Se actualiza solo."
+      },
+      "certIssuing": {
+        "title": "Emitiendo certificado",
+        "body": "El DNS apunta aquí y el certificado se está emitiendo, normalmente en menos de un minuto. Hasta entonces, los navegadores pueden avisar."
+      },
+      "baseDomainPending": {
+        "title": "Esperando el dominio base",
+        "body": "Los hosts generados se sirven bajo tu dominio base, que aún no está verificado. Complétalo en la configuración del espacio de trabajo."
+      },
+      "dnsUnchecked": {
+        "title": "DNS aún sin comprobar",
+        "body": "El DNS de este host no se ha comprobado. Vuelve a comprobar para ver si apunta aquí."
+      },
+      "temporary": {
+        "title": "Dirección temporal",
+        "body": "Funciona sin configurar DNS, pero no puede tener un certificado de confianza, así que los navegadores muestran un aviso. Añade un dominio propio para una URL de confianza."
+      },
+      "selfSigned": {
+        "title": "Certificado autofirmado",
+        "body": "El DNS apunta aquí, pero el proxy sirve un certificado autofirmado y los navegadores lo rechazan. Vuelve a comprobar cuando este host resuelva a este servidor."
+      },
+      "proxied": {
+        "title": "En vivo vía Cloudflare",
+        "body": "Cloudflare sirve a los visitantes un certificado de confianza. El origen aquí es autofirmado, así que mantén el modo SSL de Cloudflare en Full, no Full (strict)."
+      },
+      "live": {
+        "title": "En vivo",
+        "body": "Sirviendo HTTPS en este host con un certificado de confianza."
+      }
+    }
   },
   "backups": {
     "restoreDialogTitle": "Restaurar · {{source}}",
