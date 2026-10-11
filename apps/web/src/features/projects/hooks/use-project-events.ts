@@ -99,6 +99,9 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
         case "deployments":
           scheduleResync("deployments", () => {
             void deploymentsCollection.utils.refetch();
+            // The project Deployments page's collections key under this
+            // procedure (features/deployments/data/project-deployments.ts).
+            void qc.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
           });
           break;
         case "deployment-tasks":

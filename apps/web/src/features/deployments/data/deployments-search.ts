@@ -5,6 +5,7 @@
  * the Logs page).
  */
 
+import { Temporal } from "@otterdeploy/shared/temporal";
 import * as z from "zod";
 
 export const DEPLOY_WINDOWS = [
@@ -22,11 +23,25 @@ const WINDOW_MS: Record<Exclude<DeployWindow, "all">, number> = {
   "30d": 30 * 24 * 60 * 60 * 1000,
 };
 
-/** ISO lower bound for a window, or undefined for "all". */
-export function windowSince(window: DeployWindow): string | undefined {
+/** ISO lower bound for a window, or undefined for "all". Read at fetch time,
+ *  so a page left open keeps a window that ends now. */
+export function windowSince(
+  window: DeployWindow,
+  now = Temporal.Now.instant(),
+): string | undefined {
   if (window === "all") return undefined;
-  return new Date(Date.now() - WINDOW_MS[window]).toISOString();
+  return now.subtract({ milliseconds: WINDOW_MS[window] }).toString();
 }
+
+/** The status control: one list, four views of it. */
+export const STATUS_VIEWS = [
+  { id: "all", label: "All" },
+  { id: "live", label: "Live now" },
+  { id: "progress", label: "In progress" },
+  { id: "failed", label: "Failed" },
+] as const;
+
+export type StatusView = (typeof STATUS_VIEWS)[number]["id"];
 
 /**
  * UI status vocabulary → API effective-status filter. "Replaced" is the
@@ -113,10 +128,15 @@ export interface ProjectDeployment {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
+  gitCommitAuthorAvatar: string | null;
   /** Content hash of an uploaded source tarball (source:"upload"): the upload
    *  analog of gitSha. Null for git / image deploys. */
   sourceSha: string | null;
+  /** Who asked for it by hand; null for a push or an API key. */
+  triggeredBy: { name: string; image: string | null } | null;
   isLatest: boolean;
+  /** The deployment its resource is serving right now. */
+  isServing: boolean;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -130,20 +150,32 @@ export interface ProjectDeploymentStats {
   windowTotal: number;
   failed: number;
   inFlight: number;
+  serving: number;
   medianDurationMs: number | null;
+}
+
+/** What one resource is serving, whether or not it started inside the window. */
+export interface ServingDeployment {
+  resourceId: string;
+  deploymentId: string;
+  gitSha: string | null;
+  sourceSha: string | null;
+  image: string;
+  completedAt: string | null;
+  createdAt: string;
 }
 
 /**
  * Can this row be rolled back to? Mirrors `isRollbackable` in
  * `features/resources/components/_shared/history-row-menu.tsx`: a settled
  * successful deploy with a real built image. Plus the project-list extras:
- * only services roll back (the mutation is `service.rollback`) and never the
- * resource's newest deployment (there is nothing newer to roll back *from*).
+ * only services roll back (the mutation is `service.rollback`), and never to
+ * the deploy the resource is already serving.
  */
 export function isRollbackEligible(d: ProjectDeployment): boolean {
   return (
     d.resourceKind === "service" &&
-    !d.isLatest &&
+    !d.isServing &&
     (d.status === "running" || d.status === "superseded") &&
     !!d.image &&
     !d.image.startsWith("pending:")
