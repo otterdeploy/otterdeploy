@@ -105,7 +105,11 @@ export const resourceDefaults: ResourceFormState = {
   src: "github",
   repo: "",
   repoFullName: "",
-  branch: "main",
+  // Empty until a repo is bound: the BranchPicker seeds it from that repo's
+  // real default branch (git.listBranches). A literal "main" here was never
+  // replaced, so a master-default repo was inspected and built at a branch it
+  // does not have.
+  branch: "",
   root: "",
   autoDeploy: true,
   previewBranches: true,

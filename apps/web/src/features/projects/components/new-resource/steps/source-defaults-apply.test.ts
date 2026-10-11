@@ -178,3 +178,12 @@ describe("createSourceDefaults: detection reads the branch the form builds", () 
     expect(form.getFieldValue("ports")[0]?.port).toBe(3000);
   });
 });
+
+describe("a fresh wizard's branch", () => {
+  it("starts empty, so the BranchPicker seeds it from the bound repo's real default", () => {
+    // A literal "main" was never replaced: a repo whose default is master was
+    // bound, shown, inspected and built at a branch it does not have.
+    expect(resourceDefaults.branch).toBe("");
+    expect(makeForm({}).getFieldValue("branch")).toBe("");
+  });
+});

@@ -20,7 +20,7 @@ export interface ResourceWizardProps {
    *  Passed once at form construction so StepSource's bound/unbound
    *  state derives from form state (reactive) instead of a query. */
   initialGitRepoId?: string | null;
-  /** Seed for the `branch` form field; defaults to "main". */
+  /** Seed for the `branch` form field; empty seeds from the repo's default. */
   initialBranch?: string | null;
   initialKind?: string | null;
   initialStep?: Step;
