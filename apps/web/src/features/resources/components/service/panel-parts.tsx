@@ -35,6 +35,8 @@ export function ServicePanelHeader({
   restarting,
   onBuild,
   building,
+  onRedeploy,
+  redeploying,
   pause,
   replicaLine,
 }: {
@@ -51,6 +53,8 @@ export function ServicePanelHeader({
   restarting: boolean;
   onBuild: (noCache?: boolean) => void;
   building: boolean;
+  onRedeploy: () => void;
+  redeploying: boolean;
   /** Null/undefined until the live service view is loaded (or pending mode). */
   pause?: PauseControl | null;
   /** Replica + public-domain summary, folded up out of the old status bar. */
@@ -90,6 +94,8 @@ export function ServicePanelHeader({
             restarting={restarting}
             onBuild={onBuild}
             building={building}
+            onRedeploy={onRedeploy}
+            redeploying={redeploying}
             pause={pause}
           />
         )
