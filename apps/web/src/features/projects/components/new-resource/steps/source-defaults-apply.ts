@@ -39,6 +39,9 @@ export interface RepoInspection extends RepoDetection {
 export interface SourceDefaultsDeps {
   inspect: (gitRepoId: string, path: string, branch: string) => Promise<RepoInspection>;
   inspectEnv: (gitRepoId: string, path: string, branch: string) => Promise<{ keys: string[] }>;
+  /** The first free name from `base` (`it-tools` → `it-tools-2` when the
+   *  project has one). Identity when omitted. */
+  freeName?: (base: string) => Promise<string>;
 }
 
 export interface SourceDefaults {
@@ -86,6 +89,7 @@ export function createSourceDefaults(
   const inspect = (gitRepoId: string, path: string) => deps.inspect(gitRepoId, path, branch());
   const inspectEnv = (gitRepoId: string, path: string) =>
     deps.inspectEnv(gitRepoId, path, branch());
+  const freeName = deps.freeName ?? (async (base: string) => base);
 
   /**
    * Pick the builder: the root directory's Dockerfile when there is one,
@@ -199,7 +203,9 @@ export function createSourceDefaults(
     // paths; the probe covers a binding seeded from the project.
     if (!edited(form, "name")) {
       const derived = deriveServiceName(form.getFieldValue("repoFullName") || layout.fullName);
-      if (derived) form.setFieldValue("name", derived, AUTO_WRITE);
+      // The first free one: a project that already has `it-tools` gets
+      // `it-tools-2`, not a name the provisioner refuses after five steps.
+      if (derived) form.setFieldValue("name", await freeName(derived), AUTO_WRITE);
     }
 
     // Monorepo: the deployable app almost never sits at the repo root, so

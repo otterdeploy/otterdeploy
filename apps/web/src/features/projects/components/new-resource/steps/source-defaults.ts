@@ -7,6 +7,7 @@ import { orpc } from "@/shared/server/orpc";
 import type { useFormContext } from "../form-context";
 
 import { inspectInput } from "../inspect-input";
+import { useResourceNamesContext } from "../resource-names";
 import { createSourceDefaults, type SourceDefaults } from "./source-defaults-apply";
 
 export type { SourceDefaults } from "./source-defaults-apply";
@@ -20,6 +21,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
   // A mutable box that survives re-renders. Written only from event handlers
   // (the type toggle, "Change repo"), never read during render.
   const [kindPinned] = useState(() => ({ current: false }));
+  const names = useResourceNamesContext();
 
   return createSourceDefaults(
     form,
@@ -39,6 +41,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
           ...orpc.git.inspectEnv.queryOptions({ input: inspectInput(gitRepoId, path, branch) }),
           staleTime: INSPECT_STALE_MS,
         }),
+      freeName: names.freeLoaded,
     },
     kindPinned,
   );

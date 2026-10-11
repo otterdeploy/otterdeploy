@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { RepoInspection } from "./source-defaults-apply";
 
+import { firstFreeName } from "../resource-names";
 import { resourceDefaults, type ResourceFormState } from "../schemas";
 import { createSourceDefaults } from "./source-defaults-apply";
 
@@ -185,5 +186,50 @@ describe("a fresh wizard's branch", () => {
     // bound, shown, inspected and built at a branch it does not have.
     expect(resourceDefaults.branch).toBe("");
     expect(makeForm({}).getFieldValue("branch")).toBe("");
+  });
+});
+
+describe("createSourceDefaults: a repo whose name the project already uses", () => {
+  // Storefront already had `it-tools`; the wizard defaulted the new service to
+  // it, previewed the existing service's public host, and the provisioner only
+  // refused after Add.
+  const taken = new Set(["it-tools", "it-tools-2"]);
+
+  it("defaults the service name to the first free one", async () => {
+    const form = makeForm({ kindId: "app" });
+    const defaults = createSourceDefaults(
+      form,
+      {
+        inspect: async () => IT_TOOLS,
+        inspectEnv: async () => ({ keys: [] }),
+        freeName: async (base) => firstFreeName(base, taken),
+      },
+      { current: false },
+    );
+
+    await defaults.onRepoBound("gitr_ittools");
+
+    expect(form.getFieldValue("name")).toBe("it-tools-3");
+    // Still the wizard's default, not an answer the operator gave.
+    expect(form.getFieldMeta("name")?.isDirty).not.toBe(true);
+  });
+
+  it("never renames a name the operator typed", async () => {
+    const form = makeForm({ kindId: "app" });
+    form.setFieldValue("name", "it-tools");
+    const defaults = createSourceDefaults(
+      form,
+      {
+        inspect: async () => IT_TOOLS,
+        inspectEnv: async () => ({ keys: [] }),
+        freeName: async (base) => firstFreeName(base, taken),
+      },
+      { current: false },
+    );
+
+    await defaults.onRepoBound("gitr_ittools");
+
+    // Theirs to fix: the field's inline check says it is taken.
+    expect(form.getFieldValue("name")).toBe("it-tools");
   });
 });

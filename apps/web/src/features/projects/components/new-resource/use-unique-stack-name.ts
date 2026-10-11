@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { orpc } from "@/shared/server/orpc";
 
 import { toResourceName } from "./compose-wizard-shared";
+import { firstFreeName } from "./resource-names";
 
 export interface UniqueStackName {
   /** The normalized name the operator asked for (input or derived default). */
@@ -25,15 +26,6 @@ export interface UniqueStackName {
   name: string;
   /** True when `base` was already taken and `name` was bumped. */
   collides: boolean;
-}
-
-/** First `base`, `base-2`, `base-3`, … not already in `taken`. */
-function firstFree(base: string, taken: ReadonlySet<string>): string {
-  if (!taken.has(base)) return base;
-  for (let n = 2; ; n++) {
-    const candidate = `${base}-${n}`.slice(0, 63);
-    if (!taken.has(candidate)) return candidate;
-  }
 }
 
 export function useUniqueStackName(
@@ -53,6 +45,6 @@ export function useUniqueStackName(
   }
 
   const base = toResourceName(rawName.trim() || derivedName);
-  const name = firstFree(base, taken);
+  const name = firstFreeName(base, taken);
   return { base, name, collides: name !== base };
 }
