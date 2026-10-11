@@ -37,6 +37,7 @@ async function loadRoot(): Promise<SubCommandsDef> {
     ["backups", () => import("../commands/backups").then((m) => m.backupsCommand)],
     ["build", () => import("../commands/build").then((m) => m.buildCommand)],
     ["completions", () => import("../commands/completions").then((m) => m.completionsCommand)],
+    ["context", () => import("../commands/context").then((m) => m.contextCommand)],
     ["db", () => import("../commands/db").then((m) => m.dbCommand)],
     ["deploy", () => import("../commands/deploy").then((m) => m.deployCommand)],
     ["deployments", () => import("../commands/deployments").then((m) => m.deploymentsCommand)],
