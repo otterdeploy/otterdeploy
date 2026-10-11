@@ -271,6 +271,12 @@ export const postgresContractSlice = {
         status: 409 as const,
         message: "Moving this database leaves its data behind." as const,
       },
+      // The runtime cannot start the engine on that server (plain Docker runs
+      // every workload on the control plane). The message names the server.
+      PLACEMENT_UNSUPPORTED: {
+        status: 422 as const,
+        message: "This install runs services on the control plane only" as const,
+      },
     })
     .meta({
       path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/placement`,
