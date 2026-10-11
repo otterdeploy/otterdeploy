@@ -22,19 +22,13 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Spinner } from "@/shared/components/ui/spinner";
+import { formatDuration } from "@/shared/lib/duration";
 import { cn } from "@/shared/lib/utils";
 
 import type { Phase, PhaseState, TimelineInput, Tone } from "./deployment-timeline-model";
 
 import { buildTimeline } from "./deployment-timeline-model";
-
-/** Total duration as a mm:ss clock ("00:10"), matching the mockup. */
-function formatClock(ms: number): string {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
+import { ErrorLogLine } from "./error-log-line";
 
 const TONE_TEXT: Record<Tone, string> = {
   success: "text-success",
@@ -80,8 +74,11 @@ export function DeploymentTimelineView({
           <span className={cn("text-[13px] font-medium", TONE_TEXT[tone])}>{title}</span>
         </div>
         {totalMs != null && (
-          <span className="font-mono text-[11.5px] text-muted-foreground tabular-nums">
-            ({formatClock(totalMs)})
+          <span className="shrink-0 text-[11.5px] text-muted-foreground">
+            took{" "}
+            <span className="font-mono text-foreground/80 tabular-nums">
+              {formatDuration(totalMs)}
+            </span>
           </span>
         )}
       </div>
@@ -110,9 +107,7 @@ function PhaseRow({ phase, onOpenLogs }: { phase: Phase; onOpenLogs?: OpenLogs }
         <span className={cn("text-[13px]", PHASE_TEXT[phase.state])}>{phase.label}</span>
         {phase.detail && (
           <div className="mt-1 flex flex-col gap-1">
-            <div className="font-mono text-[11.5px] break-all whitespace-pre-wrap text-destructive/90">
-              {phase.detail}
-            </div>
+            <ErrorLogLine text={phase.detail} wrap />
             {onOpenLogs && (
               <button
                 type="button"

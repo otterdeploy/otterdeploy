@@ -43,16 +43,18 @@ const projectDeploymentListItemSchema = deploymentSchema
     /** Is this the resource's newest base deployment? Drives rollback
      *  eligibility client-side (only non-latest settled deploys roll back). */
     isLatest: z.boolean(),
+    /** Is this the deployment its resource is serving right now? Not the same
+     *  as `isLatest`: while a newer deploy rolls out, the previous one is
+     *  still the one serving. */
+    isServing: z.boolean(),
   });
 
 /**
- * Effective-status filter. Matches the status the list *shows*, not the raw
- * stored row: `building` also matches stored `pending` (both render as
- * in-flight), and `superseded` additionally matches any non-latest row whose
- * stored status never settled past running/building/pending (the list shows
- * those as replaced: see `effectiveListedStatus`). The derived-only
- * `crashed`/`starting` states aren't filterable; they refine `running`/
- * `building` rows at render time.
+ * Status filter. Matches the status the list *shows*, not the raw stored row
+ * (see `listedStatus`): `building` is everything still in progress (queued,
+ * building, starting), `failed` everything that broke (failed or crashed),
+ * `serving` the deployment each resource is serving right now; the rest match
+ * that status exactly.
  */
 const statusFilterField = z.enum([
   "building",
@@ -61,6 +63,7 @@ const statusFilterField = z.enum([
   "cancelled",
   "superseded",
   "removed",
+  "serving",
 ]);
 
 const listDeploymentsByProjectInput = z.object({
@@ -76,6 +79,12 @@ const listDeploymentsByProjectInput = z.object({
   /** Case-insensitive substring over sha, commit message, author, resource
    *  name, and image ref. */
   q: z.string().max(200).optional(),
+  /** Only deployments credited to these people (by display name: the person
+   *  who triggered it, or for a push the commit's author). */
+  people: z.array(z.string().min(1).max(200)).max(25).optional(),
+  /** Also (or only, with no `people`) deployments with nobody behind them: an
+   *  API key, an automation. */
+  automatic: z.boolean().optional(),
   /** Only deployments created at/after this instant. Omitted → all time. */
   since: z.iso.datetime().optional(),
   limit: z.number().int().min(1).max(500).default(50),
@@ -93,6 +102,8 @@ const projectDeploymentStatsSchema = z.object({
   windowTotal: z.number().int().nonnegative(),
   failed: z.number().int().nonnegative(),
   inFlight: z.number().int().nonnegative(),
+  /** Rows in scope that are the deployment their resource is serving. */
+  serving: z.number().int().nonnegative(),
   /** Median wall time of completed deploys; null when none completed. */
   medianDurationMs: z.number().int().nonnegative().nullable(),
 });
@@ -103,6 +114,31 @@ const listDeploymentsByProjectOutput = z.object({
    *  pagination range. */
   total: z.number().int().nonnegative(),
   stats: projectDeploymentStatsSchema,
+  /** What each resource in scope (resource and environment filters only) is
+   *  serving, whether or not that deployment started inside the window. */
+  serving: z.array(
+    z.object({
+      resourceId: resourceIdField,
+      deploymentId: deploymentIdField,
+      gitSha: z.string().nullable(),
+      sourceSha: z.string().nullable(),
+      image: z.string(),
+      completedAt: z.string().nullable(),
+      createdAt: z.string(),
+    }),
+  ),
+  /** Who the deploys in scope are credited to, before the person filter: the
+   *  options a person filter can offer. */
+  facets: z.object({
+    people: z.array(
+      z.object({
+        name: z.string(),
+        image: z.string().nullable(),
+        count: z.number().int().nonnegative(),
+      }),
+    ),
+    automatic: z.number().int().nonnegative(),
+  }),
 });
 
 /**

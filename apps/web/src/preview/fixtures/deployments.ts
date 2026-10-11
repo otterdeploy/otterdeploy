@@ -271,6 +271,8 @@ export function deploymentFixtures(count = 220, days = 7, seed = 41): Deployment
       status: settled === "succeeded" ? "superseded" : settled,
       errorMessage: failed ? ERRORS[Math.floor(random() * ERRORS.length)] : null,
       isLatest: false,
+      isServing: false,
+      triggeredBy: null,
       outcome: outcomeOf(settled === "succeeded" ? "superseded" : settled),
       durationMs,
       completedAt: new Date(createdAt + durationMs).toISOString(),

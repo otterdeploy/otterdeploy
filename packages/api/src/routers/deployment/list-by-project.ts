@@ -5,23 +5,24 @@
  * Status model (shares the vocabulary of `listResourceDeployments` but a
  * cheaper derivation, since this list spans many resources and polls):
  *
- *   1. Non-latest rows whose stored status never settled past
- *      running/building/pending read as `superseded`. A newer deploy
- *      replaced them. Terminal stored statuses (failed/removed/superseded)
- *      are kept as-is: a failed build stays visibly *failed* in the
- *      project-wide history (this feed exists to spot them), unlike the
- *      per-resource tab which collapses all non-latest rows to "replaced".
- *   2. The latest row per resource, when stored in-flight-or-live
- *      (pending/building/running), is refined against the live docker task
- *      states via the same `deriveDeploymentStatus` the per-resource list
- *      uses, so crash loops show `crashed` and fresh deploys show
- *      `starting`, and the lazy building→running reconcile still fires.
- *      Docker being unreachable degrades to the stored status, never a 500.
+ *   1. Each resource's newest row, when stored in-flight-or-live, is refined
+ *      against the live docker task states via the same
+ *      `deriveDeploymentStatus` the per-resource list uses, so crash loops
+ *      show `crashed`, fresh deploys show `starting`, and the lazy
+ *      building→running reconcile still fires.
+ *   2. The deployment each resource is SERVING is resolved from that (see
+ *      `resolveServing`): the newest row once it has come up, otherwise the
+ *      newest stored-running row. It is marked `isServing` and keeps its
+ *      `running` status even with a newer deploy in flight above it.
+ *   3. Older rows that never settled read as `superseded`; terminal outcomes
+ *      (failed/cancelled/removed) are kept as-is.
+ *
+ * Rows, the status filter and the summary counts all read that one listed
+ * status (`listedStatus`), so the summary can never contradict a row.
  *
  * Filtering/pagination happen in-process over the project's (narrow,
  * snapshot-free) deployment rows: per-resource "latest" needs a full pass
- * anyway, project deployment counts are modest, and it keeps exactly one
- * status-semantics implementation (`matchesStatusFilter`) shared with tests.
+ * anyway, and project deployment counts are modest.
  */
 import type {
   DeploymentId,
@@ -33,35 +34,36 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { user } from "@otterdeploy/db/schema/auth";
-import { deployment, environment, resource, serviceResource } from "@otterdeploy/db/schema/project";
+import { deployment, environment } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
-import { and, desc, eq, gte, isNull, type SQL } from "drizzle-orm";
+import { eq, gte } from "drizzle-orm";
 
 import type { DeploymentActor, DeploymentRow } from "../project/deployments";
 import type { DerivedDeploymentStatus } from "../project/deployments-list";
 
-import {
-  deriveDeploymentStatus,
-  isBuildStillLogging,
-  loadTaskStatesByDeployment,
-  resolveDeploymentServiceName,
-} from "../project/deployments-list";
-import { isOwnedInFlight, reconcileObservedSuccess } from "../project/deployments-reconcile";
 import { ProjectNotFoundError } from "../project/errors";
 import { getProjectInOrg } from "../project/queries";
-import { getResourceById, inEnvironmentScope } from "../project/queries/resource";
+import {
+  actorInput,
+  type JoinedRow,
+  refineLatestStatuses,
+  type ResourceKind,
+  scopeConditions,
+  selectJoinedRows,
+} from "./list-by-project-rows";
 import {
   computeStats,
-  effectiveListedStatus,
-  IN_FLIGHT_OR_LIVE,
+  listedStatus,
+  matchesPeople,
   matchesQuery,
   matchesStatusFilter,
+  peopleFacets,
+  type PeopleFacets,
+  type PeopleFilter,
   type ProjectDeploymentStats,
   type ProjectDeploymentsStatusFilter,
+  resolveServing,
 } from "./list-filters";
-
-export type ResourceKind = "database" | "service" | "compose";
 
 export interface ProjectDeploymentItem {
   id: DeploymentId;
@@ -85,9 +87,22 @@ export interface ProjectDeploymentItem {
   sourceSha: string | null;
   triggeredBy: DeploymentActor | null;
   isLatest: boolean;
+  isServing: boolean;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** What one resource is serving, whether or not that deploy is in the window. */
+export interface ServingDeployment {
+  resourceId: ResourceId;
+  deploymentId: DeploymentId;
+  gitSha: string | null;
+  sourceSha: string | null;
+  image: string;
+  /** When it finished rolling out; null for old rows that never recorded it. */
+  completedAt: string | null;
+  createdAt: string;
 }
 
 interface ListInput {
@@ -97,82 +112,17 @@ interface ListInput {
   status?: ProjectDeploymentsStatusFilter;
   environment?: { environmentId: EnvironmentId; isMain: boolean };
   q?: string;
+  people?: PeopleFilter;
   since?: Date;
   limit: number;
   offset: number;
 }
 
-interface JoinedRow {
-  id: DeploymentId;
-  resourceId: ResourceId;
-  /** Always null here: this listing filters to base rows. Carried anyway so
-   *  the row satisfies the shared deployment schema. */
-  previewId: PreviewId | null;
-  resourceName: string;
-  resourceKind: ResourceKind;
-  /** Joined environment name; null = NULL-stamped row (main environment). */
-  environmentName: string | null;
-  image: string;
-  reason: DeploymentRow["reason"];
-  status: DeploymentRow["status"];
-  errorMessage: string | null;
-  gitSha: string | null;
-  gitRef: string | null;
-  gitCommitMessage: string | null;
-  gitCommitAuthor: string | null;
-  gitCommitAuthorAvatar: string | null;
-  sourceSha: string | null;
-  actorName: string | null;
-  actorImage: string | null;
-  completedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/**
- * Refine the page's latest in-flight/live rows against live task states.
- * One docker instance-list per distinct resource (never per row). Returns a
- * map of deploymentId → derived status for the rows it could refine; anything
- * missing keeps its effective stored status. Also fires the lazy
- * building→running success reconcile, same as the per-resource list.
- */
-async function refineLatestStatuses(
-  projectId: ProjectId,
-  page: (JoinedRow & { isLatest: boolean })[],
-): Promise<Map<DeploymentId, DerivedDeploymentStatus>> {
-  const refined = new Map<DeploymentId, DerivedDeploymentStatus>();
-  const candidates = page.filter((r) => r.isLatest && IN_FLIGHT_OR_LIVE.has(r.status));
-  for (const row of candidates) {
-    try {
-      // Kind-specific lookup; compose stacks (no single swarm service to
-      // derive from) resolve a null service name and keep their stored status.
-      const found = await getResourceById(projectId, row.resourceId);
-      if (!found) continue;
-      const serviceName = await resolveDeploymentServiceName(found, projectId);
-      if (!serviceName) continue;
-      const tasks = await loadTaskStatesByDeployment(serviceName);
-      const buildActive = await isBuildStillLogging(row, tasks);
-      const paused = found.kind === "service" && found.record.service.pausedReplicas != null;
-      const derived = deriveDeploymentStatus(
-        row.status,
-        true,
-        tasks.get(row.id) ?? [],
-        row.createdAt,
-        buildActive,
-        paused,
-        await isOwnedInFlight(row),
-      );
-      if (derived === "running" && (row.status === "building" || row.status === "pending")) {
-        await reconcileObservedSuccess([row.id], row.resourceId);
-      }
-      refined.set(row.id, derived);
-    } catch {
-      // Docker unreachable / transient failure: show the stored status
-      // rather than failing the whole page.
-    }
-  }
-  return refined;
-}
+type ListedRow = JoinedRow & {
+  isLatest: boolean;
+  isServing: boolean;
+  listed: DerivedDeploymentStatus;
+};
 
 /** Display name for NULL-stamped rows: the project's own main environment.
  *  A project without a resolvable main environment (shouldn't happen, but
@@ -187,11 +137,114 @@ async function mainEnvironmentName(mainEnvId: EnvironmentId | null): Promise<str
   return row?.name ?? "main";
 }
 
-export async function listProjectDeployments(
-  input: ListInput,
-): Promise<
+/** The rows in the window with their listed status and serving flag, plus
+ *  what every resource in scope is serving (in the window or not). */
+async function loadListedRows(input: ListInput): Promise<{
+  rows: ListedRow[];
+  serving: ServingDeployment[];
+}> {
+  const scope = scopeConditions(input);
+  const rows = await selectJoinedRows(
+    input.since ? [...scope, gte(deployment.createdAt, input.since)] : scope,
+  );
+  // What a resource serves can predate the window, so it is read across all
+  // time: the newest stored-running row per resource.
+  const runningRows = await selectJoinedRows([...scope, eq(deployment.status, "running")]);
+  const newestRunning = new Map<ResourceId, JoinedRow>();
+  for (const row of runningRows) {
+    if (row.status === "running" && !newestRunning.has(row.resourceId)) {
+      newestRunning.set(row.resourceId, row);
+    }
+  }
+
+  // First row per resource in the desc ordering is that resource's newest.
+  // (A `since` window can only hide a resource entirely, never its newest row
+  // while showing older ones: max(createdAt) is in any window that has rows.)
+  const latest = new Map<ResourceId, JoinedRow>();
+  for (const row of rows) if (!latest.has(row.resourceId)) latest.set(row.resourceId, row);
+
+  const derived = await refineLatestStatuses(input.projectId, [...latest.values()]);
+  const servingIds = resolveServing(
+    [...latest.values()].map((r) => ({
+      id: r.id,
+      resourceId: r.resourceId,
+      stored: r.status,
+      derived: derived.get(r.id),
+    })),
+    new Map([...newestRunning].map(([resourceId, r]) => [resourceId, r.id])),
+  );
+  const servingSet = new Set(servingIds.values());
+
+  const listed = rows.map((row) => {
+    const isLatest = latest.get(row.resourceId)?.id === row.id;
+    const isServing = servingSet.has(row.id);
+    return {
+      ...row,
+      isLatest,
+      isServing,
+      listed: listedStatus({ status: row.status, isLatest, isServing }, derived.get(row.id)),
+    };
+  });
+
+  const byId = new Map<DeploymentId, JoinedRow>([
+    ...[...newestRunning.values()].map((r) => [r.id, r] as const),
+    ...rows.map((r) => [r.id, r] as const),
+  ]);
+  const serving = [...servingIds].flatMap(([resourceId, id]) => {
+    const row = byId.get(id);
+    if (!row) return [];
+    return [
+      {
+        resourceId,
+        deploymentId: id,
+        gitSha: row.gitSha,
+        sourceSha: row.sourceSha,
+        image: row.image,
+        completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+        createdAt: row.createdAt.toISOString(),
+      },
+    ];
+  });
+  return { rows: listed, serving };
+}
+
+function toItem(row: ListedRow, projectId: ProjectId, mainEnvName: string): ProjectDeploymentItem {
+  return {
+    id: row.id,
+    projectId,
+    resourceId: row.resourceId,
+    previewId: row.previewId,
+    resourceName: row.resourceName,
+    resourceKind: row.resourceKind,
+    environmentName: row.environmentName ?? mainEnvName,
+    image: row.image,
+    reason: row.reason,
+    status: row.listed,
+    errorMessage: row.errorMessage,
+    gitSha: row.gitSha,
+    gitRef: row.gitRef,
+    gitCommitMessage: row.gitCommitMessage,
+    gitCommitAuthor: row.gitCommitAuthor,
+    gitCommitAuthorAvatar: row.gitCommitAuthorAvatar,
+    sourceSha: row.sourceSha,
+    triggeredBy: actorInput(row).triggeredBy,
+    isLatest: row.isLatest,
+    isServing: row.isServing,
+    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function listProjectDeployments(input: ListInput): Promise<
   Result<
-    { items: ProjectDeploymentItem[]; total: number; stats: ProjectDeploymentStats },
+    {
+      items: ProjectDeploymentItem[];
+      total: number;
+      stats: ProjectDeploymentStats;
+      serving: ServingDeployment[];
+      facets: PeopleFacets;
+    },
     ProjectNotFoundError
   >
 > {
@@ -203,127 +256,32 @@ export async function listProjectDeployments(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  // Base rows only: preview deployments (and preview-scoped branched
-  // resources) live on the preview panel, not the project feed. `snapshot`
-  // (the full config jsonb) is deliberately not selected.
-  const conditions: SQL[] = [
-    eq(resource.projectId, input.projectId),
-    isNull(deployment.previewId),
-    isNull(resource.previewId),
-  ];
-  if (input.resourceId) conditions.push(eq(deployment.resourceId, input.resourceId));
-  else {
-    // Project-wide feed: hide compose stack CHILDREN. One stack deploy writes
-    // a stack-level row (the rollout as a unit) plus a per-service row per
-    // child, showing both duplicates every stack deploy in the ledger. The
-    // child rows stay reachable through their own resource (explicit
-    // `resourceId` filter / the child service's Deployments tab).
-    conditions.push(isNull(serviceResource.stackId));
-  }
-  if (input.environment) {
-    // Same NULL-means-main scoping every resource read uses; this is what
-    // makes the environment filter agree with the rest of the app.
-    const scope = inEnvironmentScope(input.environment);
-    if (scope) conditions.push(scope);
-  }
-  if (input.since) conditions.push(gte(deployment.createdAt, input.since));
+  const { rows, serving } = await loadListedRows(input);
 
-  const rows: JoinedRow[] = await db
-    .select({
-      id: deployment.id,
-      resourceId: deployment.resourceId,
-      previewId: deployment.previewId,
-      resourceName: resource.name,
-      resourceKind: resource.type,
-      environmentName: environment.name,
-      image: deployment.image,
-      reason: deployment.reason,
-      status: deployment.status,
-      errorMessage: deployment.errorMessage,
-      gitSha: deployment.gitSha,
-      gitRef: deployment.gitRef,
-      gitCommitMessage: deployment.gitCommitMessage,
-      gitCommitAuthor: deployment.gitCommitAuthor,
-      gitCommitAuthorAvatar: deployment.gitCommitAuthorAvatar,
-      sourceSha: deployment.sourceSha,
-      actorName: user.name,
-      actorImage: user.image,
-      completedAt: deployment.completedAt,
-      createdAt: deployment.createdAt,
-      updatedAt: deployment.updatedAt,
-    })
-    .from(deployment)
-    .innerJoin(resource, eq(resource.id, deployment.resourceId))
-    // Left join: only service resources have a service_resource row; databases
-    // and compose stacks null out, which the stack-child filter above treats
-    // as "not a child" (kept).
-    .leftJoin(serviceResource, eq(serviceResource.resourceId, deployment.resourceId))
-    // Left join: NULL-stamped resources (main environment) have no
-    // environment row; their name resolves via mainEnvironmentName below.
-    .leftJoin(environment, eq(environment.id, resource.environmentId))
-    // Left join: most deployments have no person behind them (a push, a key).
-    .leftJoin(user, eq(user.id, deployment.triggeredByUserId))
-    .where(and(...conditions))
-    .orderBy(desc(deployment.createdAt), desc(deployment.id));
-
-  // First row per resource in the desc ordering is that resource's newest.
-  // (A `since` window can only hide a resource entirely, never its newest row
-  // while showing older ones: max(createdAt) is in any window that has rows.)
-  const latestByResource = new Map<ResourceId, DeploymentId>();
-  for (const row of rows) {
-    if (!latestByResource.has(row.resourceId)) latestByResource.set(row.resourceId, row.id);
-  }
-
-  const withLatest = rows.map((row) => ({
-    ...row,
-    isLatest: latestByResource.get(row.resourceId) === row.id,
-  }));
-
-  // Search narrows both the table and the stats; the status select narrows
-  // only the table (see computeStats).
+  // Search and the person filter narrow both the list and the summary; the
+  // status filter narrows only the list (see computeStats). The person
+  // options are read before the person filter, so picking one never hides
+  // the others.
   const q = input.q;
-  const searched = q ? withLatest.filter((row) => matchesQuery(row, q)) : withLatest;
+  const searched = q ? rows.filter((row) => matchesQuery(row, q)) : rows;
+  const facets = peopleFacets(searched.map(actorInput));
+  const people = input.people;
+  const scoped = people
+    ? searched.filter((row) => matchesPeople(actorInput(row), people))
+    : searched;
 
-  const stats = computeStats(searched);
+  const stats = computeStats(scoped.map((row) => ({ ...row, status: row.listed })));
 
   const statusFilter = input.status;
   const filtered = statusFilter
-    ? searched.filter((row) => matchesStatusFilter(statusFilter, row.status, row.isLatest))
-    : searched;
+    ? scoped.filter((row) =>
+        matchesStatusFilter(statusFilter, { status: row.listed, isServing: row.isServing }),
+      )
+    : scoped;
 
-  const total = filtered.length;
   const page = filtered.slice(input.offset, input.offset + input.limit);
+  const mainEnvName = await mainEnvironmentName(project.environmentId);
+  const items = page.map((row) => toItem(row, input.projectId, mainEnvName));
 
-  const [refined, mainEnvName] = await Promise.all([
-    refineLatestStatuses(input.projectId, page),
-    mainEnvironmentName(project.environmentId),
-  ]);
-
-  const items: ProjectDeploymentItem[] = page.map((row) => ({
-    id: row.id,
-    projectId: input.projectId,
-    resourceId: row.resourceId,
-    previewId: row.previewId,
-    resourceName: row.resourceName,
-    resourceKind: row.resourceKind,
-    environmentName: row.environmentName ?? mainEnvName,
-    image: row.image,
-    reason: row.reason,
-    status: refined.get(row.id) ?? effectiveListedStatus(row.status, row.isLatest),
-    errorMessage: row.errorMessage,
-    gitSha: row.gitSha,
-    gitRef: row.gitRef,
-    gitCommitMessage: row.gitCommitMessage,
-    gitCommitAuthor: row.gitCommitAuthor,
-    gitCommitAuthorAvatar: row.gitCommitAuthorAvatar,
-    sourceSha: row.sourceSha,
-    triggeredBy:
-      row.actorName === null ? null : { name: row.actorName, image: row.actorImage ?? null },
-    isLatest: row.isLatest,
-    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }));
-
-  return Result.ok({ items, total, stats });
+  return Result.ok({ items, total: filtered.length, stats, serving, facets });
 }

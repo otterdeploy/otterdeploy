@@ -6,16 +6,21 @@
 
 import { useEffect, useState } from "react";
 
-/** Format a millisecond span compactly: `45s` / `1m 28s` / `1h 3m`. */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Format a millisecond span: `9s` / `1m 04s` / `1h 03m`. The ONE duration
+ * format: took, elapsed, the median and the pipeline all read it, so a column
+ * of durations lines up and compares at a glance. The smaller unit is always
+ * shown and zero-padded (`1m 00s`, never `1m`). Not `mm:ss`: beside a clock
+ * column, `02:14` reads as a time of day.
+ */
 export function formatDuration(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));
   if (total < 60) return `${total}s`;
   const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  if (minutes < 60) return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins ? `${hours}h ${mins}m` : `${hours}h`;
+  if (minutes < 60) return `${minutes}m ${pad2(total % 60)}s`;
+  return `${Math.floor(minutes / 60)}h ${pad2(minutes % 60)}m`;
 }
 
 /**

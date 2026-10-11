@@ -1,14 +1,18 @@
 /**
- * The ⋯ menu on a project-deployments row: the non-destructive actions that
- * don't earn an inline icon. Open detail / view logs / copy sha. Cancel and
- * roll back stay inline in the row (deployment-row.tsx) because they're the
- * actions an operator reaches for under pressure.
+ * The ⋯ menu on a project-deployments row, and the actions it shares with the
+ * expanded row's buttons: redeploy (or retry a failed one), roll back to this,
+ * view logs, copy the SHA. Each is offered only when it would do something:
+ * a Roll back on the deploy already serving would report success for nothing.
  */
 
-import { MoreHorizontalCircle01Icon } from "@hugeicons/core-free-icons";
+import {
+  Copy01Icon,
+  File01Icon,
+  MoreHorizontalCircle01Icon,
+  RefreshIcon,
+  RotateLeft01Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -17,56 +21,55 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
-import { copyToClipboard } from "@/shared/lib/clipboard";
 
-import type { ProjectDeployment } from "../data/deployments-search";
+import { isRollbackEligible, type ProjectDeployment } from "../data/deployments-search";
+import { canRedeploy, copyLabel } from "../model/deployment-actions";
 
-/** The row's copyable provenance, in preference order: commit sha, source
- *  tarball hash, image ref. Every deploy has at least the image. */
-function provenanceRef(d: ProjectDeployment): string {
-  return d.gitSha ?? d.sourceSha ?? d.image;
+export interface RowActions {
+  onRedeploy: (d: ProjectDeployment) => void;
+  onRollback: (d: ProjectDeployment) => void;
+  onViewLogs: (d: ProjectDeployment) => void;
+  onCopy: (d: ProjectDeployment) => void;
 }
 
-export function DeploymentRowMenu({
-  d,
-  onOpen,
-  onViewLogs,
-}: {
-  d: ProjectDeployment;
-  onOpen: (d: ProjectDeployment) => void;
-  onViewLogs: (d: ProjectDeployment) => void;
-}) {
-  const { t } = useTranslation();
-
-  const copyRef = () => {
-    const ref = provenanceRef(d);
-    void copyToClipboard(ref).then((ok) =>
-      ok ? toast.success(`Copied ${ref.slice(0, 24)}`) : toast.error("Couldn't copy"),
-    );
-  };
-
+export function DeploymentRowMenu({ d, actions }: { d: ProjectDeployment; actions: RowActions }) {
+  const redeploy = canRedeploy(d);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
             type="button"
-            variant="outline"
-            size="icon"
-            className="size-7 opacity-70 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-            title={t("deployments.moreActions")}
-            aria-label={t("deployments.moreActions")}
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            aria-label="Deployment actions"
           >
-            <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} className="size-3.5" />
+            <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} className="size-4" />
           </Button>
         }
       />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onOpen(d)}>{t("deployments.openDetail")}</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onViewLogs(d)}>
-          {t("deployments.viewLogs")}
+      <DropdownMenuContent align="end" className="w-48">
+        {redeploy ? (
+          <DropdownMenuItem onClick={() => actions.onRedeploy(d)}>
+            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
+            {redeploy}
+          </DropdownMenuItem>
+        ) : null}
+        {isRollbackEligible(d) ? (
+          <DropdownMenuItem onClick={() => actions.onRollback(d)}>
+            <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} />
+            Roll back to this
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={() => actions.onViewLogs(d)}>
+          <HugeiconsIcon icon={File01Icon} strokeWidth={2} />
+          View logs
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={copyRef}>{t("deployments.copySha")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => actions.onCopy(d)}>
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
+          {copyLabel(d)}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

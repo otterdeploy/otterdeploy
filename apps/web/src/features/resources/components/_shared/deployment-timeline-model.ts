@@ -55,7 +55,11 @@ export type Tone = "success" | "failed" | "active" | "neutral" | "degraded";
 export type TimelineInput = Pick<
   DeploymentRow,
   "status" | "errorMessage" | "taskCount" | "runningTaskCount" | "completedAt" | "createdAt"
->;
+> & {
+  /** Where a failed deploy stopped, when the caller knows it from something
+   *  other than the task rollup (a list that carries no task counts). */
+  failedPhase?: "build" | "deploy";
+};
 
 /** What the phase stepper needs to render one deployment. */
 export interface Timeline {
@@ -83,8 +87,13 @@ const p = (key: string, label: string, state: PhaseState, detail?: string): Phas
  * Tasks scheduled ⇒ the image built and containers were placed, so the failure
  * is on the deploy side. No tasks ⇒ it never got past the build.
  */
-function failedTimeline(taskCount: number, err: string | null, totalMs: number | null): Timeline {
-  if (taskCount > 0) {
+function failedTimeline(
+  taskCount: number,
+  err: string | null,
+  totalMs: number | null,
+  failedPhase: "build" | "deploy" | undefined,
+): Timeline {
+  if (failedPhase ? failedPhase === "deploy" : taskCount > 0) {
     return {
       title: "Deployment failed during rollout",
       tone: "failed",
@@ -225,7 +234,7 @@ export function buildTimeline(d: TimelineInput): Timeline {
         ],
       };
     case "failed":
-      return failedTimeline(d.taskCount, err, totalMs);
+      return failedTimeline(d.taskCount, err, totalMs, d.failedPhase);
     case "crashed":
       // Built + deployed fine, but the container keeps exiting and restarting
       // (e.g. a bad env var): the run phase is the one that's failing.

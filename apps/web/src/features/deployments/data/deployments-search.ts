@@ -1,92 +1,74 @@
 /**
- * URL-backed filter state for the project-wide Deployments page, plus the
- * client-side row type for `deployment.listByProject`. Filters live in search
- * params so a filtered view is shareable and survives reload (same idiom as
- * the Logs page).
+ * URL-backed state for the project Deployments page, plus the client-side
+ * types for `deployment.listByProject`. Every filter lives in search params, so
+ * a filtered view is shareable and survives reload (same idiom as the Logs
+ * page); a pristine visit keeps a bare URL.
  */
 
+import { Temporal } from "@otterdeploy/shared/temporal";
 import * as z from "zod";
 
 export const DEPLOY_WINDOWS = [
-  { id: "24h", label: "Last 24 hours" },
-  { id: "7d", label: "Last 7 days" },
-  { id: "30d", label: "Last 30 days" },
-  { id: "all", label: "All time" },
+  { id: "24h", label: "Last 24 hours", hours: 24 },
+  { id: "7d", label: "Last 7 days", hours: 7 * 24 },
+  { id: "30d", label: "Last 30 days", hours: 30 * 24 },
+  { id: "all", label: "All time", hours: null },
 ] as const;
 
 export type DeployWindow = (typeof DEPLOY_WINDOWS)[number]["id"];
 
-const WINDOW_MS: Record<Exclude<DeployWindow, "all">, number> = {
-  "24h": 24 * 60 * 60 * 1000,
-  "7d": 7 * 24 * 60 * 60 * 1000,
-  "30d": 30 * 24 * 60 * 60 * 1000,
-};
-
-/** ISO lower bound for a window, or undefined for "all". */
-export function windowSince(window: DeployWindow): string | undefined {
-  if (window === "all") return undefined;
-  return new Date(Date.now() - WINDOW_MS[window]).toISOString();
+export function windowLabel(window: DeployWindow): string {
+  return DEPLOY_WINDOWS.find((w) => w.id === window)?.label ?? "All time";
 }
 
-/**
- * UI status vocabulary → API effective-status filter. "Replaced" is the
- * user-facing word for `superseded` (matches the badge label); "Building"
- * covers stored `pending` too, the API expands it.
- */
-export const DEPLOY_STATUS_FILTERS = [
-  { id: "running", label: "Running", api: "running" },
-  { id: "failed", label: "Failed", api: "failed" },
-  { id: "building", label: "Building", api: "building" },
-  { id: "replaced", label: "Replaced", api: "superseded" },
-  { id: "removed", label: "Removed", api: "removed" },
+/** ISO lower bound for a window, or undefined for "all". Read at fetch time,
+ *  so a page left open keeps a window that ends now. */
+export function windowSince(
+  window: DeployWindow,
+  now = Temporal.Now.instant(),
+): string | undefined {
+  const hours = DEPLOY_WINDOWS.find((w) => w.id === window)?.hours ?? null;
+  if (hours === null) return undefined;
+  return now.subtract({ hours }).toString();
+}
+
+/** The status control: one list, four views of it. */
+export const STATUS_VIEWS = [
+  { id: "all", label: "All" },
+  { id: "live", label: "Live now" },
+  { id: "progress", label: "In progress" },
+  { id: "failed", label: "Failed" },
 ] as const;
 
-export type DeployStatusFilter = (typeof DEPLOY_STATUS_FILTERS)[number]["id"];
+export type StatusView = (typeof STATUS_VIEWS)[number]["id"];
 
-export function statusFilterToApi(
-  id: DeployStatusFilter,
-): (typeof DEPLOY_STATUS_FILTERS)[number]["api"] {
-  const found = DEPLOY_STATUS_FILTERS.find((s) => s.id === id);
-  return found?.api ?? "running";
-}
-
-/** Rows-per-page choices, same set the data studio's footer offers. */
-export const DEPLOY_PAGE_SIZES = [50, 100, 200, 500] as const;
-export type DeployPageSize = (typeof DEPLOY_PAGE_SIZES)[number];
-export const DEFAULT_PAGE_SIZE: DeployPageSize = 50;
-
-/** The URL holds ALL of this page's state: filters, search, and pagination.
- *  Every field renders a clean default when undefined, so a pristine visit
- *  keeps a bare URL while any touched control becomes shareable. */
 export const zDeploymentsSearch = z.object({
-  /** Resource id of a single resource, or undefined for all. */
-  service: z.string().optional(),
-  status: z.enum(["running", "failed", "building", "replaced", "removed"]).optional(),
-  /** Time window; undefined renders as the 7d default (keeps the URL clean). */
+  /** Status view; undefined renders as "all". */
+  status: z.enum(["live", "progress", "failed"]).optional(),
+  /** One resource's deployments; undefined = every resource. */
+  resource: z.string().optional(),
+  /** People a deploy is credited to (see `deployActor`). */
+  people: z.array(z.string()).optional(),
+  /** Deploys nobody triggered by hand (an API key, an automation). */
+  automatic: z.boolean().optional(),
+  /** Time window; undefined renders as the 7d default. */
   window: z.enum(["24h", "7d", "30d", "all"]).optional(),
   /** Free-text search over sha / commit message / author / resource / image. */
   q: z.string().optional(),
-  /** Environment id; undefined = all environments. */
-  environment: z.string().optional(),
-  /** 1-based page; undefined renders as page 1. */
-  page: z.number().int().min(1).optional(),
-  /** Rows per page; undefined renders as the 50 default. */
-  size: z.union([z.literal(50), z.literal(100), z.literal(200), z.literal(500)]).optional(),
 });
 
 export type DeploymentsSearch = z.infer<typeof zDeploymentsSearch>;
 
-/** One row of `deployment.listByProject`: mirrors the contract's
- *  `projectDeploymentListItemSchema` (same status/reason vocabulary as the
- *  per-resource deployments list). */
+/** One row of `deployment.listByProject`. Mirrors the contract's list item;
+ *  plain strings rather than branded ids so fixtures and previews can build
+ *  one. */
 export interface ProjectDeployment {
   id: string;
   projectId: string;
   resourceId: string;
   resourceName: string;
   resourceKind: "database" | "service" | "compose";
-  /** Display name of the environment the resource lives in (main resolved
-   *  server-side for NULL-stamped rows). */
+  /** Display name of the environment the resource lives in. */
   environmentName: string;
   image: string;
   reason:
@@ -113,37 +95,50 @@ export interface ProjectDeployment {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
-  /** Content hash of an uploaded source tarball (source:"upload"): the upload
-   *  analog of gitSha. Null for git / image deploys. */
+  gitCommitAuthorAvatar: string | null;
+  /** Content hash of an uploaded source tarball: the upload analog of gitSha. */
   sourceSha: string | null;
+  /** Who asked for it by hand; null for a push or an API key. */
+  triggeredBy: { name: string; image: string | null } | null;
   isLatest: boolean;
+  /** The deployment its resource is serving right now. */
+  isServing: boolean;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-/** Headline figures for the stats strip. Mirrors the contract's
- *  `projectDeploymentStatsSchema`: computed over every filter EXCEPT status
- *  (the strip keeps describing the window while the status select narrows
- *  the table). */
+/** Summary figures. Computed over every filter EXCEPT status. */
 export interface ProjectDeploymentStats {
   windowTotal: number;
   failed: number;
   inFlight: number;
+  serving: number;
   medianDurationMs: number | null;
+}
+
+/** What one resource is serving, whether or not it started inside the window. */
+export interface ServingDeployment {
+  resourceId: string;
+  deploymentId: string;
+  gitSha: string | null;
+  sourceSha: string | null;
+  image: string;
+  completedAt: string | null;
+  createdAt: string;
 }
 
 /**
  * Can this row be rolled back to? Mirrors `isRollbackable` in
- * `features/resources/components/_shared/history-row-menu.tsx`: a settled
- * successful deploy with a real built image. Plus the project-list extras:
- * only services roll back (the mutation is `service.rollback`) and never the
- * resource's newest deployment (there is nothing newer to roll back *from*).
+ * `features/resources/components/_shared/rollback-dialog.tsx`: a settled
+ * successful deploy with a real built image. Plus: only services roll back
+ * (the mutation is `service.rollback`), and never to the deploy the resource
+ * is already serving.
  */
 export function isRollbackEligible(d: ProjectDeployment): boolean {
   return (
     d.resourceKind === "service" &&
-    !d.isLatest &&
+    !d.isServing &&
     (d.status === "running" || d.status === "superseded") &&
     !!d.image &&
     !d.image.startsWith("pending:")
