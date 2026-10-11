@@ -131,7 +131,9 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   // Read from the manifest AS RESOLVED FOR the target environment: an
   // `environments.staging.services.web` override can switch a service to or
   // from `source: "upload"`, and the base block would name the wrong set.
-  const uploadNames = Object.entries(resolveEnvironment(manifest, opts.env).services)
+  const resolvedForEnv = resolveEnvironment(manifest, opts.env);
+  if (resolvedForEnv.isErr()) abort(resolvedForEnv.error.message);
+  const uploadNames = Object.entries(resolvedForEnv.value.services)
     .filter(([, svc]) => svc.source === "upload")
     .map(([name]) => name);
 

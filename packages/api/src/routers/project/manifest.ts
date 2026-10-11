@@ -16,7 +16,12 @@ import { and, eq, sql } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 import * as z from "zod";
 
-import { manifestSchema, resolveEnvironment, type Manifest } from "../../stack/manifest";
+import {
+  manifestSchema,
+  resolveEnvironment,
+  type Manifest,
+  type ManifestMergeError,
+} from "../../stack/manifest";
 import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
 import { manifestAfterDiscard, type SkippedResource } from "./manifest-applied-snapshot";
 import { publishManifestChanged } from "./project-event-bus";
@@ -363,9 +368,9 @@ export function removeDatabaseFromManifest(scope: ProjectScope, name: string): P
 export async function resolvedManifest(
   scope: ProjectScope,
   environment?: string,
-): Promise<Result<Manifest | null, ProjectNotFoundError>> {
+): Promise<Result<Manifest | null, ProjectNotFoundError | ManifestMergeError>> {
   const row = await loadManifest(scope);
   if (row.isErr()) return Result.err(row.error);
   if (!row.value.manifest) return Result.ok(null);
-  return Result.ok(resolveEnvironment(row.value.manifest, environment));
+  return resolveEnvironment(row.value.manifest, environment);
 }

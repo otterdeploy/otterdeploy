@@ -68,6 +68,16 @@ const unknownEnvironment = {
   BAD_REQUEST: { status: 400, message: "Unknown environment" as const },
 } as const;
 
+/** An environment block that does not merge into a valid manifest. The
+ *  document is wrong, so 400. The handler replaces the message with one naming
+ *  the environment, the resource and the field. */
+const invalidOverride = {
+  INVALID_MANIFEST: {
+    status: 400,
+    message: "Environment overrides do not merge into a valid manifest" as const,
+  },
+} as const;
+
 const manifestDiffInput = z.object({
   projectId: getProjectInput.shape.id,
   // Resolve overrides for this environment before diffing. Omit to diff
@@ -276,12 +286,12 @@ export const manifestContractSlice = {
     .output(manifestSaveOutput),
   diff: oc
     .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...invalidOverride })
     .meta({ path: `${basePath}/{projectId}/manifest/diff`, tag, method: "POST" })
     .input(manifestDiffInput)
     .output(manifestDiffOutput),
   apply: oc
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...noManifest })
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...noManifest, ...invalidOverride })
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
@@ -292,6 +302,7 @@ export const manifestContractSlice = {
       ...conflict,
       ...unknownEnvironment,
       ...placementUnsupported,
+      ...invalidOverride,
     })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)

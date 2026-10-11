@@ -13,9 +13,42 @@
  * Returns a new manifest object with environment overrides resolved.
  */
 
+import type * as z from "zod";
+
 import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
+import { Result, TaggedError } from "better-result";
 
 import { manifestSchema, type Manifest } from "./schema";
+
+/**
+ * An environment block that merges into something the schema rejects: an
+ * override adding a service with no `source`, say. A mistake in the document,
+ * not a server fault, so it travels as a typed error the handlers map to a 400,
+ * carrying the issues so the message can name the resource and the field.
+ */
+export class ManifestMergeError extends TaggedError("ManifestMergeError")<{
+  message: string;
+  environment: string;
+  /** Which map failed to validate after merging. */
+  map: "services" | "databases";
+  issues: string[];
+}>() {
+  constructor(args: {
+    environment: string;
+    map: "services" | "databases";
+    issues: readonly z.core.$ZodIssue[];
+  }) {
+    const issues = args.issues.map(
+      (issue) => `${[args.map, ...issue.path.map(String)].join(".")}: ${issue.message}`,
+    );
+    super({
+      environment: args.environment,
+      map: args.map,
+      issues,
+      message: `environment "${args.environment}" does not merge into a valid manifest. ${issues.join("; ")}`,
+    });
+  }
+}
 
 const SERVICE_DISCRIMINATOR = "source";
 const DATABASE_DISCRIMINATOR = "engine";
@@ -35,25 +68,46 @@ function isDatabasesMap(value: JsonObject): value is JsonObject & Manifest["data
   return databasesMapSchema.safeParse(value).success;
 }
 
-export function resolveEnvironment(manifest: Manifest, environment?: string): Manifest {
-  if (!environment) return manifest;
+/** The issues behind a failed guard above. Only runs on the failure path. */
+function issuesOf(schema: z.ZodType, value: JsonObject): readonly z.core.$ZodIssue[] {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? [] : parsed.error.issues;
+}
+
+export function resolveEnvironment(
+  manifest: Manifest,
+  environment?: string,
+): Result<Manifest, ManifestMergeError> {
+  if (!environment) return Result.ok(manifest);
   const overrides = manifest.environments?.[environment];
-  if (!overrides) return manifest;
+  if (!overrides) return Result.ok(manifest);
 
   const services = mergeResources(manifest.services, overrides.services, SERVICE_DISCRIMINATOR);
   const databases = mergeResources(manifest.databases, overrides.databases, DATABASE_DISCRIMINATOR);
   if (!isServicesMap(services)) {
-    throw new Error(`environment "${environment}" overrides merge into invalid services`);
+    return Result.err(
+      new ManifestMergeError({
+        environment,
+        map: "services",
+        issues: issuesOf(servicesMapSchema, services),
+      }),
+    );
   }
   if (!isDatabasesMap(databases)) {
-    throw new Error(`environment "${environment}" overrides merge into invalid databases`);
+    return Result.err(
+      new ManifestMergeError({
+        environment,
+        map: "databases",
+        issues: issuesOf(databasesMapSchema, databases),
+      }),
+    );
   }
 
-  return {
+  return Result.ok({
     ...manifest,
     services,
     databases,
-  };
+  });
 }
 
 function mergeResources(

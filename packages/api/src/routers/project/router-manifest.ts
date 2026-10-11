@@ -1,4 +1,4 @@
-import { Result, matchError } from "better-result";
+import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
 import { environmentIdOrReject } from "../../lib/environment/resolve-slug-reject";
@@ -122,11 +122,12 @@ export const manifestRouter = {
     // read, and making it a write is what let `--dry-run` overwrite the
     // baseline it claimed not to touch. Falls back to the saved manifest.
     const resolved = input.manifest
-      ? Result.ok(resolveEnvironment(input.manifest, input.environment))
+      ? resolveEnvironment(input.manifest, input.environment)
       : await resolvedManifest(ref, input.environment);
     if (resolved.isErr()) {
       throw matchError(resolved.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
+        ManifestMergeError: (error) => errors.INVALID_MANIFEST({ message: error.message }),
       });
     }
     if (!resolved.value) return { resolved: null, changes: [] };
@@ -191,6 +192,7 @@ export const manifestRouter = {
       if (resolved.isErr()) {
         throw matchError(resolved.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ManifestMergeError: (error) => errors.INVALID_MANIFEST({ message: error.message }),
         });
       }
       // Nothing saved (or a stored manifest that no longer parses, which
@@ -278,6 +280,13 @@ export const manifestRouter = {
         throw errors.PLACEMENT_UNSUPPORTED({ message: placement.error.message });
       }
 
+      // Resolve before saving: an override that does not merge is refused
+      // without staging a manifest this call could never apply.
+      const resolved = resolveEnvironment(input.manifest, input.environment);
+      if (resolved.isErr()) {
+        throw errors.INVALID_MANIFEST({ message: resolved.error.message });
+      }
+
       const saved = await saveManifest(
         {
           projectId: input.projectId,
@@ -294,11 +303,10 @@ export const manifestRouter = {
 
       // Apply exactly what was just saved. Re-reading it raced a concurrent
       // discard (which could leave nothing to apply) and gained nothing.
-      const resolved = resolveEnvironment(input.manifest, input.environment);
       const applied = await applyManifest({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
-        manifest: resolved,
+        manifest: resolved.value,
         // Must match the environment the manifest was just resolved for. A
         // manifest resolved for staging applied against production's rows
         // would diff staging's desired state onto production's resources.

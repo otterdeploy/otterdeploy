@@ -23,12 +23,12 @@ function base(): Manifest {
 describe("resolveEnvironment", () => {
   it("returns the base manifest unchanged when no environment is selected", () => {
     const m = base();
-    expect(resolveEnvironment(m)).toEqual(m);
+    expect(resolveEnvironment(m).unwrap()).toEqual(m);
   });
 
   it("inherits unchanged when the env block is missing", () => {
     const m = base();
-    expect(resolveEnvironment(m, "production")).toEqual(m);
+    expect(resolveEnvironment(m, "production").unwrap()).toEqual(m);
   });
 
   it("deep-merges scalars and objects", () => {
@@ -40,7 +40,7 @@ describe("resolveEnvironment", () => {
         },
       },
     };
-    const merged = resolveEnvironment(m, "production");
+    const merged = resolveEnvironment(m, "production").unwrap();
     expect(merged.services.web).toMatchObject({
       source: "image",
       image: "ghcr.io/acme/api:1.0.0",
@@ -65,7 +65,7 @@ describe("resolveEnvironment", () => {
         },
       },
     };
-    const merged = resolveEnvironment(m, "production");
+    const merged = resolveEnvironment(m, "production").unwrap();
     expect(merged.services.web?.ports).toEqual([{ container: 8080 }]);
   });
 
@@ -80,7 +80,7 @@ describe("resolveEnvironment", () => {
         },
       },
     });
-    const merged = resolveEnvironment(m, "production");
+    const merged = resolveEnvironment(m, "production").unwrap();
     expect(merged.services.web?.env).not.toHaveProperty("LOG_LEVEL");
     expect(merged.services.web?.env?.DATABASE_URL).toBe("${database:primary.url}");
   });
@@ -94,7 +94,7 @@ describe("resolveEnvironment", () => {
         },
       },
     };
-    const merged = resolveEnvironment(m, "preview");
+    const merged = resolveEnvironment(m, "preview").unwrap();
     const web = merged.services.web;
     expect(web).toEqual({ source: "git", sourceSubdir: "." });
     expect(web !== undefined && "image" in web).toBe(false);
@@ -111,7 +111,7 @@ describe("resolveEnvironment", () => {
         },
       },
     });
-    const merged = resolveEnvironment(m, "local");
+    const merged = resolveEnvironment(m, "local").unwrap();
     expect(merged.databases.primary).toBeUndefined();
   });
 });
