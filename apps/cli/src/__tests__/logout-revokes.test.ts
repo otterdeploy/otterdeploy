@@ -18,16 +18,37 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 const TOKEN = "session_token_logout_probe";
 
-/** Writes a logged-in config and runs `otterdeploy logout` against `url`. */
-async function logout(url: string) {
+/** A control plane that records every request's path and bearer. */
+function recordingServer() {
+  const seen: Array<{ path: string; authorization: string | null }> = [];
+  const server = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    fetch(request) {
+      seen.push({
+        path: new URL(request.url).pathname,
+        authorization: request.headers.get("authorization"),
+      });
+      return Response.json({ success: true });
+    },
+  });
+  return { seen, server, url: `http://127.0.0.1:${server.port}` };
+}
+
+/** Writes `config` and runs `otterdeploy logout ...args` against it. */
+async function logout(
+  url: string,
+  config: unknown = { url, token: TOKEN, hosts: [url] },
+  args: string[] = [],
+) {
   const dir = mkdtempSync(join(scratch, "run-"));
   const configDir = join(dir, ".config");
   mkdirSync(configDir, { recursive: true });
   const configFile = join(configDir, "config.json");
-  writeFileSync(configFile, JSON.stringify({ url, token: TOKEN, hosts: [url] }));
+  writeFileSync(configFile, JSON.stringify(config));
   // oxlint-disable-next-line node/no-process-env -- test boundary: the spawned CLI inherits PATH/HOME like a user's shell
   const { OTTERDEPLOY_TOKEN: _t, OTTERDEPLOY_URL: _u, ...inherited } = process.env;
-  const child = Bun.spawn(["bun", CLI_ENTRY, "logout"], {
+  const child = Bun.spawn(["bun", CLI_ENTRY, "logout", ...args], {
     cwd: dir,
     stdin: "ignore",
     stdout: "pipe",
@@ -67,7 +88,7 @@ describe("otd logout", () => {
         method: "POST",
         authorization: `Bearer ${TOKEN}`,
       });
-      expect(run.left).toEqual({ hosts: [url] });
+      expect(run.left).toEqual({ contexts: {}, hosts: [url] });
       expect(run.output).toMatch(/revoked on the server/);
     } finally {
       await server.stop(true);
@@ -82,7 +103,7 @@ describe("otd logout", () => {
 
     const run = await logout(url);
     expect(run.exitCode, run.output).toBe(0);
-    expect(run.left).toEqual({ hosts: [url] });
+    expect(run.left).toEqual({ contexts: {}, hosts: [url] });
     expect(run.output).toMatch(/could not be revoked/);
   });
 
@@ -99,10 +120,44 @@ describe("otd logout", () => {
       const run = await logout(url);
       expect(run.exitCode, run.output).toBe(0);
       expect(performance.now() - started).toBeLessThan(15_000);
-      expect(run.left).toEqual({ hosts: [url] });
+      expect(run.left).toEqual({ contexts: {}, hosts: [url] });
       expect(run.output).toMatch(/could not be revoked/);
     } finally {
       await server.stop(true);
     }
   }, 20_000);
+
+  it("signs out of one control plane only: revokes that host's own token and keeps the others", async () => {
+    const current = recordingServer();
+    const other = recordingServer();
+    try {
+      const config = {
+        current: current.url,
+        contexts: {
+          [current.url]: { token: "token_for_current", orgSlug: "acme" },
+          [other.url]: { token: "token_for_other", orgSlug: "globex" },
+        },
+        hosts: [current.url, other.url],
+      };
+      const run = await logout(current.url, config, ["--url", other.url]);
+      expect(run.exitCode, run.output).toBe(0);
+
+      // The host named is revoked with its OWN bearer...
+      expect(other.seen).toContainEqual({
+        path: "/api/auth/sign-out",
+        authorization: "Bearer token_for_other",
+      });
+      // ...and the current one is never contacted, let alone signed out.
+      expect(current.seen).toEqual([]);
+      expect(run.left).toEqual({
+        current: current.url,
+        contexts: { [current.url]: { token: "token_for_current", orgSlug: "acme" } },
+        hosts: [current.url, other.url],
+      });
+      expect(run.output).toContain(`Logged out of ${other.url}`);
+    } finally {
+      await current.server.stop(true);
+      await other.server.stop(true);
+    }
+  });
 });

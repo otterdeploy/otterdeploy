@@ -63,17 +63,17 @@ describe("known hosts", () => {
   });
 
   test("survives logout, while the token does not", async () => {
-    const { rememberHost, knownHosts, saveConfig, loadConfig, clearConfig } =
+    const { rememberHost, knownHosts, saveContext, setCurrent, resolveContext, clearConfig } =
       await freshConfigModule();
 
     rememberHost("https://deploy.acme.com");
-    saveConfig({ ...loadConfig(), token: "secret-token", url: "https://deploy.acme.com" });
+    saveContext("https://deploy.acme.com", { token: "secret-token" });
+    setCurrent("https://deploy.acme.com");
 
     clearConfig();
 
     expect(knownHosts()).toEqual(["https://deploy.acme.com"]);
-    expect(loadConfig().token).toBeUndefined();
-    expect(loadConfig().url).toBeUndefined();
+    expect(resolveContext("https://deploy.acme.com").token).toBeUndefined();
   });
 
   test("caps the list so it stays a usable pick-list", async () => {

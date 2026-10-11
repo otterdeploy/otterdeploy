@@ -129,14 +129,17 @@ function withBoundary(run: RunFn): RunFn {
       // once, ensureAuthenticated inside the command re-runs the device
       // flow. Env-provided tokens are the caller's to fix; non-TTY can't
       // complete a browser login, so both fall through to the printer.
+      // The host the command ran against, so the stale token cleared is that
+      // host's own and not whichever control plane happens to be current.
+      const urlFlag = typeof ctx.args.url === "string" ? ctx.args.url : undefined;
       const canReauth =
         error instanceof ORPCError &&
         error.code === "UNAUTHORIZED" &&
-        tokenSource() === "config" &&
+        tokenSource(urlFlag) === "config" &&
         process.stdin.isTTY;
       if (!canReauth) printAndExit(error);
       warn("Session expired. Signing in again.");
-      clearToken();
+      clearToken(urlFlag);
       try {
         await run(ctx);
       } catch (retryError) {
