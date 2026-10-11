@@ -12,7 +12,7 @@ export const redisAdapter: DatabaseEngineAdapter = {
   // The redis image defaults to /data for its dump.rdb + appendonly file.
   // Operators can mount additional volumes later for AOF backups, but the
   // canonical persistence target is /data.
-  mountTarget: "/data",
+  mountTarget: meta.dataDir,
   // Redis doesn't take auth via env. It's a CLI flag. Nothing to reserve.
   reservedEnvKeys: new Set(),
   buildEnv: () => [],

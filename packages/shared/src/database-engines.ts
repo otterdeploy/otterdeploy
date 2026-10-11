@@ -40,6 +40,9 @@ export interface DatabaseEngineMeta {
    *   - `requirepass`: redis-style, command-line `--requirepass`
    */
   authStyle: "env" | "requirepass";
+  /** Where the data volume mounts inside the container. Version-aware
+   *  engines override it per image: read it through `databaseDataMount`. */
+  dataDir: string;
 }
 
 export const DATABASE_ENGINES = {
@@ -53,6 +56,7 @@ export const DATABASE_ENGINES = {
     scheme: "postgresql",
     hasDatabaseName: true,
     authStyle: "env",
+    dataDir: "/var/lib/postgresql/data",
   },
   redis: {
     label: "Redis",
@@ -64,6 +68,7 @@ export const DATABASE_ENGINES = {
     scheme: "redis",
     hasDatabaseName: false,
     authStyle: "requirepass",
+    dataDir: "/data",
   },
   mariadb: {
     label: "MariaDB",
@@ -75,6 +80,7 @@ export const DATABASE_ENGINES = {
     scheme: "mariadb",
     hasDatabaseName: true,
     authStyle: "env",
+    dataDir: "/var/lib/mysql",
   },
   mongodb: {
     label: "MongoDB",
@@ -86,6 +92,7 @@ export const DATABASE_ENGINES = {
     scheme: "mongodb",
     hasDatabaseName: true,
     authStyle: "env",
+    dataDir: "/data/db",
   },
   clickhouse: {
     label: "ClickHouse",
@@ -97,8 +104,29 @@ export const DATABASE_ENGINES = {
     scheme: "clickhouse",
     hasDatabaseName: true,
     authStyle: "env",
+    dataDir: "/var/lib/clickhouse",
   },
 } as const satisfies Record<DatabaseEngine, DatabaseEngineMeta>;
+
+/**
+ * Where an engine's data volume mounts, for the image it will run. The
+ * runtime mounts it here and the create wizard previews it from here, so the
+ * two cannot disagree.
+ *
+ * postgres:18 moved PGDATA to a major-version subdir (/var/lib/postgresql/18/
+ * docker) that its entrypoint creates and owns, and refuses to boot over a
+ * volume mounted at the old .../data ("unused mount/volume"). From 18 on the
+ * volume mounts the parent, /var/lib/postgresql, as upstream documents.
+ */
+export function databaseDataMount(engine: DatabaseEngine, image: string): string {
+  if (engine === "postgres") {
+    const name = image.split("@")[0]?.split("/").pop() ?? "";
+    const tag = name.includes(":") ? name.slice(name.indexOf(":") + 1) : "";
+    const major = /^(\d+)/.exec(tag)?.[1];
+    if (major != null && Number(major) >= 18) return "/var/lib/postgresql";
+  }
+  return DATABASE_ENGINES[engine].dataDir;
+}
 
 export function getDatabaseEngine(engine: DatabaseEngine): DatabaseEngineMeta {
   return DATABASE_ENGINES[engine];

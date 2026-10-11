@@ -14,7 +14,7 @@ import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/ser
 import type { ResourceFormState } from "../schemas";
 
 import { buildSummary, type RepoDetection } from "../build-defaults";
-import { traitsFor } from "../engine-traits";
+import { dataMountFor } from "../engine-traits";
 import { domainsFromPorts } from "../to-manifest";
 
 export interface ComposeArgs {
@@ -44,7 +44,7 @@ function generateComposeYaml(args: ComposeArgs): string {
   const { isDb, kindId, name, dbImage, isPg, extensions, cpu, mem, replicas } = args;
   const memStr = mem >= 1024 ? `${mem / 1024}G` : `${mem}M`;
   if (isDb) {
-    const mountTarget = traitsFor(kindId).mountTarget;
+    const mountTarget = dataMountFor(kindId, dbImage);
     const extLine =
       isPg && extensions.length > 0 ? `\n    # extensions: ${extensions.join(", ")}` : "";
     return `services:
@@ -98,7 +98,7 @@ function resolveSize(values: ResourceFormState): { cpu: number; mem: number } {
  *  buildReviewModel because of the postgres wrinkle: non-contrib extensions
  *  pin a specific image, so the preview has to resolve them or the image line
  *  would lie about what deploys. */
-function resolveDbImage(
+export function resolveDbImage(
   kind: ServiceKind,
   version: ResourceFormState["version"],
   extensions: string[],
@@ -157,11 +157,12 @@ export function buildReviewModel(
 
   const serviceDomains = resolveServiceDomains(kind, isDb, values, derivedHost);
 
+  const dbImage = resolveDbImage(kind, version, extensions);
   const compose = generateComposeYaml({
     isDb,
     kindId: kind.id,
     name,
-    dbImage: resolveDbImage(kind, version, extensions),
+    dbImage,
     isPg,
     extensions,
     cpu,
@@ -193,7 +194,7 @@ export function buildReviewModel(
     extensions,
     extensionLabels,
     compose,
-    mountTarget: isDb ? traitsFor(kind.id).mountTarget : null,
+    mountTarget: isDb ? dataMountFor(kind.id, dbImage) : null,
   };
 }
 

@@ -11,7 +11,7 @@ export const mariadbAdapter: DatabaseEngineAdapter = {
   port: meta.defaultPort,
   // MariaDB writes its datadir to /var/lib/mysql (same path the MySQL image
   // uses, MariaDB ships compatible aliasing).
-  mountTarget: "/var/lib/mysql",
+  mountTarget: meta.dataDir,
   reservedEnvKeys: new Set([
     "MARIADB_ROOT_PASSWORD",
     "MARIADB_DATABASE",
