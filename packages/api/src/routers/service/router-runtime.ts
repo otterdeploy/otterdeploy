@@ -42,6 +42,9 @@ export const serviceRuntimeRouter = {
         // Deploy on a service that has run before is a redeploy, and its
         // history should say so rather than read as the first deploy again.
         reason: await gitBuildReason(input.resourceId),
+        // Who clicked Deploy. The deployment's commit author is who wrote the
+        // code, which is not the same person (and is often a bot).
+        triggeredByUserId: context.session?.user.id ?? null,
         noCache: input.noCache ?? false,
         log: context.log,
       });

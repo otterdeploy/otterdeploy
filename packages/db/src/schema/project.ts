@@ -992,6 +992,15 @@ export const deployment = pgTable(
     // content identifier where there's no commit. Null for git / image-only
     // deployments (they carry gitSha or nothing).
     sourceSha: text("source_sha"),
+    // The person who asked for this deployment (clicked Deploy, applied the
+    // manifest), when one did. Separate from gitCommitAuthor on purpose: the
+    // commit's author wrote the code, often long before and often a bot; the
+    // trigger is who shipped it now. Null for deploys nobody asked for by hand
+    // (a git push, an API key, a recovery). Set null when the user is deleted:
+    // the history outlives the account.
+    triggeredByUserId: text("triggered_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     // Per-deploy cache bypass ("Redeploy without cache"). A property of THIS
     // build, not of the service, so it lives on the deployment rather than in
     // buildConfig: the operator wants one clean rebuild, not a permanently

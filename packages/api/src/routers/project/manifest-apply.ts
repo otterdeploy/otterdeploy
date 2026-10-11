@@ -89,6 +89,8 @@ export interface ApplyInput {
   /** Services whose source the caller uploads right after this apply. See
    *  the applyChange contract; only upload-sourced services are honoured. */
   sourceUploads?: ReadonlyArray<string>;
+  /** Who asked for this apply; see ApplyContext.actorUserId. */
+  actorUserId?: string | null;
   log: ApplyContext["log"];
 }
 
@@ -115,6 +117,7 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const { projectId, organizationId, manifest, environmentId, only, sourceUploads, log } = input;
+  const actorUserId = input.actorUserId ?? null;
   // Load state inside the queue slot. A snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
   // Resolve to a concrete scope before diffing. A project with no environment
@@ -137,6 +140,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     manifest,
     current,
     sourceUploads: new Set(sourceUploads),
+    actorUserId,
     log,
   };
   // Plan with the same ref resolver the router's diff endpoint uses, so what

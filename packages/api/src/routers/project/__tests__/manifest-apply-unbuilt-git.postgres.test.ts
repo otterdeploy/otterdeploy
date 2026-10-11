@@ -64,6 +64,7 @@ async function seed() {
     }),
     current: { services: {}, databases: {}, composes: {} },
     sourceUploads: new Set(),
+    actorUserId: null,
     log,
   };
   return { ctx, service };

@@ -47,6 +47,7 @@ function context(): ApplyContext {
     }),
     current: { services: {}, databases: {}, composes: {} },
     sourceUploads: new Set(),
+    actorUserId: null,
     log,
   };
 }

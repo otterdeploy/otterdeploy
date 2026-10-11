@@ -138,6 +138,9 @@ export async function enqueueGitBuild(args: {
   /** `create` for a service's first build, `redeploy` for a later one asked
    *  for by hand (see gitBuildReason). Recorded on the deployment. */
   reason: "create" | "redeploy";
+  /** The signed-in user who asked for this build, recorded as its trigger
+   *  (separately from the commit author). Null/omitted: nobody did by hand. */
+  triggeredByUserId?: string | null;
   /** Per-deploy cache bypass ("Redeploy without cache"). Persisted on the
    *  deployment row so the builder sees it without a second lookup. */
   noCache?: boolean;
@@ -210,6 +213,7 @@ export async function enqueueGitBuild(args: {
       // Rewritten to the real registry tag by the builder once known.
       image: `pending:${sha.slice(0, 12)}`,
       reason: args.reason,
+      triggeredByUserId: args.triggeredByUserId ?? null,
       status: "pending" as const,
       gitSha: sha,
       gitRef: ref,

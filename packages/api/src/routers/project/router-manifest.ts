@@ -203,6 +203,7 @@ export const manifestRouter = {
         manifest: resolved.value,
         environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
         only: input.only,
+        actorUserId: context.session?.user.id ?? null,
         log: context.log,
       });
     },
@@ -303,6 +304,7 @@ export const manifestRouter = {
         // would diff staging's desired state onto production's resources.
         environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
         sourceUploads: input.sourceUploads,
+        actorUserId: context.session?.user.id ?? null,
         log: context.log,
       });
       return { version: saved.value.version, ...applied };

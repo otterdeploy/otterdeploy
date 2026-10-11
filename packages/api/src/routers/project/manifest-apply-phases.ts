@@ -50,6 +50,9 @@ export interface ApplyContext {
    *  this apply (`otterdeploy deploy`). Their updates ride that upload's build
    *  instead of rolling the running image first. */
   sourceUploads: ReadonlySet<string>;
+  /** The signed-in user who asked for this apply, recorded on the builds it
+   *  starts as who triggered them. Null for an API key or no session. */
+  actorUserId: string | null;
   log: RequestLogger;
 }
 
@@ -256,6 +259,7 @@ export async function runGitBuilds(
         // Apply only ever builds a service that has not built yet: one it just
         // created, or one still on its placeholder image.
         reason: "create",
+        triggeredByUserId: ctx.actorUserId,
         log: ctx.log,
       }),
     })),
