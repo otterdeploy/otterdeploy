@@ -124,7 +124,6 @@ export function DeploymentRowDetail({
 }) {
   const redeploy = canRedeploy(d);
   const failed = deployStatusGroup(d.status) === "failed";
-  const logSource = failed && failedDuring(d) === "build" ? "build" : "deploy";
   return (
     <div className="grid gap-5 px-3.5 pt-1 pb-5 @4xl:grid-cols-[minmax(0,400px)_minmax(0,1fr)] @4xl:pr-4 @4xl:pl-[182px]">
       <div className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
@@ -158,10 +157,14 @@ export function DeploymentRowDetail({
               Roll back to this
             </Button>
           ) : null}
-          <Button type="button" variant="outline" size="sm" onClick={() => actions.onViewLogs(d)}>
-            <HugeiconsIcon icon={File01Icon} strokeWidth={2} />
-            {logSource === "build" ? "View build log" : "View logs"}
-          </Button>
+          {/* A failure's log link already sits in the pipeline card beside
+              this; one way there is enough. */}
+          {failed ? null : (
+            <Button type="button" variant="outline" size="sm" onClick={() => actions.onViewLogs(d)}>
+              <HugeiconsIcon icon={File01Icon} strokeWidth={2} />
+              View logs
+            </Button>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={() => actions.onCopy(d)}>
             <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
             {copyLabel(d)}

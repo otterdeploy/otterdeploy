@@ -28,6 +28,7 @@ import { cn } from "@/shared/lib/utils";
 import type { Phase, PhaseState, TimelineInput, Tone } from "./deployment-timeline-model";
 
 import { buildTimeline } from "./deployment-timeline-model";
+import { ErrorLogLine } from "./error-log-line";
 
 const TONE_TEXT: Record<Tone, string> = {
   success: "text-success",
@@ -106,9 +107,7 @@ function PhaseRow({ phase, onOpenLogs }: { phase: Phase; onOpenLogs?: OpenLogs }
         <span className={cn("text-[13px]", PHASE_TEXT[phase.state])}>{phase.label}</span>
         {phase.detail && (
           <div className="mt-1 flex flex-col gap-1">
-            <div className="font-mono text-[11.5px] break-all whitespace-pre-wrap text-destructive/90">
-              {phase.detail}
-            </div>
+            <ErrorLogLine text={phase.detail} wrap />
             {onOpenLogs && (
               <button
                 type="button"

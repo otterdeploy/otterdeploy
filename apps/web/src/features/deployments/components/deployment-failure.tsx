@@ -9,7 +9,7 @@ import { File01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { deployStatusGroup } from "@otterdeploy/shared/deploy-status";
 
-import { LogRow } from "@/features/resources/components/service/tabs/logs-parts";
+import { ErrorLogLine } from "@/features/resources/components/_shared/error-log-line";
 import { Button } from "@/shared/components/ui/button";
 import { CLOCK_SECONDS, clockFormatter } from "@/shared/lib/clock";
 import { formatDuration } from "@/shared/lib/duration";
@@ -57,24 +57,12 @@ export function FailureBlock({
         </p>
         {d.errorMessage ? (
           <div
-            className="mt-1.5 max-w-3xl truncate rounded-md border bg-background px-2 py-1 font-mono text-[11.5px] leading-relaxed"
+            className="mt-1.5 max-w-3xl rounded-md border bg-background px-2 py-1"
             title={d.errorMessage}
           >
-            <LogRow
-              line={{
-                id: d.id,
-                ts: atSeconds(Date.parse(at)),
-                tsIso: at,
-                tsMs: Date.parse(at),
-                level: "error",
-                svc: d.resourceName,
-                resourceId: d.resourceId,
-                stream: "system",
-                msg: d.errorMessage.split("\n", 1)[0] ?? d.errorMessage,
-                msgLower: "",
-              }}
-              wrap={false}
-              showTs
+            <ErrorLogLine
+              ts={atSeconds(Date.parse(at))}
+              text={d.errorMessage.split("\n", 1)[0] ?? d.errorMessage}
             />
           </div>
         ) : null}
