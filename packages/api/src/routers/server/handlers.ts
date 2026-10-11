@@ -34,11 +34,12 @@ import {
   patchServerProvision,
   type ServerRecord,
 } from "./queries";
-import { serverAddress } from "./server-address";
+import { type ServerAddress, serverAddress } from "./server-address";
 
 export async function listServers(
   input: OrgRef,
-): Promise<Array<ServerRecord & { address: string | null }>> {
+  opts: { revealInstallAddress: boolean },
+): Promise<Array<ServerRecord & ServerAddress>> {
   // Guarantee at least the bootstrap localhost row exists for every org.
   // No-op once the row is present (ON CONFLICT DO NOTHING).
   await bootstrapLocalhostIfMissing(input.organizationId);
@@ -46,7 +47,10 @@ export async function listServers(
     listServersByOrg(input.organizationId),
     readPublicIp(),
   ]);
-  return rows.map((row) => ({ ...row, address: serverAddress(row, publicIp) }));
+  return rows.map((row) => ({
+    ...row,
+    ...serverAddress(row, publicIp, { reveal: opts.revealInstallAddress }),
+  }));
 }
 
 export async function getServer(

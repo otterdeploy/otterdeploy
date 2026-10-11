@@ -22,8 +22,11 @@ export const serverSchema = createSelectSchema(server).extend({
   labels: z.array(z.string()),
   /** Where the server can be reached, for display: the install's public IP
    *  for the control plane (whose `host` is loopback), else `host`. Set by
-   *  `server.list`; see server-address.ts. */
+   *  `server.list`; see server-address.ts. The install's IP is sent to
+   *  installation admins only. */
   address: z.string().nullable().optional(),
+  /** The control plane has an address this caller may not see. */
+  addressHidden: z.boolean().optional(),
 });
 
 // GET input must be object/any/unknown for the OpenAPI generator; optional
