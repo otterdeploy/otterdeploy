@@ -24,9 +24,7 @@ import { demuxDockerStream } from "../swarm/stream-parse";
 import { findContainer, removeContainerByName, startContainer } from "./docker-driver-helpers";
 import { probeEdgePort, readContainerListeners } from "./edge-probe";
 import { listenerProbe } from "./readiness";
-
-/** Seconds a parked version gets to finish in-flight requests when stopped. */
-const STOP_GRACE_S = 10;
+import { stopContainerGracefully } from "./stop-policy";
 
 function missing(name: string, step: string) {
   return createError({
@@ -48,6 +46,9 @@ export function createDockerRolloutHost(
     extraNetworks: string[];
     deployLog: StackDeployLog;
     log?: RequestLogger;
+    /** The new version's stop grace: the old one gets at least this long to
+     *  exit on its own before it is killed (stop-policy.ts). */
+    stopGraceS?: number;
   },
 ): RolloutHost {
   async function readListeners(name: string): Promise<Listener[] | null> {
@@ -114,15 +115,16 @@ export function createDockerRolloutHost(
       );
     },
 
-    // Graceful: removeContainerByName stops with a 10 s grace before removing,
-    // so the old version finishes its in-flight requests on cutover.
-    remove: (name) => removeContainerByName(docker, name),
+    // Graceful: removeContainerByName stops with the container's grace (10 s
+    // at least) before removing, so the old version finishes its in-flight
+    // requests, and a database its shutdown checkpoint, on cutover.
+    remove: (name) => removeContainerByName(docker, name, context.stopGraceS),
 
     async stop(name) {
       const found = await findContainer(docker, name);
       if (!found) return;
       // Already stopped is fine: the rename/remove that follows is what counts.
-      await docker.containers.getContainer(found.Id).stop({ t: STOP_GRACE_S });
+      await stopContainerGracefully(docker, found.Id, context.stopGraceS);
     },
 
     async start(name) {

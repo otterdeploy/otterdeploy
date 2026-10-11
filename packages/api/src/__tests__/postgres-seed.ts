@@ -112,21 +112,24 @@ export async function seedService(input: {
   hostname?: string;
   stackId?: ResourceId;
   composeService?: string;
-}): Promise<{ resourceId: ResourceId; host: string }> {
+}): Promise<{ resourceId: ResourceId; host: string; serviceName: string }> {
   const host = input.hostname ?? `${input.name}-${uniq()}`;
+  const serviceName = `od-${host}`.slice(0, 63);
   const record = await createServiceRecord({
     projectId: input.projectId,
     environmentId: input.environmentId,
     name: input.name,
     image: "nginx:alpine",
     internalHostname: host,
-    serviceName: `od-${host}`.slice(0, 63),
+    serviceName,
     networkName: `test-net-${uniq()}`,
     stackId: input.stackId ?? null,
     composeService: input.composeService ?? null,
     ports: [],
   });
-  return { resourceId: record.resource.id, host };
+  // `serviceName` is the runtime container/service name; `host` is the
+  // internal DNS alias.
+  return { resourceId: record.resource.id, host, serviceName };
 }
 
 /** A GitHub App binding owned by `organizationId`: provider -> installation

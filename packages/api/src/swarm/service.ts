@@ -81,6 +81,12 @@ export interface SwarmServiceSpec {
 
   replicas: number;
   restart: SwarmServiceRestart;
+  /** Grace between the stop signal and the kill on the plain-Docker runtime
+   *  (container StopTimeout). Null/omitted = the runtime's default for the
+   *  kind of service (stop-policy.ts). */
+  stopGracePeriodMs?: number | null;
+  /** Stop signal override (container StopSignal); null/omitted = the image's. */
+  stopSignal?: string | null;
   healthcheck?: SwarmServiceHealthcheck | null;
   resources?: SwarmServiceResources;
   ports: SwarmServicePort[];

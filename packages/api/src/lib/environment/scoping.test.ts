@@ -172,13 +172,10 @@ describe("networkScopeSuffix", () => {
     expect(networkScopeSuffix({ kind: "environment", slug: "production", isMain: true })).toBe("");
   });
 
-  it("keeps a preview on its base network: it must reach that environment's databases", () => {
-    // scopeSuffix gives previews `-pr-7` for CONTAINER names. The network is
-    // the one place that must not follow, or the preview cannot resolve the
-    // databases it exists to preview against.
+  it("isolates previews by identity while retaining their existing container names", () => {
     const preview = previewScope(scope);
     expect(scopeSuffix(preview)).toBe("-pr-7");
-    expect(networkScopeSuffix(preview)).toBe("");
+    expect(networkScopeSuffix(preview)).toBe(`-preview-${scope.id}`);
   });
 
   it("treats an absent scope as base", () => {

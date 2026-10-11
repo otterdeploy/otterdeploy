@@ -31,14 +31,12 @@ function collect(stream: Readable): Promise<Buffer> {
  * command's exit code + stderr. Never throws on a non-zero exit: the caller
  * owns the verdict (a restore fails hard, a verification records evidence).
  */
-export async function streamSnapshotIntoExec(input: {
+export async function streamIntoExec(input: {
   docker: Docker;
   containerId: string;
   cmd: string[];
   env: string[];
-  cli: RusticCli;
-  snapshotId: string;
-  filenameInSnapshot: string;
+  write: (stdin: Duplex) => Promise<void>;
 }): Promise<{ exitCode: number; stderr: string }> {
   const container = input.docker.containers.getContainer(input.containerId);
   const execResult = await container.exec({
@@ -59,19 +57,46 @@ export async function streamSnapshotIntoExec(input: {
   const duplex = startResult.value;
   if (!(duplex instanceof Duplex)) throw new Error("exec.start with stdin gave no writable stream");
 
+  // A restore client can reject the archive before consuming stdin. Docker's
+  // hijacked writable may otherwise wait forever for backpressure to clear.
+  duplex.once("end", () => {
+    if (!duplex.writableFinished)
+      duplex.destroy(new Error("restore process closed stdin before the archive completed"));
+  });
   const { stdout, stderr } = demuxStream(duplex);
   const stdoutDone = collect(stdout);
   const stderrDone = collect(stderr);
 
-  await input.cli.dumpToStream({
-    snapshotId: input.snapshotId,
-    filenameInSnapshot: input.filenameInSnapshot,
-    out: duplex,
-  });
-  await stdoutDone;
-  const stderrText = (await stderrDone).toString("utf8");
+  try {
+    const [, , stderrBytes] = await Promise.all([input.write(duplex), stdoutDone, stderrDone]);
+    const inspect = await exec.inspect();
+    if (inspect.isErr()) throw inspect.error;
+    if (inspect.value.Running || inspect.value.ExitCode == null) {
+      throw new Error("restore exec ended without a confirmed exit code");
+    }
+    return { exitCode: inspect.value.ExitCode, stderr: stderrBytes.toString("utf8") };
+  } finally {
+    duplex.destroy();
+  }
+}
 
-  const inspect = await exec.inspect();
-  const exitCode = inspect.isOk() ? (inspect.value.ExitCode ?? 0) : 0;
-  return { exitCode, stderr: stderrText };
+/** Restore one rustic snapshot through the shared stdin transport. */
+export async function streamSnapshotIntoExec(input: {
+  docker: Docker;
+  containerId: string;
+  cmd: string[];
+  env: string[];
+  cli: RusticCli;
+  snapshotId: string;
+  filenameInSnapshot: string;
+}): Promise<{ exitCode: number; stderr: string }> {
+  return streamIntoExec({
+    ...input,
+    write: (out) =>
+      input.cli.dumpToStream({
+        snapshotId: input.snapshotId,
+        filenameInSnapshot: input.filenameInSnapshot,
+        out,
+      }),
+  });
 }

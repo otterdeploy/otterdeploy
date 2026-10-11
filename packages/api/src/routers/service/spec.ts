@@ -19,6 +19,7 @@ import {
   networkScopeSuffix,
 } from "../../lib/environment/scoping";
 import { isGrantableHostBind, withoutUngrantedHostBinds } from "../../lib/host-binds";
+import { ensurePreviewDatabaseAccess } from "../../runtime/preview-network-access";
 import { resolveComposeKeyAlias } from "../../stack/compose";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { resolveRegistryAuth } from "../../swarm/registry-auth";
@@ -54,6 +55,8 @@ export async function buildSwarmSpec(
   // image pointer). Omitted → the resource's stored image.
   imageOverride?: string | null,
 ): Promise<SwarmServiceSpec> {
+  const previewId = previewIdOf(preview);
+  if (previewId) await ensurePreviewDatabaseAccess(previewId);
   const serviceName = runtimeServiceName(record.service.serviceName, preview);
   // Previews must not share the base container's DNS aliases on the project
   // network: Docker round-robins same-alias containers, so production
@@ -121,9 +124,7 @@ export async function buildSwarmSpec(
     serviceName,
     internalHostname,
     composeKeyAlias: composeKeyAlias ? runtimeServiceName(composeKeyAlias, preview) : null,
-    // Environment-scoped network. A non-main environment gets its own overlay,
-    // so this service can only resolve hostnames inside it. Previews stay on
-    // the base network by design — see networkScopeSuffix.
+    // A distinct network namespace for each environment and preview.
     networkScopeSuffix: networkScopeSuffix(preview),
     image,
     // Exec form as stored, except behind Railpack's `bash -c` entrypoint where
@@ -137,6 +138,8 @@ export async function buildSwarmSpec(
       maxAttempts: record.service.restartMaxAttempts,
       delayMs: record.service.restartDelayMs,
     },
+    stopGracePeriodMs: record.service.stopGracePeriodMs,
+    stopSignal: record.service.stopSignal,
     healthcheck: record.service.healthcheckCmd
       ? {
           cmd: record.service.healthcheckCmd,

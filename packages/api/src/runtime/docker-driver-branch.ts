@@ -22,7 +22,6 @@ import { asStepLogger } from "../lib/logger";
 import { checkBranchHeadroom } from "../system-health/branch-pool";
 import { runDatabase } from "./docker-driver-db";
 import { findContainer, removeContainerByName } from "./docker-driver-helpers";
-import { resolveSnapshotDriver } from "./snapshot";
 
 /** Provision a branch of a running source database on the plain-Docker runtime. */
 export async function branchDatabaseOnDocker(
@@ -67,13 +66,9 @@ export async function branchDatabaseOnDocker(
     });
   }
 
-  // Snapshot driver: for `copy` this is a documented no-op (returns null ref).
-  // The data movement happens below at the DB layer, not via a volume clone.
-  const driver = await resolveSnapshotDriver();
-  await driver.branch(
-    { sourceVolume: input.sourceServiceName, targetVolume: input.volumeName, engine: input.engine },
-    rlog,
-  );
+  // Logical copy never snapshots a volume, even on a host with a ZFS pool.
+  // Selecting a host-wide snapshot driver here could snapshot a service name
+  // as if it were a dataset and abort before pg_dump.
 
   // `copy` doubles disk: be loud about it (§4.2).
   log.warn({

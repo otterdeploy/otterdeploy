@@ -16,6 +16,7 @@
  */
 import type { BackupDestinationId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
 import { Result } from "better-result";
 
 import type { OrgRef } from "../scopes";
@@ -23,6 +24,7 @@ import type { DestinationView } from "./queries";
 import type { DestinationResult } from "./service";
 
 import { canDisableManagedDestination } from "../../backups/managed-destination";
+import { type DestinationTx, lockDestinationFlags } from "./destination-queries";
 import { DestinationLastActiveError, DestinationNotFoundError } from "./errors";
 import {
   getDestinationGuardFields,
@@ -44,30 +46,36 @@ async function flipGuarded(
     id: BackupDestinationId;
     /** Turning it ON is free; only OFF needs a surviving peer. */
     on: boolean;
-    write: () => Promise<DestinationView | null>;
+    write: (tx: DestinationTx) => Promise<DestinationView | null>;
   },
 ): Promise<FlagResult> {
-  const guard = await getDestinationGuardFields({
-    organizationId: input.organizationId,
-    id: input.id,
-  });
-  if (!guard) {
-    return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-  }
-  if (!input.on) {
-    const hasPeer = await canDisableManagedDestination({
-      organizationId: input.organizationId,
-      id: input.id,
-    });
-    if (!hasPeer) {
-      return Result.err(new DestinationLastActiveError({ destinationId: input.id }));
+  // Check and write under one per-org lock: checked then written separately,
+  // two concurrent disables of the last two destinations both passed the
+  // peer check and left the org nothing to back up to.
+  return db.transaction(async (tx): Promise<FlagResult> => {
+    await lockDestinationFlags(tx, input.organizationId);
+    const guard = await getDestinationGuardFields(
+      { organizationId: input.organizationId, id: input.id },
+      tx,
+    );
+    if (!guard) {
+      return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
     }
-  }
-  const row = await input.write();
-  if (!row) {
-    return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-  }
-  return Result.ok({ ...row, usedBytes: 0 });
+    if (!input.on) {
+      const hasPeer = await canDisableManagedDestination(
+        { organizationId: input.organizationId, id: input.id },
+        tx,
+      );
+      if (!hasPeer) {
+        return Result.err(new DestinationLastActiveError({ destinationId: input.id }));
+      }
+    }
+    const row = await input.write(tx);
+    if (!row) {
+      return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
+    }
+    return Result.ok({ ...row, usedBytes: 0 });
+  });
 }
 
 /**
@@ -85,12 +93,15 @@ export async function setDestinationEnabled(
     organizationId: input.organizationId,
     id: input.id,
     on: input.enabled,
-    write: () =>
-      setDestinationStatusRecord({
-        organizationId: input.organizationId,
-        id: input.id,
-        status: input.enabled ? "active" : "disabled",
-      }),
+    write: (tx) =>
+      setDestinationStatusRecord(
+        {
+          organizationId: input.organizationId,
+          id: input.id,
+          status: input.enabled ? "active" : "disabled",
+        },
+        tx,
+      ),
   });
 }
 
@@ -107,11 +118,14 @@ export async function setDestinationUsedForBackups(
     organizationId: input.organizationId,
     id: input.id,
     on: input.usedForBackups,
-    write: () =>
-      setDestinationUsedForBackupsRecord({
-        organizationId: input.organizationId,
-        id: input.id,
-        usedForBackups: input.usedForBackups,
-      }),
+    write: (tx) =>
+      setDestinationUsedForBackupsRecord(
+        {
+          organizationId: input.organizationId,
+          id: input.id,
+          usedForBackups: input.usedForBackups,
+        },
+        tx,
+      ),
   });
 }

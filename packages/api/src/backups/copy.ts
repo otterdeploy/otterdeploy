@@ -9,8 +9,12 @@
  */
 import type { Docker } from "@otterdeploy/docker";
 
-import { dumpCommand, type DumpTarget, shellQuote } from "./engine-helpers";
-import { execCapture, execDump } from "./exec";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+import { dumpCommand, type DumpTarget } from "./engine-helpers";
+import { execDump } from "./exec";
+import { streamIntoExec } from "./restore-stream";
 
 /** Postgres credentials for a dump/restore, engine implied (Postgres only for v1). */
 export interface PgCopyCreds {
@@ -45,39 +49,32 @@ export async function pgDumpToBuffer(
   return Buffer.concat(chunks);
 }
 
-/** Restore a `pg_dump --format=custom` archive into the branch container. Stages
- *  the archive to a temp file (base64 over exec) then `pg_restore`s it. Throws
- *  on a failed restore so a corrupt branch never reads as healthy. */
+/** Restore a custom archive over exec stdin; archive size never enters argv. */
 export async function pgRestoreFromBuffer(
   docker: Docker,
   containerId: string,
   creds: PgCopyCreds,
   archive: Buffer,
-  tag: string,
+  _tag: string,
 ): Promise<void> {
-  const tmp = `/tmp/branch-restore-${tag}.dump`;
-  const b64 = archive.toString("base64");
-  await execCapture(docker, containerId, [
-    "sh",
-    "-c",
-    `echo ${shellQuote(b64)} | base64 -d > ${tmp}`,
-  ]);
-  // Allow non-zero at the exec layer only so we can capture stderr and surface
-  // it: a silent success on a failed restore would hide a broken branch.
-  const restore = await execCapture(
+  const restore = await streamIntoExec({
     docker,
     containerId,
-    [
-      "sh",
-      "-c",
-      `pg_restore --clean --if-exists --no-owner -U ${shellQuote(creds.username)} -d ${shellQuote(
-        creds.databaseName,
-      )} ${tmp}`,
+    cmd: [
+      "pg_restore",
+      "--clean",
+      "--if-exists",
+      "--no-owner",
+      "-U",
+      creds.username,
+      "-d",
+      creds.databaseName,
     ],
-    { env: [`PGPASSWORD=${creds.password}`], allowNonZero: true },
-  );
-  // Separate exec so its exit can't mask pg_restore's.
-  await execCapture(docker, containerId, ["rm", "-f", tmp], { allowNonZero: true });
+    env: [`PGPASSWORD=${creds.password}`],
+    write: async (stdin) => {
+      await pipeline(Readable.from([archive]), stdin);
+    },
+  });
   if (restore.exitCode !== 0) {
     throw new Error(
       `pg_restore failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`,

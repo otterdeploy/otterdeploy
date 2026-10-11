@@ -283,6 +283,7 @@ async function branchOne(
     username: creds.username,
     password,
     projectSlug,
+    networkScopeSuffix: `-preview-${input.previewId}`,
     deploymentId: dep.id,
     public: false,
     strategy,

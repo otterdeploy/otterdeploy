@@ -100,7 +100,8 @@ describe("query cache under a blackholed Redis", () => {
     const put = await timed(cache.put("k", [{ id: 1 }], ["resource"]));
     expect(get.value).toBeUndefined();
     expect(get.ms + put.ms).toBeLessThanOrEqual(REDIS_OP_TIMEOUT_MS + 100);
-    expect(redis.send).not.toHaveBeenCalled();
+    // The GET script hung; the put was skipped outright by the open circuit.
+    expect(redis.send).toHaveBeenCalledTimes(1);
   });
 
   test("invalidation is still attempted while the circuit is open", async () => {
@@ -110,8 +111,9 @@ describe("query cache under a blackholed Redis", () => {
     expect(cacheRedisCircuit.isOpen).toBe(true);
 
     await timed(cache.onMutate({ tables: ["resource"] }));
-    expect(redis.send).toHaveBeenCalledTimes(1);
-    expect(redis.send).toHaveBeenCalledWith("EVAL", expect.any(Array));
+    // One send for the hung GET script, one for the forced invalidation.
+    expect(redis.send).toHaveBeenCalledTimes(2);
+    expect(redis.send).toHaveBeenLastCalledWith("EVAL", expect.any(Array));
   });
 });
 

@@ -82,6 +82,15 @@ export interface ParsedComposeService {
   replicas: number;
   resources: ParsedResources;
   restart: ParsedRestart;
+  /**
+   * Compose `stop_grace_period` as written ("1m30s"): how long the runtime
+   * waits after the stop signal before killing the container. Null when the
+   * file does not say. A database child that is killed mid-checkpoint panics on
+   * its next start, so the file's own value is honoured.
+   */
+  stopGracePeriod: string | null;
+  /** Compose `stop_signal` (`SIGINT`, `SIGQUIT`, ...), or null for the image's own. */
+  stopSignal: string | null;
   dependsOn: string[];
   /**
    * Compose `labels`, normalized to a flat map (compose allows both the map

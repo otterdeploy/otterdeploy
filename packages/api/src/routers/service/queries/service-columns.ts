@@ -50,6 +50,10 @@ export interface CreateServiceInput {
   restartMaxAttempts?: number | null;
   restartDelayMs?: number;
   restartWindowMs?: number | null;
+  /** Grace between the stop signal and the kill; null = the runtime's default. */
+  stopGracePeriodMs?: number | null;
+  /** Stop signal override; null = the image's own. */
+  stopSignal?: string | null;
 
   healthcheckCmd?: string[] | null;
   healthcheckIntervalMs?: number | null;
@@ -118,6 +122,8 @@ export function serviceRestartColumns(input: CreateServiceInput) {
     restartMaxAttempts: input.restartMaxAttempts ?? null,
     restartDelayMs: input.restartDelayMs ?? 5000,
     restartWindowMs: input.restartWindowMs ?? null,
+    stopGracePeriodMs: input.stopGracePeriodMs ?? null,
+    stopSignal: input.stopSignal ?? null,
   };
 }
 

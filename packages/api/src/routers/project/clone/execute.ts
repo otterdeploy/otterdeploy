@@ -135,6 +135,8 @@ async function cloneService(
     restartMaxAttempts: svc.restartMaxAttempts,
     restartDelayMs: svc.restartDelayMs,
     restartWindowMs: svc.restartWindowMs,
+    stopGracePeriodMs: svc.stopGracePeriodMs,
+    stopSignal: svc.stopSignal,
     healthcheckCmd: svc.healthcheckCmd,
     healthcheckIntervalMs: svc.healthcheckIntervalMs,
     healthcheckTimeoutMs: svc.healthcheckTimeoutMs,

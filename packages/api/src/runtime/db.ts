@@ -15,6 +15,7 @@ interface DbInspectInput {
   serviceName: string;
   volumeName: string;
   projectSlug: string;
+  networkScopeSuffix?: string;
 }
 
 export const provisionSwarmDatabase = (

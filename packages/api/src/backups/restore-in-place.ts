@@ -16,7 +16,12 @@ import type { DatabaseTarget, ExecutionContext } from "./db";
 import type { RusticCli } from "./rustic";
 
 import { buildContainerName } from "../routers/project/views";
-import { engineDataDir, restoreCommand, restoreShortfall } from "./engine-helpers";
+import {
+  engineDataDir,
+  restoreCommand,
+  restoreFailureIsBenign,
+  restoreShortfall,
+} from "./engine-helpers";
 import { execCapture, findResourceContainerId } from "./exec";
 import { RestoreRefusedError } from "./restore-errors";
 import { streamSnapshotIntoExec } from "./restore-stream";
@@ -157,7 +162,10 @@ export async function restoreDatabaseInPlace(
     snapshotId: snapshot.id,
     filenameInSnapshot: "dump",
   });
-  if (restore.exitCode !== 0) {
+  if (
+    restore.exitCode !== 0 &&
+    !restoreFailureIsBenign(target.engine, restore.exitCode, restore.stderr)
+  ) {
     throw new Error(
       `${method} failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`,
     );

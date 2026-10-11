@@ -7,6 +7,17 @@ import { Cache, type MutationOption } from "drizzle-orm/cache/core";
 import { entityKind } from "drizzle-orm/entity";
 import { log as globalLog } from "evlog";
 
+import {
+  CACHE_WRITE_SETTLE_MS,
+  GEN_TTL_SECONDS,
+  GET_SCRIPT,
+  genKey,
+  INVALIDATE_SCRIPT,
+  parseGetReply,
+  PUT_SCRIPT,
+  ReadSnapshots,
+  settleKey,
+} from "./cache-coherence";
 import { cacheRedisCircuit, RedisCircuitOpenError } from "./redis-circuit";
 
 const KEY_PREFIX = "drizzle:cache:";
@@ -46,35 +57,6 @@ const BIGINT_TAG = "__otterCacheBigInt__";
 // outage costs a request one deadline rather than one per command. A skipped
 // call is a cache miss / no-op; Postgres answers.
 
-/**
- * KEYS[1] = the cache key, KEYS[2..] = its table-index sets;
- * ARGV = value, ttl, index ttl. SET + SADD + EXPIRE as one atomic step.
- */
-const PUT_SCRIPT = `
-redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
-for i = 2, #KEYS do
-  redis.call('SADD', KEYS[i], KEYS[1])
-  redis.call('EXPIRE', KEYS[i], ARGV[3])
-end
-return 1
-`;
-
-/**
- * KEYS[1..n] = table-index sets, KEYS[n+1..] = tag keys; ARGV[1] = n.
- * Deletes every key indexed under the sets, the sets, and the tags, atomically.
- * DEL is chunked to stay under Lua's unpack() limit.
- */
-const INVALIDATE_SCRIPT = `
-local n = tonumber(ARGV[1])
-local doomed = {}
-if n > 0 then doomed = redis.call('SUNION', unpack(KEYS, 1, n)) end
-for i = 1, #doomed, 1000 do
-  redis.call('DEL', unpack(doomed, i, math.min(i + 999, #doomed)))
-end
-redis.call('DEL', unpack(KEYS))
-return #doomed
-`;
-
 // `this` is the replacer's holder object: raw pre-serialization driver rows
 // whose values include Dates and BigInts (runtime values, not JSON) so
 // `JsonObject` would be dishonest here and `UnknownRecord` is the fit.
@@ -111,6 +93,8 @@ interface RedisCacheOptions {
   ttl?: number;
   /** When true, drizzle caches every query unless explicitly skipped. */
   global?: boolean;
+  /** Settle window after a write (ms); see CACHE_WRITE_SETTLE_MS. */
+  settleMs?: number;
 }
 
 /**
@@ -126,12 +110,20 @@ export class RedisCache extends Cache {
 
   private readonly defaultTtl: number;
   private readonly useGlobally: boolean;
+  private readonly settleMs: number;
   private readonly client: Bun.RedisClient;
+  /** Counters each missed read saw, for its put (./cache-coherence.ts). */
+  private readonly snapshots = new ReadSnapshots();
 
-  constructor({ ttl = 60, global = false }: RedisCacheOptions = {}) {
+  constructor({
+    ttl = 60,
+    global = false,
+    settleMs = CACHE_WRITE_SETTLE_MS,
+  }: RedisCacheOptions = {}) {
     super();
     this.defaultTtl = ttl;
     this.useGlobally = global;
+    this.settleMs = settleMs;
     this.client = new Bun.RedisClient(env.REDIS_URL, {
       // Reject commands immediately while disconnected; Result wrapping
       // below turns the rejection into a graceful cache-miss / no-op.
@@ -145,13 +137,20 @@ export class RedisCache extends Cache {
 
   async get(
     key: string,
-    _tables: string[],
+    tables: string[],
     isTag = false,
     _isAutoInvalidate?: boolean,
   ): Promise<unknown[] | undefined> {
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
 
-    const result = await cacheRedisCircuit.run("cache GET", () => this.client.get(fullKey));
+    const result = await cacheRedisCircuit.run("cache GET", () =>
+      this.client.send("EVAL", [
+        GET_SCRIPT,
+        String(1 + tables.length),
+        fullKey,
+        ...tables.map((table) => genKey(table)),
+      ]),
+    );
     if (result.isErr()) {
       if (RedisCircuitOpenError.is(result.error)) return undefined;
       globalLog.warn({
@@ -162,8 +161,13 @@ export class RedisCache extends Cache {
       return undefined;
     }
 
-    const raw = result.value;
-    if (raw == null) return undefined;
+    const reply = parseGetReply(result.value);
+    if (!reply) return undefined;
+    if (!reply.hit) {
+      this.snapshots.record(fullKey, tables, reply.gens);
+      return undefined;
+    }
+    const raw = reply.value;
     try {
       const parsed: unknown = JSON.parse(raw, reviveRichValues);
       // Only query-result arrays are ever cached (put() serializes driver
@@ -189,19 +193,29 @@ export class RedisCache extends Cache {
     const ttl = config?.ex ?? this.defaultTtl;
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
     const value = JSON.stringify(response, tagRichValues);
+    // Always consumed; a value tied to no table is never stale: no checks.
+    const snapshot = this.snapshots.take(fullKey, tables.length > 0);
+    const genTables = snapshot?.tables ?? [];
 
     // One script: the value and its table-index entries land together or not
     // at all. As separate commands an invalidation could run between the SET
-    // and the SADD and miss the key, leaving it served until its TTL.
+    // and the SADD and miss the key, leaving it served until its TTL. The
+    // same step refuses a value a write may already have superseded.
     const setResult = await cacheRedisCircuit.run("cache SET", () =>
       this.client.send("EVAL", [
         PUT_SCRIPT,
-        String(1 + tables.length),
+        String(1 + tables.length + genTables.length + tables.length),
         fullKey,
         ...tables.map((table) => TABLE_SET_PREFIX + table),
+        ...genTables.map((table) => genKey(table)),
+        ...tables.map((table) => settleKey(table)),
         value,
         String(ttl),
         String(ttl * 2),
+        String(tables.length),
+        String(genTables.length),
+        String(tables.length),
+        ...(snapshot?.gens ?? []),
       ]),
     );
     if (setResult.isErr()) {
@@ -237,6 +251,8 @@ export class RedisCache extends Cache {
     ]);
     const tagKeys = tags.map((tag) => TAG_PREFIX + tag);
     if (setKeys.length === 0 && tagKeys.length === 0) return;
+    const genKeys = tableNames.map((tableName) => genKey(tableName));
+    const dirtyKeys = tableNames.map((tableName) => settleKey(tableName));
 
     // One script: collect every key indexed under these tables and delete it
     // with the indexes in a single step. As separate SUNION and DEL calls, a
@@ -251,10 +267,16 @@ export class RedisCache extends Cache {
       () =>
         this.client.send("EVAL", [
           INVALIDATE_SCRIPT,
-          String(setKeys.length + tagKeys.length),
+          String(setKeys.length + tagKeys.length + genKeys.length + dirtyKeys.length),
           ...setKeys,
           ...tagKeys,
+          ...genKeys,
+          ...dirtyKeys,
           String(setKeys.length),
+          String(tagKeys.length),
+          String(tableNames.length),
+          String(this.settleMs),
+          String(GEN_TTL_SECONDS),
         ]),
       { force: true },
     );

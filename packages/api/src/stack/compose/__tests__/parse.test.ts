@@ -266,4 +266,25 @@ services:
 `);
     expect(c.services[0]?.labels).toEqual({});
   });
+
+  it("reads stop_grace_period and stop_signal, and leaves them null when absent", () => {
+    const c = ok(`
+services:
+  db:
+    image: postgres:17
+    stop_grace_period: 1m30s
+    stop_signal: sigint
+  plain:
+    image: redis:7
+  odd:
+    image: redis:7
+    stop_signal: "not a signal!"
+    stop_grace_period: 20
+`);
+    const by = (n: string) => c.services.find((s) => s.name === n);
+    expect(by("db")).toMatchObject({ stopGracePeriod: "1m30s", stopSignal: "SIGINT" });
+    expect(by("plain")).toMatchObject({ stopGracePeriod: null, stopSignal: null });
+    // junk is ignored, not carried into docker where it would fail the create
+    expect(by("odd")).toMatchObject({ stopGracePeriod: null, stopSignal: null });
+  });
 });

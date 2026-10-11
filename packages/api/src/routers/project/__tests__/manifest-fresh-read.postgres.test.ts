@@ -81,8 +81,10 @@ describe.skipIf(!redisUrl)("RedisCache put and invalidation", () => {
    *  with the offline queue off, so it degrades to a miss instead of waiting).
    *  Each of those rejections also opens the shared Redis circuit, which would
    *  skip the next put outright, so every attempt starts with it closed. */
-  async function connectedCache(): Promise<InstanceType<typeof RedisCache>> {
-    const cache = new RedisCache({ global: true, ttl: 60 });
+  async function connectedCache(
+    options: { settleMs?: number } = {},
+  ): Promise<InstanceType<typeof RedisCache>> {
+    const cache = new RedisCache({ global: true, ttl: 60, ...options });
     for (let attempt = 0; attempt < 100; attempt++) {
       await cacheRedisCircuit.run("reset", async () => undefined, { force: true });
       await cache.put("warm-up", response("warm"), [], false);
@@ -120,5 +122,50 @@ describe.skipIf(!redisUrl)("RedisCache put and invalidation", () => {
       await Promise.all(keys.map((key) => writer.get(key, [table], false)))
     ).filter((v) => v !== undefined);
     expect(survivors).toEqual([]);
+  });
+
+  // Drizzle calls get (miss), runs the query, then put, and runs
+  // a write's invalidation concurrently with the write itself. Each test
+  // below drives one interleaving of that against the cache directly.
+
+  it("a read that queried before a write cannot cache its old value after the write's invalidation", async () => {
+    // Settle window shortened so only the write-counter check is in play.
+    const cache = await connectedCache({ settleMs: 1 });
+    const table = `t_${crypto.randomUUID()}`;
+    expect(await cache.get("k-old", [table], false)).toBeUndefined(); // reader misses...
+    await cache.onMutate({ tables: [table] }); // ...a write lands and invalidates...
+    await Bun.sleep(20);
+    await cache.put("k-old", response("old"), [table], false); // ...then the reader's put
+    expect(await cache.get("k-old", [table], false)).toBeUndefined();
+  });
+
+  it("a read between a write's invalidation and its commit is not cached", async () => {
+    const cache = await connectedCache(); // the production settle window
+    const table = `t_${crypto.randomUUID()}`;
+    await cache.onMutate({ tables: [table] }); // invalidation ran first (Promise.all)
+    expect(await cache.get("k-early", [table], false)).toBeUndefined();
+    await cache.put("k-early", response("old"), [table], false); // read before commit
+    expect(await cache.get("k-early", [table], false)).toBeUndefined();
+  });
+
+  it("once a table has settled, a read populates the cache again", async () => {
+    const cache = await connectedCache({ settleMs: 50 });
+    const table = `t_${crypto.randomUUID()}`;
+    await cache.onMutate({ tables: [table] });
+    await Bun.sleep(120);
+    expect(await cache.get("k-settled", [table], false)).toBeUndefined();
+    await cache.put("k-settled", response("new"), [table], false);
+    expect(await cache.get("k-settled", [table], false)).toEqual(response("new"));
+  });
+
+  it("concurrent misses on one key: the slower reader's older snapshot still refuses its put", async () => {
+    const cache = await connectedCache({ settleMs: 1 });
+    const table = `t_${crypto.randomUUID()}`;
+    expect(await cache.get("k-two", [table], false)).toBeUndefined(); // reader 1, before the write
+    await cache.onMutate({ tables: [table] });
+    await Bun.sleep(20);
+    expect(await cache.get("k-two", [table], false)).toBeUndefined(); // reader 2, after it
+    await cache.put("k-two", response("old"), [table], false); // reader 1's stale result
+    expect(await cache.get("k-two", [table], false)).toBeUndefined();
   });
 });

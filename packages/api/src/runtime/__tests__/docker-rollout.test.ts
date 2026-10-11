@@ -200,7 +200,7 @@ function rollout(image: string, overrides: Partial<RolloutInput> = {}): RolloutI
         : null,
       port: 3000,
     }),
-    publishesHostPort: false,
+    exclusive: null,
     ...overrides,
   };
 }
@@ -296,12 +296,12 @@ describe("blue-green cutover", () => {
   });
 });
 
-describe("swap cutover (the service publishes a host port)", () => {
+describe("swap cutover (a host port, or a volume two copies must not share)", () => {
   test("a failed version is removed and the parked one restored under its name", async () => {
     const fake = createFakeHost(serving());
     const status = await rollOutContainer(
       fake.host,
-      rollout("port-mismatch", { publishesHostPort: true }),
+      rollout("port-mismatch", { exclusive: "the service publishes a host port" }),
     );
     expect(status.rolledBack).toBe(true);
     expect(fake.calls).toEqual([
@@ -319,11 +319,36 @@ describe("swap cutover (the service publishes a host port)", () => {
     const fake = createFakeHost(serving());
     const status = await rollOutContainer(
       fake.host,
-      rollout("express", { publishesHostPort: true }),
+      rollout("express", { exclusive: "the service publishes a host port" }),
     );
     expect(status.status).toBe("running");
     expect(fake.containers.get("web")?.image).toBe("express");
     expect(fake.containers.has(parkedName("web"))).toBe(false);
+  });
+});
+
+describe("swap for a service that writes a volume", () => {
+  test("the old copy stops before the new one starts, and the log says why", async () => {
+    // gitea: two copies on one /data volume, the new one
+    // could not take its queue lock and exited, so every redeploy failed.
+    const fake = createFakeHost(serving());
+    const status = await rollOutContainer(
+      fake.host,
+      rollout("express", { exclusive: "the service writes to /data (a volume it keeps)" }),
+    );
+    expect(status.status).toBe("running");
+    expect(fake.calls.slice(0, 3)).toEqual([
+      "stop web",
+      `rename web ${parkedName("web")}`,
+      "create web",
+    ]);
+    expect(
+      fake.lines.some((l) =>
+        l.includes(
+          "the service writes to /data (a volume it keeps): stopping the previous version",
+        ),
+      ),
+    ).toBe(true);
   });
 });
 

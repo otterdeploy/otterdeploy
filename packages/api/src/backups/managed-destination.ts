@@ -111,11 +111,15 @@ export async function ensureManagedLocalDestination(organizationId: Organization
  * to remove. A `degraded` peer counts: it is a health signal, not operator
  * intent, and the scheduler still fans out to it.
  */
-export async function canDisableManagedDestination(input: {
-  organizationId: OrganizationId;
-  id: BackupDestinationId;
-}): Promise<boolean> {
-  const [peer] = await db
+export async function canDisableManagedDestination(
+  input: {
+    organizationId: OrganizationId;
+    id: BackupDestinationId;
+  },
+  /** The flip's transaction, so the check reads under its lock. */
+  exec: Pick<typeof db, "select"> = db,
+): Promise<boolean> {
+  const [peer] = await exec
     .select({ id: backupDestination.id })
     .from(backupDestination)
     .where(
@@ -129,6 +133,8 @@ export async function canDisableManagedDestination(input: {
         or(eq(backupDestination.status, "active"), eq(backupDestination.status, "degraded")),
       ),
     )
-    .limit(1);
+    .limit(1)
+    // A guard read: never answered from the query cache.
+    .$withCache(false);
   return Boolean(peer);
 }

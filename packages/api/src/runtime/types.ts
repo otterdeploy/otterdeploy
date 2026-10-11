@@ -66,7 +66,7 @@ export interface RuntimeDriver {
   update(spec: ContainerSpec, log?: RequestLogger): Promise<RuntimeStatus>;
   destroy(input: { serviceName: string }, log?: RequestLogger): Promise<void>;
   inspect(
-    input: { serviceName: string; projectSlug: string },
+    input: { serviceName: string; projectSlug: string; networkScopeSuffix?: string },
     log?: RequestLogger,
   ): Promise<RuntimeStatus>;
   /**
@@ -77,7 +77,11 @@ export interface RuntimeDriver {
    * status, exactly as a single `inspect` on an absent container would.
    */
   inspectMany(
-    inputs: ReadonlyArray<{ serviceName: string; projectSlug: string }>,
+    inputs: ReadonlyArray<{
+      serviceName: string;
+      projectSlug: string;
+      networkScopeSuffix?: string;
+    }>,
     log?: RequestLogger,
   ): Promise<Map<string, RuntimeStatus>>;
 
@@ -86,7 +90,12 @@ export interface RuntimeDriver {
   updateDatabase(input: DatabaseSpec, log?: RequestLogger): Promise<DatabaseStatus>;
   destroyDatabase(input: { serviceName: string }, log?: RequestLogger): Promise<void>;
   inspectDatabase(
-    input: { serviceName: string; volumeName: string; projectSlug: string },
+    input: {
+      serviceName: string;
+      volumeName: string;
+      projectSlug: string;
+      networkScopeSuffix?: string;
+    },
     log?: RequestLogger,
   ): Promise<DatabaseStatus>;
 

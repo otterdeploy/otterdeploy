@@ -95,27 +95,10 @@ export function scopeSuffix(scope: ScopeLike): string {
   }
 }
 
-/**
- * Suffix for the OVERLAY NETWORK a resource attaches to. Environments only.
- *
- * Distinct from `scopeSuffix` on purpose. The network is a DNS namespace, and
- * the two scope kinds want opposite things from it:
- *
- *   environment  an isolation boundary. Its own network, so a service in one
- *                environment cannot resolve another's database at all — not
- *                merely under a different name. Name-scoping stops accidental
- *                collisions; it does not stop code (or an operator) that names
- *                the other environment's host.
- *   preview      deliberately NOT isolated. A preview reaches its base
- *                environment's databases by hostname; that is what makes it a
- *                preview of that environment rather than an empty stack. It
- *                stays on the base network and is separated by container and
- *                alias names, which `scopeSuffix` already handles.
- *
- * Main renders as base, so every deployed project keeps its current network.
- */
+/** Network namespace: main retains its installed name; each preview gets its own. */
 export function networkScopeSuffix(scope: ScopeLike): string {
   const s = normalize(scope);
+  if (s.kind === "preview") return `-preview-${s.id}`;
   return s.kind === "environment" && !s.isMain ? `-${s.slug}` : "";
 }
 

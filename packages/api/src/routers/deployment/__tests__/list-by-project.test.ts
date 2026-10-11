@@ -171,6 +171,8 @@ function serviceLookup(resourceId: ReturnType<typeof idSchema.resource.parse>): 
         restartMaxAttempts: null,
         restartDelayMs: 5000,
         restartWindowMs: null,
+        stopGracePeriodMs: null,
+        stopSignal: null,
         healthcheckCmd: null,
         healthcheckIntervalMs: null,
         healthcheckTimeoutMs: null,

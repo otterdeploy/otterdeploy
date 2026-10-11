@@ -123,6 +123,10 @@ services:
     expect(durationMs("2m")).toBe(120_000);
     expect(durationMs("1h")).toBe(3_600_000);
     expect(durationMs("10")).toBe(10_000); // bare = seconds
+    expect(durationMs("1m30s")).toBe(90_000); // compound, as stop_grace_period is written
+    expect(durationMs("1h2m3s")).toBe(3_723_000);
+    expect(durationMs("1m500ms")).toBe(60_500);
+    expect(durationMs("soon")).toBeUndefined();
     expect(durationMs(undefined)).toBeUndefined();
   });
 });
