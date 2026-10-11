@@ -57,10 +57,13 @@ import * as resourceQueries from "../../project/queries/resource";
 import { listProjectDeployments } from "../list-by-project";
 import {
   computeStats,
-  effectiveListedStatus,
+  listedStatus,
+  matchesPeople,
   matchesQuery,
   matchesStatusFilter,
   medianDurationMs,
+  peopleFacets,
+  resolveServing,
 } from "../list-filters";
 
 // Branded at the boundary the same way production code does: through the id
@@ -75,6 +78,7 @@ function row(over: {
   createdAt: Date;
   image?: string;
   reason?: string;
+  gitCommitAuthor?: string;
 }) {
   seq += 1;
   return {
@@ -89,8 +93,13 @@ function row(over: {
     gitSha: null,
     gitRef: null,
     gitCommitMessage: null,
-    gitCommitAuthor: null,
+    gitCommitAuthor: over.gitCommitAuthor ?? null,
+    gitCommitAuthorAvatar: null,
     sourceSha: null,
+    previewId: null,
+    environmentName: null,
+    actorName: null,
+    actorImage: null,
     completedAt: null,
     createdAt: over.createdAt,
     updatedAt: over.createdAt,
@@ -216,60 +225,126 @@ function givenProjectExists() {
 
 // ── Pure status semantics ────────────────────────────────────────────────
 
-describe("effectiveListedStatus", () => {
-  test("non-latest unsettled rows read as superseded", () => {
-    expect(effectiveListedStatus("running", false)).toBe("superseded");
-    expect(effectiveListedStatus("building", false)).toBe("superseded");
-    expect(effectiveListedStatus("pending", false)).toBe("superseded");
+describe("listedStatus", () => {
+  const listed = (
+    status: Parameters<typeof listedStatus>[0]["status"],
+    isLatest: boolean,
+    isServing = false,
+  ) => listedStatus({ status, isLatest, isServing });
+
+  test("older rows that never settled were replaced", () => {
+    expect(listed("running", false)).toBe("superseded");
+    expect(listed("building", false)).toBe("superseded");
+    expect(listed("pending", false)).toBe("superseded");
   });
 
-  test("non-latest terminal rows keep their stored status", () => {
-    expect(effectiveListedStatus("failed", false)).toBe("failed");
-    expect(effectiveListedStatus("removed", false)).toBe("removed");
-    expect(effectiveListedStatus("superseded", false)).toBe("superseded");
+  test("older terminal rows keep their stored outcome", () => {
+    expect(listed("failed", false)).toBe("failed");
+    expect(listed("removed", false)).toBe("removed");
+    expect(listed("superseded", false)).toBe("superseded");
     // A cancel is an outcome, not an in-flight row a newer deploy replaced.
-    // It must not be rewritten to `superseded` once something newer lands.
-    expect(effectiveListedStatus("cancelled", false)).toBe("cancelled");
+    expect(listed("cancelled", false)).toBe("cancelled");
   });
 
-  test("latest rows always keep their stored status", () => {
-    for (const s of [
-      "pending",
-      "building",
-      "running",
-      "failed",
-      "cancelled",
-      "superseded",
-      "removed",
-    ] as const) {
-      expect(effectiveListedStatus(s, true)).toBe(s);
+  test("an older row a resource is still serving stays running", () => {
+    expect(listed("running", false, true)).toBe("running");
+  });
+
+  test("the newest row shows its live-derived status when one was read", () => {
+    expect(listedStatus({ status: "building", isLatest: true, isServing: false }, "starting")).toBe(
+      "starting",
+    );
+    expect(listedStatus({ status: "running", isLatest: true, isServing: true }, "crashed")).toBe(
+      "crashed",
+    );
+    expect(listed("building", true)).toBe("building");
+  });
+});
+
+describe("resolveServing", () => {
+  const a = idSchema.resource.parse("res_a");
+  const newRow = idSchema.deployment.parse("dep_new");
+  const oldRow = idSchema.deployment.parse("dep_old");
+  const running = new Map([[a, oldRow]]);
+
+  test("the previous deploy keeps serving while the newest is still coming up", () => {
+    for (const derived of ["starting", undefined] as const) {
+      const serving = resolveServing(
+        [{ id: newRow, resourceId: a, stored: "building", derived }],
+        running,
+      );
+      expect(serving.get(a)).toBe(oldRow);
     }
+  });
+
+  test("the newest deploy serves once its containers are up", () => {
+    const serving = resolveServing(
+      [{ id: newRow, resourceId: a, stored: "building", derived: "running" }],
+      running,
+    );
+    expect(serving.get(a)).toBe(newRow);
+  });
+
+  test("a crash-looping or paused newest deploy is still the one in place", () => {
+    for (const derived of ["crashed", "paused"] as const) {
+      const serving = resolveServing(
+        [{ id: newRow, resourceId: a, stored: "running", derived }],
+        running,
+      );
+      expect(serving.get(a)).toBe(newRow);
+    }
+  });
+
+  test("a failed or cancelled newest deploy never displaces the one serving", () => {
+    for (const stored of ["failed", "cancelled"] as const) {
+      const serving = resolveServing(
+        [{ id: newRow, resourceId: a, stored, derived: "crashed" }],
+        running,
+      );
+      expect(serving.get(a)).toBe(oldRow);
+    }
+  });
+
+  test("a resource that never came up is serving nothing", () => {
+    const serving = resolveServing(
+      [{ id: newRow, resourceId: a, stored: "failed", derived: undefined }],
+      new Map(),
+    );
+    expect(serving.has(a)).toBe(false);
   });
 });
 
 describe("matchesStatusFilter", () => {
-  test("building covers stored pending on the latest row", () => {
-    expect(matchesStatusFilter("building", "pending", true)).toBe(true);
-    expect(matchesStatusFilter("building", "building", true)).toBe(true);
-    // …but a non-latest building row is superseded, not building.
-    expect(matchesStatusFilter("building", "building", false)).toBe(false);
+  const row = (status: Parameters<typeof matchesStatusFilter>[1]["status"], isServing = false) => ({
+    status,
+    isServing,
   });
 
-  test("running only matches the latest live row", () => {
-    expect(matchesStatusFilter("running", "running", true)).toBe(true);
-    expect(matchesStatusFilter("running", "running", false)).toBe(false);
+  test("building is everything still in progress", () => {
+    expect(matchesStatusFilter("building", row("pending"))).toBe(true);
+    expect(matchesStatusFilter("building", row("building"))).toBe(true);
+    expect(matchesStatusFilter("building", row("starting"))).toBe(true);
+    expect(matchesStatusFilter("building", row("superseded"))).toBe(false);
+    expect(matchesStatusFilter("building", row("cancelled"))).toBe(false);
   });
 
-  test("superseded matches stored superseded and replaced unsettled rows", () => {
-    expect(matchesStatusFilter("superseded", "superseded", false)).toBe(true);
-    expect(matchesStatusFilter("superseded", "running", false)).toBe(true);
-    expect(matchesStatusFilter("superseded", "running", true)).toBe(false);
-    expect(matchesStatusFilter("superseded", "failed", false)).toBe(false);
+  test("failed is everything that broke, crash loops included", () => {
+    expect(matchesStatusFilter("failed", row("failed"))).toBe(true);
+    expect(matchesStatusFilter("failed", row("crashed", true))).toBe(true);
+    expect(matchesStatusFilter("failed", row("cancelled"))).toBe(false);
+    expect(matchesStatusFilter("cancelled", row("failed"))).toBe(false);
   });
 
-  test("failed matches regardless of latest position", () => {
-    expect(matchesStatusFilter("failed", "failed", true)).toBe(true);
-    expect(matchesStatusFilter("failed", "failed", false)).toBe(true);
+  test("serving matches the serving row whatever its status", () => {
+    expect(matchesStatusFilter("serving", row("running", true))).toBe(true);
+    expect(matchesStatusFilter("serving", row("crashed", true))).toBe(true);
+    expect(matchesStatusFilter("serving", row("running", false))).toBe(false);
+  });
+
+  test("the rest match the listed status exactly", () => {
+    expect(matchesStatusFilter("superseded", row("superseded"))).toBe(true);
+    expect(matchesStatusFilter("running", row("running", true))).toBe(true);
+    expect(matchesStatusFilter("cancelled", row("cancelled"))).toBe(true);
   });
 });
 
@@ -391,24 +466,6 @@ describe("listProjectDeployments", () => {
   });
 });
 
-describe("matchesStatusFilter, cancelled", () => {
-  test("is filterable on its own so stopped builds are findable in history", () => {
-    expect(matchesStatusFilter("cancelled", "cancelled", true)).toBe(true);
-    expect(matchesStatusFilter("cancelled", "cancelled", false)).toBe(true);
-  });
-
-  test("the building filter does not sweep up cancelled rows", () => {
-    // `building` covers stored `pending` because both render as in-flight; a
-    // cancelled row is settled and must not appear under it.
-    expect(matchesStatusFilter("building", "cancelled", true)).toBe(false);
-  });
-
-  test("cancelled is not confused with failed in either direction", () => {
-    expect(matchesStatusFilter("failed", "cancelled", true)).toBe(false);
-    expect(matchesStatusFilter("cancelled", "failed", true)).toBe(false);
-  });
-});
-
 // ── Search, stats, and pagination semantics ──────────────────────────────
 
 describe("matchesQuery", () => {
@@ -469,16 +526,74 @@ describe("medianDurationMs", () => {
 });
 
 describe("computeStats", () => {
-  test("counts effective statuses: superseded rows are neither failed nor in flight", () => {
+  test("counts the listed status, through the same groups the filter uses", () => {
     const at = new Date("2026-08-20T10:00:00Z");
     const stats = computeStats([
-      { status: "running", isLatest: true, createdAt: at, completedAt: null },
-      { status: "building", isLatest: true, createdAt: at, completedAt: null },
-      { status: "failed", isLatest: false, createdAt: at, completedAt: null },
-      // Stored-running but replaced: effective superseded, not in flight.
-      { status: "running", isLatest: false, createdAt: at, completedAt: null },
+      { status: "running", isServing: true, createdAt: at, completedAt: null },
+      { status: "starting", isServing: false, createdAt: at, completedAt: null },
+      { status: "building", isServing: false, createdAt: at, completedAt: null },
+      { status: "failed", isServing: false, createdAt: at, completedAt: null },
+      { status: "crashed", isServing: true, createdAt: at, completedAt: null },
+      { status: "superseded", isServing: false, createdAt: at, completedAt: null },
     ]);
-    expect(stats).toEqual({ windowTotal: 4, failed: 1, inFlight: 1, medianDurationMs: null });
+    expect(stats).toEqual({
+      windowTotal: 6,
+      failed: 2,
+      inFlight: 2,
+      serving: 2,
+      medianDurationMs: null,
+    });
+  });
+});
+
+describe("people", () => {
+  const push = (author: string) => ({
+    reason: "git-push",
+    triggeredBy: null,
+    gitCommitAuthor: author,
+    gitCommitAuthorAvatar: null,
+  });
+  const clicked = (name: string, reason = "redeploy") => ({
+    reason,
+    triggeredBy: { name, image: null },
+    gitCommitAuthor: "Marcus",
+    gitCommitAuthorAvatar: null,
+  });
+  const keyed = {
+    reason: "redeploy",
+    triggeredBy: null,
+    gitCommitAuthor: null,
+    gitCommitAuthorAvatar: null,
+  };
+
+  test("a deploy is credited to who asked for it, not the commit's author", () => {
+    expect(matchesPeople(clicked("Ada", "rollback"), { names: ["Ada"], automatic: false })).toBe(
+      true,
+    );
+    expect(matchesPeople(clicked("Ada", "rollback"), { names: ["Marcus"], automatic: false })).toBe(
+      false,
+    );
+  });
+
+  test("a push is credited to the commit's author; nobody at all is automatic", () => {
+    expect(matchesPeople(push("Marcus"), { names: ["Marcus"], automatic: false })).toBe(true);
+    expect(matchesPeople(keyed, { names: ["Marcus"], automatic: false })).toBe(false);
+    expect(matchesPeople(keyed, { names: [], automatic: true })).toBe(true);
+    expect(matchesPeople(push("Marcus"), { names: [], automatic: true })).toBe(false);
+  });
+
+  test("an empty filter matches everything", () => {
+    expect(matchesPeople(keyed, { names: [], automatic: false })).toBe(true);
+  });
+
+  test("facets list people most active first, and count the automatic ones", () => {
+    expect(peopleFacets([push("Marcus"), clicked("Ada"), push("Marcus"), keyed])).toEqual({
+      people: [
+        { name: "Marcus", image: null, count: 2 },
+        { name: "Ada", image: null, count: 1 },
+      ],
+      automatic: 1,
+    });
   });
 });
 
@@ -564,5 +679,171 @@ describe("listProjectDeployments, search + offset + stats", () => {
     const { items } = result.unwrap();
     // The mocked env lookup returns no row, so the honest fallback applies.
     expect(items[0]?.environmentName).toBe("main");
+  });
+});
+
+describe("listProjectDeployments, one status for rows and counts", () => {
+  /** The newest row of `resourceId` derives to `derived` from its live tasks. */
+  function givenLiveStatus(
+    resourceId: ReturnType<typeof idSchema.resource.parse>,
+    derived: Awaited<ReturnType<typeof derivation.deriveDeploymentStatus>>,
+  ) {
+    vi.mocked(resourceQueries.getResourceById).mockResolvedValue(serviceLookup(resourceId));
+    vi.mocked(derivation.resolveDeploymentServiceName).mockResolvedValue("svc");
+    vi.mocked(derivation.loadTaskStatesByDeployment).mockResolvedValue(new Map());
+    vi.mocked(derivation.isBuildStillLogging).mockResolvedValue(false);
+    vi.mocked(reconcile.isOwnedInFlight).mockResolvedValue(false);
+    vi.mocked(reconcile.reconcileObservedSuccess).mockResolvedValue(undefined);
+    vi.mocked(derivation.deriveDeploymentStatus).mockReturnValue(derived);
+  }
+
+  const list = (over: Partial<Parameters<typeof listProjectDeployments>[0]> = {}) =>
+    listProjectDeployments({ projectId, organizationId, limit: 50, offset: 0, ...over });
+
+  test("a row shown as failed is counted as failed, not in flight", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    givenRows([
+      // Stored `building`, but nothing has run for longer than any build does:
+      // the live derivation calls it failed, and so must the summary.
+      row({ resourceId: a, status: "building", createdAt: new Date("2026-07-09T10:00:00Z") }),
+    ]);
+    givenLiveStatus(a, "failed");
+
+    const { items, stats } = (await list()).unwrap();
+    expect(items.map((i) => i.status)).toEqual(["failed"]);
+    expect(stats.failed).toBe(1);
+    expect(stats.inFlight).toBe(0);
+  });
+
+  test("the failed filter finds the row the list shows as failed", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    givenRows([
+      row({ resourceId: a, status: "building", createdAt: new Date("2026-07-09T10:00:00Z") }),
+    ]);
+    givenLiveStatus(a, "failed");
+
+    const { items, total } = (await list({ status: "failed" })).unwrap();
+    expect(total).toBe(1);
+    expect(items[0]?.status).toBe("failed");
+  });
+
+  test("while a deploy rolls out, the previous one is the one serving", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    givenRows([
+      row({ resourceId: a, status: "building", createdAt: new Date("2026-07-09T10:00:00Z") }),
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-08T10:00:00Z") }),
+    ]);
+    givenLiveStatus(a, "starting");
+
+    const { items, stats, serving } = (await list()).unwrap();
+    expect(items.map((i) => [i.status, i.isLatest, i.isServing])).toEqual([
+      ["starting", true, false],
+      ["running", false, true],
+    ]);
+    expect(stats.serving).toBe(1);
+    expect(serving.map((s) => s.deploymentId)).toEqual([items[1]?.id]);
+  });
+
+  test("once the new deploy is up it serves, and the old one was replaced", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    givenRows([
+      row({ resourceId: a, status: "building", createdAt: new Date("2026-07-09T10:00:00Z") }),
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-08T10:00:00Z") }),
+    ]);
+    givenLiveStatus(a, "running");
+
+    const { items } = (await list()).unwrap();
+    expect(items.map((i) => [i.status, i.isServing])).toEqual([
+      ["running", true],
+      ["superseded", false],
+    ]);
+  });
+
+  test("a failed build leaves the previous deploy serving", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    givenRows([
+      row({ resourceId: a, status: "failed", createdAt: new Date("2026-07-09T10:00:00Z") }),
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-08T10:00:00Z") }),
+    ]);
+
+    const { items } = (await list()).unwrap();
+    expect(items.map((i) => [i.status, i.isServing])).toEqual([
+      ["failed", false],
+      ["running", true],
+    ]);
+  });
+
+  test("the serving filter lists one row per resource", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    const b = idSchema.resource.parse("res_api");
+    givenRows([
+      row({ resourceId: a, status: "failed", createdAt: new Date("2026-07-09T10:00:00Z") }),
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-08T10:00:00Z") }),
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-07T10:00:00Z") }),
+      row({ resourceId: b, status: "running", createdAt: new Date("2026-07-06T10:00:00Z") }),
+    ]);
+
+    const { items, total } = (await list({ status: "serving" })).unwrap();
+    expect(total).toBe(2);
+    expect(items.map((i) => i.resourceId)).toEqual(["res_web", "res_api"]);
+  });
+
+  test("what a resource serves is reported even when it predates the window", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    const old = row({
+      resourceId: a,
+      status: "running",
+      createdAt: new Date("2026-06-01T10:00:00Z"),
+    });
+    const recent = row({
+      resourceId: a,
+      status: "failed",
+      createdAt: new Date("2026-07-09T10:00:00Z"),
+    });
+    // First read: the window. Second read: every stored-running row.
+    selectChain.orderBy.mockResolvedValueOnce([recent]).mockResolvedValueOnce([old]);
+
+    const { items, serving, stats } = (
+      await list({ since: new Date("2026-07-01T00:00:00Z") })
+    ).unwrap();
+    expect(items.map((i) => [i.id, i.isServing])).toEqual([[recent.id, false]]);
+    expect(stats.serving).toBe(0);
+    expect(serving).toEqual([
+      expect.objectContaining({ resourceId: a, deploymentId: old.id, image: old.image }),
+    ]);
+  });
+
+  test("the person filter narrows the list and the summary, not the options", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    givenRows([
+      row({
+        resourceId: a,
+        status: "running",
+        createdAt: new Date("2026-07-09T10:00:00Z"),
+        gitCommitAuthor: "Marcus",
+      }),
+      row({
+        resourceId: a,
+        status: "failed",
+        createdAt: new Date("2026-07-08T10:00:00Z"),
+        gitCommitAuthor: "Priya",
+      }),
+    ]);
+
+    const { items, stats, facets } = (
+      await list({ people: { names: ["Priya"], automatic: false } })
+    ).unwrap();
+    expect(items.map((i) => i.gitCommitAuthor)).toEqual(["Priya"]);
+    expect(stats.windowTotal).toBe(1);
+    expect(stats.failed).toBe(1);
+    expect(facets.people.map((p) => p.name)).toEqual(["Marcus", "Priya"]);
   });
 });

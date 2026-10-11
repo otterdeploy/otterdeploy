@@ -53,6 +53,10 @@ export const deploymentRouter = {
           ? { environmentId: input.environmentId, isMain: input.environmentIsMain }
           : undefined,
         q: input.q,
+        people:
+          input.people?.length || input.automatic
+            ? { names: input.people ?? [], automatic: input.automatic ?? false }
+            : undefined,
         since: input.since ? new Date(input.since) : undefined,
         limit: input.limit,
         offset: input.offset,
