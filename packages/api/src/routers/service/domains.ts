@@ -35,7 +35,7 @@ import { randomBytes } from "node:crypto";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
-import { reconcile } from "../../caddy";
+import { queueEdgeReload, queueReloadOf } from "../../caddy/edge-sync";
 import { insertResourceRoute, promotePrimaryRoute } from "../../caddy/primary-route";
 import {
   deleteProxyRoute,
@@ -141,7 +141,11 @@ export async function addServiceDomain(
       publicDomain: route.isPrimary ? domain : (record.service.publicDomain ?? domain),
     });
   }
-  if (route.enabled) await reconcile(log);
+  // Queue the reload rather than wait for it: the row is durable now, and a
+  // Caddy reload can take tens of seconds. The route answers
+  // `edgeState: pending`; the reload settles it synced or failed, and that
+  // change reaches the panel over the project event stream.
+  if (route.enabled) route = await queueReloadOf(route);
   // A service whose env mentions its own address, and every sibling
   // addressing it, rolls behind the response; one that nothing references
   // does not roll at all.
@@ -211,7 +215,7 @@ export async function recheckServiceDomain(
     });
   const enabled = ownershipVerified && record.service.publicEnabled;
 
-  const updated = await updateProxyRoute(input.routeId, {
+  let updated = await updateProxyRoute(input.routeId, {
     dnsState: reachability.state,
     dnsCheckedAt: new Date(),
     usesAcme,
@@ -222,9 +226,10 @@ export async function recheckServiceDomain(
   if (!updated) return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
 
   // Re-render if the cert decision flipped (e.g. DNS just started pointing
-  // here → switch from self-signed to ACME) and the route is live.
+  // here → switch from self-signed to ACME) and the route is live. Queued,
+  // not awaited: the row carries the reload's outcome.
   if (updated.enabled !== route.enabled || (updated.enabled && usesAcme !== route.usesAcme)) {
-    await reconcile(log);
+    updated = await queueReloadOf(updated);
   }
 
   log.set({ domain: { action: "recheck", domain: route.domain, dnsState: reachability.state } });
@@ -279,7 +284,10 @@ export async function removeServiceDomain(
   }
 
   // The removed host was (possibly) live; re-render to stop serving it.
-  await reconcile(log);
+  // Queued, not awaited. There is no row left to carry the
+  // outcome, so a failed reload is retried by the edge watch, which sees the
+  // database's routes differ from the ones last loaded.
+  queueEdgeReload();
   rollAddressChangesInBackground(input, addressBefore);
   log.set({ domain: { action: "remove", domain: route.domain } });
   return Result.ok({ ok: true });

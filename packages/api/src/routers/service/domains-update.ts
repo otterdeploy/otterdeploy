@@ -17,7 +17,7 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
-import { reconcile } from "../../caddy";
+import { queueReloadOf } from "../../caddy/edge-sync";
 import {
   getProxyRouteByDomain,
   type ProxyRouteRecord,
@@ -121,7 +121,8 @@ export async function updateServiceDomain(
     await setServicePublicDomain(input.resourceId, updated.domain);
   }
   // Re-render so the old host stops being served and the new one takes over.
-  if (route.enabled || updated.enabled) await reconcile(log);
+  // Queued, not awaited: the row carries the reload's outcome.
+  if (route.enabled || updated.enabled) updated = await queueReloadOf(updated);
 
   log.set({ domain: { action: "update", from: route.domain, to: domain } });
   return Result.ok(toDomainView(updated, serverIp));

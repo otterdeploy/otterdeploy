@@ -170,6 +170,11 @@ export const serviceDomainSchema = z.object({
   certState: z.enum(["unknown", "obtaining", "valid", "failed"]),
   certError: z.string().nullable(),
   certCheckedAt: z.string().nullable(),
+  // Whether the edge runs this host's latest change. Writes
+  // answer before the Caddy reload: "pending" until it lands, "failed" (with
+  // `edgeError`) when Caddy refused it. Pushed live on the project stream.
+  edgeState: z.enum(["synced", "pending", "failed"]),
+  edgeError: z.string().nullable(),
   usesAcme: z.boolean(),
   protected: z.boolean(),
   ownershipVerified: z.boolean(),

@@ -68,6 +68,19 @@ export const proxyRouteCertStateEnum = pgEnum("proxy_route_cert_state", [
   "failed",
 ]);
 
+// Whether the edge runs what this row says. A route write that
+// changes the edge no longer waits for the Caddy reload: it marks the row
+// "pending", answers, and the reload runs behind it (caddy/edge-sync.ts). The
+// reconcile that loads the row settles it "synced", or "failed" with the reason
+// in `edgeError`, so a reload that never lands is visible on the route instead
+// of vanishing after the response. "synced" is the default: a row nobody
+// marked is one whose last change the edge already has.
+export const proxyRouteEdgeStateEnum = pgEnum("proxy_route_edge_state", [
+  "synced",
+  "pending",
+  "failed",
+]);
+
 export const proxyRoute = pgTable(
   "proxy_route",
   {
@@ -130,6 +143,15 @@ export const proxyRoute = pgTable(
     certError: text("cert_error"),
     // When a cert event last touched this row.
     certCheckedAt: timestamp("cert_checked_at"),
+    // Edge reload state (see the enum above). `edgeError` holds why the last
+    // reload that carried this row failed; null otherwise.
+    edgeState: proxyRouteEdgeStateEnum("edge_state").notNull().default("synced"),
+    edgeError: text("edge_error"),
+    // Bumped by every write that marks the row pending. A reconcile settles
+    // only the revision it saw before reading the routes, so a write that lands
+    // while a reload is in flight stays pending for the reload queued behind it
+    // rather than reading as loaded.
+    edgeRevision: integer("edge_revision").notNull().default(0),
     // Whether Caddy should issue a public ACME cert (Let's Encrypt) for
     // this domain. False = `tls internal` (self-signed), used for sslip
     // fallback domains and any verified-but-unowned platform default.
