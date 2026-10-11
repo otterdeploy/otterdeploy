@@ -27,7 +27,8 @@ import { Textarea } from "@/shared/components/ui/textarea";
 
 import type { EnvironmentRef, EnvVarRow } from "./variables-types";
 
-import { envLabel, runBulkApply } from "./variables-bulk-apply";
+import { bulkFailureText, envLabel, runBulkApply } from "./variables-bulk-apply";
+import { BulkConflictBanner, useBulkEditBase } from "./variables-bulk-conflict";
 import { BulkEditSidebar } from "./variables-bulk-sidebar";
 import { parseDotEnv } from "./variables-dotenv";
 
@@ -71,6 +72,15 @@ function BulkEditBody({
   // before a reload ate the component state. An explicit .env drop outranks both.
   const storedDraft = variableDraftsCollection.get(variableDraftId(projectId, env.id));
   const restoredFromDraft = prefillText == null && storedDraft !== undefined;
+  // The saved set this text was built from: applying names its version, so a
+  // set another tab changed since is refused, not replaced.
+  const tabs = useBulkEditBase({
+    projectId,
+    environmentId: env.id,
+    currentRows,
+    initial,
+    storedDraft,
+  });
 
   const form = useForm({
     defaultValues: {
@@ -86,6 +96,7 @@ function BulkEditBody({
         targets,
         vars: parsed,
         fallbackMessage: t("variables.couldntSave"),
+        expectedVersions: { [env.id]: tabs.base.version },
       });
       // The buffer is now the saved state for every applied env: their
       // drafts (including this editor's) would otherwise resurrect stale text.
@@ -99,39 +110,32 @@ function BulkEditBody({
             targets: targets.map(envLabel).join(", "),
           }),
         );
+      } else if (failed.some((f) => f.conflict && f.env.id === env.id)) {
+        // Keep the dialog, the text and the draft (see variables-bulk-conflict).
+        tabs.markConflicted();
       } else {
-        const suffix =
-          applied.length > 0
-            ? t("variables.appliedSuffix", { names: applied.map(envLabel).join(", ") })
-            : "";
-        toast.error(
-          t("variables.failedToast", {
-            names: failed.map((f) => envLabel(f.env)).join(", "),
-            message: failed[0].message,
-          }) + suffix,
-        );
+        toast.error(bulkFailureText(t, applied, failed));
       }
     },
   });
 
   const setText = (next: string) => {
     form.setFieldValue("text", next);
-    setVariableDraft({ projectId, environmentId: env.id, text: next, pristine: initial });
+    setVariableDraft({
+      projectId,
+      environmentId: env.id,
+      text: next,
+      pristine: initial,
+      base: tabs.base,
+    });
   };
 
   return (
     <DialogContent className="gap-0 [--dlg-pad:0px] p-0 sm:max-w-4xl">
-      <DialogHeader className="border-b px-5 py-3">
-        <DialogTitle className="flex items-baseline gap-2 text-sm font-semibold">
-          {t("variables.bulkTitle")}
-          <span className="font-mono text-xs font-normal text-muted-foreground capitalize">
-            · {envLabel(env)}
-          </span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {t("variables.bulkSubtitle")}
-          </span>
-        </DialogTitle>
-      </DialogHeader>
+      <BulkEditHeader env={env} />
+      {tabs.conflicted && (
+        <BulkConflictBanner onReload={() => form.setFieldValue("text", tabs.merge(form.getFieldValue("text")))} />
+      )}
 
       <div className="grid grid-cols-[1fr_280px] divide-x">
         <div className="flex flex-col">
@@ -146,6 +150,7 @@ function BulkEditBody({
                   onClick={() => {
                     clearVariableDraft(projectId, env.id);
                     form.setFieldValue("text", initial);
+                    tabs.resetBase();
                   }}
                 >
                   {t("variables.discardDraft")}
@@ -212,6 +217,23 @@ function BulkEditBody({
         )}
       </form.Subscribe>
     </DialogContent>
+  );
+}
+
+function BulkEditHeader({ env }: { env: EnvironmentRef }) {
+  const { t } = useTranslation();
+  return (
+    <DialogHeader className="border-b px-5 py-3">
+      <DialogTitle className="flex items-baseline gap-2 text-sm font-semibold">
+        {t("variables.bulkTitle")}
+        <span className="font-mono text-xs font-normal text-muted-foreground capitalize">
+          · {envLabel(env)}
+        </span>
+        <span className="text-xs font-normal text-muted-foreground">
+          {t("variables.bulkSubtitle")}
+        </span>
+      </DialogTitle>
+    </DialogHeader>
   );
 }
 

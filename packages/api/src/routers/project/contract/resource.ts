@@ -12,7 +12,13 @@ import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { resourceSchema } from "./resource-schemas";
-import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
+import {
+  basePath,
+  envVersionConflict,
+  projectNotFoundErrors,
+  resourceNotFoundErrors,
+  tag,
+} from "./shared";
 
 export {
   composeResourceSchema,
@@ -62,6 +68,10 @@ const resourceEnvEntrySchema = z.object({
  */
 const resourceEnvReadEntrySchema = resourceEnvEntrySchema.extend({
   sealed: z.boolean(),
+  // Marked sensitive (a display hint). Part of the set's version
+  // (envSetVersion), so a client holding only this list can name the version
+  // it loaded when it saves.
+  isSecret: z.boolean(),
 });
 
 const resourceEnvListInput = z.object({
@@ -83,6 +93,11 @@ const resourceEnvBulkSetInput = z.object({
   // running container alone until the operator hits Deploy. Omitted/`true`
   // preserves the eager-redeploy behaviour for the CLI and other callers.
   redeploy: z.boolean().optional(),
+  // The version of the set the editor loaded (envSetVersion from
+  // @otterdeploy/shared/env-version). A save built from a set that has changed
+  // since is refused with CONFLICT instead of silently dropping the other
+  // writer's variables. Omitted: replace unconditionally.
+  expectedVersion: z.string().min(1).optional(),
 });
 
 /**
@@ -195,6 +210,7 @@ export const resourceContractSlice = {
         // A value the resolver could never satisfy (a service reading its own
         // env bag). The handler's message names the offending key and token.
         INVALID_INPUT: { status: 422, message: "Invalid variable value" as const },
+        CONFLICT: envVersionConflict,
       })
       .meta({
         path: `${basePath}/{projectId}/resources/{resourceId}/env`,

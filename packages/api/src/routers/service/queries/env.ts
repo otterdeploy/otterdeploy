@@ -167,7 +167,7 @@ export async function deleteServiceEnvVar(input: {
   });
 }
 
-export { bulkReplaceServiceEnvVars } from "./env-bulk";
+export { bulkReplaceServiceEnvVars, bulkReplaceServiceEnvVarsAt } from "./env-bulk";
 
 /**
  * Preview-aware resource lookup for the variable resolver, within the CALLING

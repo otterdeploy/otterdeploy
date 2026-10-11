@@ -42,6 +42,8 @@ export {
   type DatabaseResourceRecord,
 } from "./postgres-resource";
 
+export { setDatabaseResourceExtraEnvAt } from "./database-env";
+
 export {
   deleteDraftCredential,
   deleteDraftCredentialsNotIn,
@@ -62,7 +64,7 @@ export {
 } from "./resource";
 
 export {
-  bulkReplaceProjectEnvVars,
+  bulkReplaceProjectEnvVarsAt,
   deleteProjectEnvVar,
   listProjectEnvVars,
   listSecretProjectEnvKeys,

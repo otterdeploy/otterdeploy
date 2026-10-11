@@ -16,22 +16,18 @@ import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
 import type { ResourceRef } from "../scopes";
+import type { EnvVersionConflictError } from "../service/env-version-error";
 import type { RefSelfReferenceError } from "../service/errors";
 import type { ServiceTaskInfo } from "./service-tasks";
 
 import { createRequestDockerClient } from "../../lib/docker-client";
-import { rejectSelfReferences } from "../service/env-self-ref";
-import { bulkReplaceServiceEnvVars, listServiceEnvVars } from "../service/queries";
+import { listServiceEnvVars } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
 import { rollDatabaseEnv } from "./database-env-roll";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
-import {
-  getDatabaseResourceRecord,
-  getProjectInOrg,
-  getProjectRecord,
-  setDatabaseResourceExtraEnv,
-} from "./queries";
+import { getDatabaseResourceRecord, getProjectInOrg, getProjectRecord } from "./queries";
 import { composeChildSwarmServices, getResourceById } from "./queries/resource";
+import { writeDatabaseEnv, writeServiceEnv } from "./resource-env-write";
 import {
   collapseInstanceState,
   listResourceInstances,
@@ -50,6 +46,7 @@ export interface EnvEntry {
  *  a ciphertext envelope, so there is nothing a client could do with it. */
 export interface ResourceEnvEntryView extends EnvEntry {
   sealed: boolean;
+  isSecret: boolean;
 }
 
 // Resolve a resource to its swarm service name. Postgres uses the
@@ -187,23 +184,49 @@ export async function listResourceEnv(
     const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
     // `extraEnv` is `$type<Record<string, string>>` on the schema already.
     const env = record?.database.extraEnv ?? {};
+    const secret = new Set(record?.database.secretKeys ?? []);
     // A database's extraEnv has no sealed rows: the column is service-only.
-    return Result.ok(Object.entries(env).map(([key, value]) => ({ key, value, sealed: false })));
+    return Result.ok(
+      Object.entries(env).map(([key, value]) => ({
+        key,
+        value,
+        sealed: false,
+        isSecret: secret.has(key),
+      })),
+    );
   }
 
   const rows = await listServiceEnvVars(input.resourceId);
   // Masked here, not just in mapEnvVar: a sealed row's `value` is a ciphertext
   // envelope, and this path reads the DB rows directly.
   return Result.ok(
-    rows.map((r) => ({ key: r.key, value: r.sealed ? "" : r.value, sealed: r.sealed })),
+    rows.map((r) => ({
+      key: r.key,
+      value: r.sealed ? "" : r.value,
+      sealed: r.sealed,
+      isSecret: r.isSecret,
+    })),
   );
 }
 
 export async function bulkSetResourceEnv(
-  input: ResourceRef & { env: EnvEntry[]; secretKeys?: string[]; redeploy?: boolean },
+  input: ResourceRef & {
+    env: EnvEntry[];
+    secretKeys?: string[];
+    redeploy?: boolean;
+    /** The version of the set the editor loaded (envSetVersion). When given,
+     *  a set that has changed since is refused instead of replaced. */
+    expectedVersion?: string;
+  },
   log: RequestLogger,
 ): Promise<
-  Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError | RefSelfReferenceError>
+  Result<
+    EnvEntry[],
+    | ProjectNotFoundError
+    | PostgresResourceNotFoundError
+    | RefSelfReferenceError
+    | EnvVersionConflictError
+  >
 > {
   // Env is baked into a container at creation, so the write only takes effect
   // on a re-apply. `redeploy: false` (the Variables tab) persists the diff and
@@ -238,7 +261,13 @@ export async function bulkSetResourceEnv(
     // Filter secretKeys to only those that still exist in `next`. Guards
     // against the editor sending a key that was deleted in the same save.
     const filteredSecrets = input.secretKeys?.filter((k) => k in next);
-    await setDatabaseResourceExtraEnv(input.resourceId, next, filteredSecrets);
+    const written = await writeDatabaseEnv(
+      input.resourceId,
+      next,
+      filteredSecrets,
+      input.expectedVersion,
+    );
+    if (written.isErr()) return Result.err(written.error);
 
     const dbRecord = await getDatabaseResourceRecord(input.projectId, input.resourceId);
     if (dbRecord && shouldRedeploy) {
@@ -261,19 +290,10 @@ export async function bulkSetResourceEnv(
 
   // service: reuse the existing service env path which handles bulk
   // replace + ref fan-out. Redeploy is best-effort: we've already saved
-  // the env and the next normal deploy picks it up.
-  // A value that reads this service's own env bag can never resolve. Refuse
-  // it here, where the answer reaches the Variables tab as the save's error,
-  // instead of persisting it and failing the next redeploy with a cycle.
-  const guarded = await rejectSelfReferences(input.projectId, found.record, input.env);
-  if (guarded.isErr()) return Result.err(guarded.error);
-  const secretSet = new Set(input.secretKeys ?? []);
-  await bulkReplaceServiceEnvVars(
-    input.resourceId,
-    input.env.map((e) => ({ ...e, isSecret: secretSet.has(e.key) })),
-    // The Variables tab. A human sent the whole bag, so these are theirs.
-    "ui",
-  );
+  // the env and the next normal deploy picks it up. A self-reference is
+  // refused first (see writeServiceEnv).
+  const written = await writeServiceEnv(input, found.record);
+  if (written.isErr()) return Result.err(written.error);
   if (!shouldRedeploy) {
     log.set({ env: { outcome: "saved_no_redeploy" } });
     return Result.ok(input.env);

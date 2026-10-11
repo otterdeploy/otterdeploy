@@ -1794,6 +1794,8 @@
     "envLiveSince": "Aktiv seit {{time}}",
     "envLiveApply": "Anwenden und neu starten",
     "variablesSaveFailed": "Speichern fehlgeschlagen",
+    "variablesConflict": "Variablen wurden in einem anderen Tab geändert — neu laden, um zusammenzuführen",
+    "variablesReloadToMerge": "Neu laden und zusammenführen",
     "publicAccessTitle": "Öffentlicher Zugriff",
     "publicAccessDescription": "Aus hält die DB nur im internen Netzwerk. An verdrahtet den Caddy-Layer-4-Proxy und stellt den öffentlichen Hostnamen ins offene Internet.",
     "exposePublicly": "Öffentlich freigeben",
@@ -2054,7 +2056,9 @@
     "savedToast": "{{n}} Variablen in {{targets}} gespeichert",
     "failedToast": "Fehlgeschlagen für {{names}}: {{message}}",
     "appliedSuffix": " · angewendet auf {{names}}",
-    "couldntSave": "Konnte nicht speichern"
+    "couldntSave": "Konnte nicht speichern",
+    "conflict": "Variablen wurden in einem anderen Tab geändert — neu laden, um zusammenzuführen",
+    "reloadToMerge": "Neu laden und zusammenführen"
   },
   "routeAccess": {
     "manageAccess": "Zugriff verwalten",
