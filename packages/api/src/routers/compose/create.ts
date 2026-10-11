@@ -18,7 +18,7 @@ import { Result } from "better-result";
 
 import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
-import { resolvePlacementSeed } from "../../lib/placement-seed";
+import { resolveRunPlacementSeed } from "../../lib/placement-seed";
 import { getProjectInOrg } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import { enqueueComposeBuild } from "./build-trigger";
@@ -204,7 +204,7 @@ export async function createComposeResource(args: {
   // Validated before anything is written: at deploy an unresolvable pin
   // degrades to "schedule anywhere", which would silently ignore the machine
   // the operator picked in the install form. See lib/placement-seed.ts.
-  const placement = await resolvePlacementSeed({
+  const placement = await resolveRunPlacementSeed({
     serverId: input.placementServerId,
     organizationId,
   });

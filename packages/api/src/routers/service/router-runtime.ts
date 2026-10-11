@@ -136,6 +136,7 @@ export const serviceRuntimeRouter = {
           // behind instead of asking the operator to confirm in the abstract.
           // A server that is not the caller's reads as one that does not exist.
           UnknownPlacementServerError: () => errors.NOT_FOUND(),
+          PlacementNeedsSwarmError: (e) => errors.PLACEMENT_UNSUPPORTED({ message: e.message }),
           PlacementVolumeLossError: (e) =>
             errors.PLACEMENT_VOLUME_LOSS({ message: e.message, data: { mounts: e.mounts } }),
           RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),

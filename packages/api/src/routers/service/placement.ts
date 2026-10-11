@@ -25,7 +25,11 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
-import { resolvePlacementSeed, type UnknownPlacementServerError } from "../../lib/placement-seed";
+import {
+  type PlacementNeedsSwarmError,
+  resolveRunPlacementSeed,
+  type UnknownPlacementServerError,
+} from "../../lib/placement-seed";
 import { loadResource } from "./context";
 import { PlacementVolumeLossError, type ResolveError, ServiceNotFoundError } from "./errors";
 import { getService } from "./handlers";
@@ -50,7 +54,9 @@ export interface SetPlacementInput extends ResourceRef {
 export async function setServicePlacement(
   input: SetPlacementInput,
   log: RequestLogger,
-): Promise<Result<ServiceView, NotFound | ResolveError | PlacementVolumeLossError>> {
+): Promise<
+  Result<ServiceView, NotFound | PlacementNeedsSwarmError | ResolveError | PlacementVolumeLossError>
+> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
   const { record, project } = ctx.value;
@@ -58,7 +64,7 @@ export async function setServicePlacement(
   // The target must be a server of the caller's own organization. An id that
   // is not a server, belongs to another organization, or does not exist all
   // fail the same way, so the answer says nothing about other tenants.
-  const target = await resolvePlacementSeed({
+  const target = await resolveRunPlacementSeed({
     serverId: input.serverId,
     organizationId: input.organizationId,
   });

@@ -244,6 +244,16 @@ const conflict = {
  * `appliedCount: 0` and nothing skipped, which a caller cannot tell apart from
  * "already up to date" while nothing it asked for exists.
  */
+/** A newly staged `server:` names a machine this install's runtime cannot
+ *  start anything on (plain Docker runs every workload on the control plane).
+ *  The message names the server. */
+const placementUnsupported = {
+  PLACEMENT_UNSUPPORTED: {
+    status: 422,
+    message: "This install runs services on the control plane only" as const,
+  },
+};
+
 const noManifest = {
   NO_MANIFEST: {
     status: 409,
@@ -260,7 +270,7 @@ export const manifestContractSlice = {
     .output(manifestGetOutput),
   save: oc
     .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
-    .errors({ ...projectNotFoundErrors, ...conflict })
+    .errors({ ...projectNotFoundErrors, ...conflict, ...placementUnsupported })
     .meta({ path: `${basePath}/{projectId}/manifest`, tag, method: "PUT" })
     .input(manifestSaveInput)
     .output(manifestSaveOutput),
@@ -277,7 +287,12 @@ export const manifestContractSlice = {
     .output(manifestApplyOutput),
   applyChange: oc
     .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
-    .errors({ ...projectNotFoundErrors, ...conflict, ...unknownEnvironment })
+    .errors({
+      ...projectNotFoundErrors,
+      ...conflict,
+      ...unknownEnvironment,
+      ...placementUnsupported,
+    })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)
     .output(manifestApplyChangeOutput),

@@ -48,8 +48,9 @@ async function resolve(input: {
   if (!input.placementServerId) return { outcome: UNPINNED, resolution: null };
 
   if (!isSwarmRuntime()) {
-    // Single-node docker: everything already runs on the one machine, so the
-    // pin is satisfied by definition rather than ignored.
+    // Plain docker: everything runs on the control plane. A pin anywhere else
+    // is refused where it is chosen (lib/placement-seed.ts), so a pin that
+    // reaches a deploy is the control plane's and is satisfied by definition.
     return { outcome: UNPINNED, resolution: null };
   }
 

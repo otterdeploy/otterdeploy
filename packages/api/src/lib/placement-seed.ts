@@ -24,6 +24,7 @@ import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result, TaggedError } from "better-result";
 
 import { getServerByNameInOrg, getServerInOrg } from "../routers/server/queries";
+import { isSwarmRuntime } from "../runtime";
 
 /** `target` is whatever the caller was given — an id from a form, a name from
  *  a manifest — so the message can quote it back verbatim. */
@@ -40,6 +41,60 @@ export class UnknownPlacementServerError extends TaggedError("UnknownPlacementSe
 }
 
 /**
+ * The plain-Docker runtime talks to one Docker daemon: the one on the machine
+ * otterdeploy runs on. Every container it starts lands there, whatever the
+ * resource says, so a pin to any other server cannot be honoured. Accepting it
+ * would record a placement the runtime then ignores: the resource reads as
+ * living on the worker and runs on the control plane.
+ */
+export class PlacementNeedsSwarmError extends TaggedError("PlacementNeedsSwarmError")<{
+  message: string;
+  target: string;
+}>() {
+  constructor(args: { target: string }) {
+    super({
+      target: args.target,
+      message: `This install runs services on the control plane only; placing one on "${args.target}" needs the Swarm runtime (DEPLOY_RUNTIME=swarm).`,
+    });
+  }
+}
+
+/** The bootstrap row's address: the machine otterdeploy itself runs on (see
+ *  `bootstrapLocalhostIfMissing`). */
+const CONTROL_PLANE_HOST = "127.0.0.1";
+
+/**
+ * Can the active runtime actually start a workload on this server?
+ *
+ * Swarm schedules onto any node. Plain Docker only onto the control plane, so
+ * a pin there is satisfied by definition and a pin anywhere else is refused.
+ */
+function runnableOn(server: {
+  name: string;
+  host: string;
+}): Result<void, PlacementNeedsSwarmError> {
+  if (isSwarmRuntime() || server.host === CONTROL_PLANE_HOST) return Result.ok(undefined);
+  return Result.err(new PlacementNeedsSwarmError({ target: server.name }));
+}
+
+/** The server an operator-supplied id names in this org, null for "no pin". */
+async function serverById(input: {
+  serverId: string | null | undefined;
+  organizationId: OrganizationId;
+}): Promise<
+  Result<{ id: ServerId; name: string; host: string } | null, UnknownPlacementServerError>
+> {
+  const raw = input.serverId ?? null;
+  if (raw === null || raw === "") return Result.ok(null);
+  if (!hasPrefix(raw, ID_PREFIX.server)) {
+    return Result.err(new UnknownPlacementServerError({ target: raw }));
+  }
+  const server = await getServerInOrg({ serverId: raw, organizationId: input.organizationId });
+  if (!server) return Result.err(new UnknownPlacementServerError({ target: raw }));
+  return Result.ok(server);
+}
+
+/**
  * Narrow an operator-supplied server id to a `ServerId` that exists in this
  * org, or `null` for "let the scheduler place it" (the default).
  *
@@ -52,14 +107,28 @@ export async function resolvePlacementSeed(input: {
   serverId: string | null | undefined;
   organizationId: OrganizationId;
 }): Promise<Result<ServerId | null, UnknownPlacementServerError>> {
-  const raw = input.serverId ?? null;
-  if (raw === null || raw === "") return Result.ok(null);
-  if (!hasPrefix(raw, ID_PREFIX.server)) {
-    return Result.err(new UnknownPlacementServerError({ target: raw }));
-  }
-  const server = await getServerInOrg({ serverId: raw, organizationId: input.organizationId });
-  if (!server) return Result.err(new UnknownPlacementServerError({ target: raw }));
-  return Result.ok(server.id);
+  const server = await serverById(input);
+  if (server.isErr()) return Result.err(server.error);
+  return Result.ok(server.value?.id ?? null);
+}
+
+/**
+ * `resolvePlacementSeed` for where a workload RUNS: the same lookup, plus a
+ * refusal when the runtime cannot start anything on that server. A build
+ * server is a different question (a builder process drains its lane on any
+ * runtime), which is why this is a second entry point rather than a change to
+ * the first.
+ */
+export async function resolveRunPlacementSeed(input: {
+  serverId: string | null | undefined;
+  organizationId: OrganizationId;
+}): Promise<Result<ServerId | null, UnknownPlacementServerError | PlacementNeedsSwarmError>> {
+  const server = await serverById(input);
+  if (server.isErr()) return Result.err(server.error);
+  if (server.value === null) return Result.ok(null);
+  const runnable = runnableOn(server.value);
+  if (runnable.isErr()) return Result.err(runnable.error);
+  return Result.ok(server.value.id);
 }
 
 /**
@@ -77,10 +146,14 @@ export async function resolvePlacementSeed(input: {
 export async function resolvePlacementByName(input: {
   serverName: string | null | undefined;
   organizationId: OrganizationId;
-}): Promise<Result<ServerId | null, UnknownPlacementServerError>> {
+}): Promise<Result<ServerId | null, UnknownPlacementServerError | PlacementNeedsSwarmError>> {
   const name = input.serverName?.trim() ?? "";
   if (name === "") return Result.ok(null);
   const server = await getServerByNameInOrg({ name, organizationId: input.organizationId });
   if (!server) return Result.err(new UnknownPlacementServerError({ target: name }));
+  // A manifest names where a workload runs (there is no build-server field
+  // in it), so the runtime has to be able to start one there.
+  const runnable = runnableOn(server);
+  if (runnable.isErr()) return Result.err(runnable.error);
   return Result.ok(server.id);
 }
