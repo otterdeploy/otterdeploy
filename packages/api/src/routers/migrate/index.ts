@@ -9,13 +9,35 @@
  * rebuilt from Coolify's DB at apply time and the client's `projects` list
  * merely selects from it.
  */
-import { idSchema } from "@otterdeploy/shared/id";
-import { createError } from "evlog";
+import type { RequestLogger } from "evlog";
 
 import { requireInstallAdmin } from "../..";
 import { applyCoolifyPlan } from "./apply";
-import { detectPlatforms, planCoolifyImport, type CoolifyPlan } from "./coolify";
+import {
+  CoolifyNotFoundError,
+  detectPlatforms,
+  planCoolifyImport,
+  type CoolifyPlan,
+} from "./coolify";
 import { detectPlatformsOnServer } from "./detect-server";
+
+interface CoolifyErrors {
+  COOLIFY_NOT_FOUND: (opts: { message: string }) => Error;
+  COOLIFY_UNREADABLE: () => Error;
+}
+
+/** The plan, or the contract error its failure maps to (both
+ *  used to be an evlog error oRPC does not recognise, an untyped 502). */
+async function readCoolifyPlan(errors: CoolifyErrors, log: RequestLogger): Promise<CoolifyPlan> {
+  const plan = await planCoolifyImport();
+  if (plan.isOk()) return plan.value;
+  if (plan.error instanceof CoolifyNotFoundError) {
+    throw errors.COOLIFY_NOT_FOUND({ message: plan.error.message });
+  }
+  // The detail stays in the request log: it is about Coolify's own database.
+  log.set({ coolify: { readError: plan.error.message } });
+  throw errors.COOLIFY_UNREADABLE();
+}
 
 /** Strip env VALUES for the wire (the plan preview shows keys only). */
 function toWirePlan(plan: CoolifyPlan) {
@@ -42,37 +64,34 @@ export const migrateRouter = {
   detectOnServer: requireInstallAdmin().migrate.detectOnServer.handler(
     async ({ input, context }) => {
       context.log.set({ target: { type: "server", id: input.serverId }, action: "migrate.detect" });
+      // Branded by the contract (serverIdField): the handler used to re-parse
+      // a looser string and throw the ZodError, an untyped 500.
       return detectPlatformsOnServer({
-        serverId: idSchema.server.parse(input.serverId),
+        serverId: input.serverId,
         organizationId: context.activeOrganizationId,
       });
     },
   ),
 
-  coolifyPlan: requireInstallAdmin().migrate.coolifyPlan.handler(async ({ context }) => {
+  coolifyPlan: requireInstallAdmin().migrate.coolifyPlan.handler(async ({ context, errors }) => {
     context.log.set({ target: { type: "platform" }, action: "migrate.coolify-plan" });
-    const plan = await planCoolifyImport();
-    if (plan.isErr()) {
-      throw createError({ message: plan.error.message, status: 502, why: "coolify read failed" });
-    }
-    return toWirePlan(plan.value);
+    return toWirePlan(await readCoolifyPlan(errors, context.log));
   }),
 
-  coolifyApply: requireInstallAdmin().migrate.coolifyApply.handler(async ({ input, context }) => {
-    context.log.set({ target: { type: "platform" }, action: "migrate.coolify-apply" });
-    const plan = await planCoolifyImport();
-    if (plan.isErr()) {
-      throw createError({ message: plan.error.message, status: 502, why: "coolify read failed" });
-    }
-    const wanted = new Set(input?.projects ?? []);
-    const selected =
-      wanted.size === 0
-        ? plan.value
-        : { ...plan.value, projects: plan.value.projects.filter((p) => wanted.has(p.name)) };
-    return applyCoolifyPlan({
-      plan: selected,
-      organizationId: context.activeOrganizationId,
-      log: context.log,
-    });
-  }),
+  coolifyApply: requireInstallAdmin().migrate.coolifyApply.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "platform" }, action: "migrate.coolify-apply" });
+      const plan = await readCoolifyPlan(errors, context.log);
+      const wanted = new Set(input?.projects ?? []);
+      const selected =
+        wanted.size === 0
+          ? plan
+          : { ...plan, projects: plan.projects.filter((p) => wanted.has(p.name)) };
+      return applyCoolifyPlan({
+        plan: selected,
+        organizationId: context.activeOrganizationId,
+        log: context.log,
+      });
+    },
+  ),
 };

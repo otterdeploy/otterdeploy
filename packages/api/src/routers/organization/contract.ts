@@ -421,6 +421,13 @@ const cancelInvitationInput = z.object({
   invitationId: authRowRef,
 });
 
+/** Cloudflare could not be reached at all (DNS, TLS, timeout): not a verdict
+ *  on the token, which INVALID_INPUT would wrongly suggest. */
+const cloudflareUnreachableError = {
+  status: 502,
+  message: "Could not reach Cloudflare" as const,
+};
+
 export const organizationContract = {
   settings: oc
     .meta({
@@ -452,6 +459,7 @@ export const organizationContract = {
   cloudflareListZones: oc
     .errors({
       INVALID_INPUT: { status: 400, message: "Invalid Cloudflare token" as const },
+      CLOUDFLARE_UNREACHABLE: cloudflareUnreachableError,
     })
     .meta({
       path: `${basePath}/cloudflare/zones`,
@@ -462,6 +470,7 @@ export const organizationContract = {
     .output(z.array(cloudflareZoneSchema)),
 
   setCloudflareConfig: oc
+    .errors({ CLOUDFLARE_UNREACHABLE: cloudflareUnreachableError })
     .meta({
       path: `${basePath}/{organizationId}/settings/cloudflare`,
       tag,
@@ -476,6 +485,7 @@ export const organizationContract = {
         status: 400,
         message: "Cloudflare token / zone / base domain not configured" as const,
       },
+      CLOUDFLARE_UNREACHABLE: cloudflareUnreachableError,
     })
     .meta({
       path: `${basePath}/{organizationId}/settings/base-domain/auto-configure`,

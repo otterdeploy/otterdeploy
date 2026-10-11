@@ -11,12 +11,11 @@ import type { OrganizationId, ResourceId, UserId } from "@otterdeploy/shared/id"
 
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
-import { Result } from "better-result";
 import { and, eq } from "drizzle-orm";
 
 import { requirePermission } from "../..";
 import { closeSession, listSessions, openSession, ownerOf, sessionKey } from "../../data";
-import { toDataError } from "../../data/errors";
+import { resolveTargetOrDataError } from "../../data/errors";
 import { guardTarget, raise, resolveTarget, targetLog } from "./plumbing";
 import { probeVersion } from "./test-probe";
 
@@ -65,10 +64,9 @@ export function makeSessionHandlers(deps: {
 
         // Prove the path before reporting it open. Read-only: opening a
         // session must not be a way to acquire a writable connection.
-        const target = await Result.tryPromise({
-          try: () => resolveTarget(context, input.target, "read-only"),
-          catch: toDataError,
-        });
+        const target = await resolveTargetOrDataError(() =>
+          resolveTarget(context, input.target, "read-only"),
+        );
         if (target.isErr()) {
           closeSession(session.key);
           throw raise(target.error, errors);

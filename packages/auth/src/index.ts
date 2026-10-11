@@ -14,6 +14,7 @@ import {
 } from "@otterdeploy/db/schema/auth";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
+import { API_KEY_EXPIRATION_DAYS } from "@otterdeploy/shared/api-key-expiry";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -514,6 +515,9 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
         defaultPrefix: "otter_",
         enableMetadata: true,
         requireName: true,
+        // The range apiKeys.create's contract enforces, stated here too so
+        // the two cannot drift apart.
+        keyExpiration: API_KEY_EXPIRATION_DAYS,
         rateLimit: {
           enabled: true,
           timeWindow: API_KEY_RATE_LIMIT_WINDOW_MS,

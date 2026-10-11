@@ -42,6 +42,11 @@ const CLOUDFLARE_INVALID_TOKEN_CODE = 1000;
  *  unambiguous. */
 export const CLOUDFLARE_TRANSPORT_CODE = 0;
 
+/** Printable ASCII, no spaces: every shape of Cloudflare API token. */
+const CLOUDFLARE_TOKEN_SHAPE = /^[\x21-\x7e]+$/;
+const NOT_A_CLOUDFLARE_TOKEN =
+  "That is not a Cloudflare API token (it has characters a token never has).";
+
 export class CloudflareError extends TaggedError("CloudflareError")<{
   message: string;
   code: number;
@@ -99,6 +104,13 @@ async function cfEnvelope<T>(
   resultSchema: z.ZodType<T>,
   init: RequestInit = {},
 ): Promise<Result<CFEnvelope<T>, CloudflareError>> {
+  // A Cloudflare API token is printable ASCII. Anything else cannot even be
+  // put in an Authorization header: `Headers.set` threw a TypeError out of a
+  // module that promises not to throw, an untyped 500. It is a
+  // token Cloudflare would reject, so it is reported as one.
+  if (!CLOUDFLARE_TOKEN_SHAPE.test(token)) {
+    return Result.err(new CloudflareError(NOT_A_CLOUDFLARE_TOKEN, CLOUDFLARE_INVALID_TOKEN_CODE));
+  }
   // Merge via `Headers`: it accepts every HeadersInit shape (plain object,
   // entry array, Headers instance) where an object spread only handled the
   // first. Caller-provided headers still win over the defaults.

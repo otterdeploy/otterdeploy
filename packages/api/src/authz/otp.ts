@@ -9,7 +9,7 @@ import type { RedisClient } from "bun";
 
 import { timingSafeEqual } from "@otterdeploy/shared/crypto";
 
-import { createRedis } from "../lib/redis";
+import { createRedis, incrWithExpiry } from "../lib/redis";
 
 const OTP_DIGITS = 6;
 const OTP_TTL_SECONDS = 10 * 60;
@@ -41,17 +41,17 @@ export function generateOtp(): string {
 export async function storeOtp(domain: string, email: string, code: string): Promise<void> {
   const r = redis();
   const key = otpKey(domain, email);
-  await r.set(key, code);
-  await r.expire(key, OTP_TTL_SECONDS);
+  // Value and expiry in one command: a failure between a SET and a separate
+  // EXPIRE left a code that never expired.
+  await r.set(key, code, "EX", String(OTP_TTL_SECONDS));
 }
 
 /** Increment the per-(domain,email) request counter; true = still under the
- *  limit. First request in a window sets the expiry. */
+ *  limit. The window's expiry is set atomically with the increment. */
 export async function underRateLimit(domain: string, email: string): Promise<boolean> {
   const r = redis();
   const key = rateKey(domain, email);
-  const count = await r.incr(key);
-  if (count === 1) await r.expire(key, RATE_WINDOW_SECONDS);
+  const count = await incrWithExpiry(r, key, RATE_WINDOW_SECONDS);
   return count <= MAX_REQUESTS_PER_WINDOW;
 }
 
@@ -65,8 +65,7 @@ export async function consumeOtp(domain: string, email: string, code: string): P
 
   // Count the attempt before comparing; once the cap is hit, burn the code so
   // no further guesses (correct or not) succeed. Counter shares the OTP TTL.
-  const tries = await r.incr(tryKey(domain, email));
-  if (tries === 1) await r.expire(tryKey(domain, email), OTP_TTL_SECONDS);
+  const tries = await incrWithExpiry(r, tryKey(domain, email), OTP_TTL_SECONDS);
   if (tries > MAX_VERIFY_ATTEMPTS) {
     await r.del(key);
     await r.del(tryKey(domain, email));

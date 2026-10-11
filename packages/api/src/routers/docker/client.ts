@@ -5,6 +5,7 @@
 import { DockerNotFoundError } from "@otterdeploy/docker";
 
 import { createRequestDockerClient } from "../../lib/docker-client";
+import { dockerFailureReason } from "../../lib/docker-failure";
 
 export const docker = createRequestDockerClient();
 
@@ -16,5 +17,5 @@ export function failure(error: unknown): { ok: false; reason: string; kind?: "no
   if (error instanceof DockerNotFoundError) {
     return { ok: false, reason: error.message, kind: "not_found" };
   }
-  return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+  return { ok: false, reason: dockerFailureReason(error) };
 }

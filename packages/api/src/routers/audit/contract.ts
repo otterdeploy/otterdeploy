@@ -35,6 +35,10 @@ const auditEventSchema = z.object({
   causationId: z.string().nullable(),
 });
 
+/** An instant, with its offset: "any string" let `new Date("garbage")` reach
+ *  the query as an Invalid Date, a RangeError 500. */
+const isoInstant = z.iso.datetime({ offset: true });
+
 const listAuditInput = z.object({
   action: z.string().optional(),
   actorId: z.string().optional(),
@@ -43,8 +47,8 @@ const listAuditInput = z.object({
   /** Free-text across action / actor email / actor id / target id. */
   q: z.string().optional(),
   /** ISO timestamps bounding the window. */
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: isoInstant.optional(),
+  to: isoInstant.optional(),
   limit: z.number().int().min(1).max(200).default(50),
   offset: z.number().int().min(0).default(0),
 });
@@ -65,8 +69,8 @@ const listAuditOutput = z.object({
  *  target-kind dropdowns without shipping the whole event set. */
 const distinctAuditInput = z.object({
   /** ISO timestamps bounding the window (same semantics as `list`). */
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: isoInstant.optional(),
+  to: isoInstant.optional(),
 });
 
 const distinctAuditOutput = z.object({

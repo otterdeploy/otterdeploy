@@ -61,15 +61,39 @@ export const sshKeySchema = z.object({
 // generator (`z.void()` is rejected); `.optional()` keeps "no input" valid.
 const listSshKeysInput = z.object({}).optional();
 
-const generateSshKeyInput = z.object({
-  name: z.string().min(1).max(64),
-  type: sshKeyTypeSchema.default("ed25519"),
-  /** Override key size (rsa/ecdsa). Ignored for ed25519. */
-  bits: z.number().int().positive().optional(),
-  comment: z.string().max(128).optional(),
-  /** Optional passphrase to encrypt the private key before it's stored. */
-  passphrase: z.string().optional(),
-});
+/** Key sizes ssh-keygen accepts. Any other size made it exit non-zero, which
+ *  surfaced as an untyped 500; it is the caller's 400 instead. */
+const RSA_BITS = { min: 1024, max: 16_384 } as const;
+const ECDSA_BITS = [256, 384, 521] as const;
+
+const generateSshKeyInput = z
+  .object({
+    name: z.string().min(1).max(64),
+    type: sshKeyTypeSchema.default("ed25519"),
+    /** Override key size (rsa/ecdsa). Ignored for ed25519. */
+    bits: z.number().int().positive().optional(),
+    comment: z.string().max(128).optional(),
+    /** Optional passphrase to encrypt the private key before it's stored. */
+    passphrase: z.string().optional(),
+  })
+  .superRefine((input, ctx) => {
+    const { bits } = input;
+    if (bits === undefined) return;
+    if (input.type === "rsa" && (bits < RSA_BITS.min || bits > RSA_BITS.max)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bits"],
+        message: `An RSA key is ${RSA_BITS.min} to ${RSA_BITS.max} bits.`,
+      });
+    }
+    if (input.type === "ecdsa" && !ECDSA_BITS.some((size) => size === bits)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bits"],
+        message: `An ECDSA key is ${ECDSA_BITS.join(", ")} bits.`,
+      });
+    }
+  });
 
 const importSshKeyInput = z.object({
   name: z.string().min(1).max(64),

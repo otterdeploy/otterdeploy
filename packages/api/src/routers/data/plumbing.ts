@@ -25,7 +25,7 @@ import {
   resolveManagedTarget,
   sessionKey,
 } from "../../data";
-import { dataError, toDataError } from "../../data/errors";
+import { dataError, resolveTargetOrDataError, toDataError } from "../../data/errors";
 
 interface DataErrorConstructors {
   NOT_FOUND: () => Error;
@@ -112,10 +112,10 @@ export async function open(
   mode: AccessMode,
   errors: DataErrorConstructors,
 ): Promise<Connection> {
-  const connection = await Result.tryPromise({
-    try: async () => connect(await resolveTarget(context, target, mode)),
-    catch: toDataError,
-  });
+  const resolved = await resolveTargetOrDataError(() => resolveTarget(context, target, mode));
+  if (resolved.isErr()) throw raise(resolved.error, errors);
+  // Synchronous: picks the dialect and the pool, it does not dial yet.
+  const connection = Result.try({ try: () => connect(resolved.value), catch: toDataError });
   if (connection.isErr()) throw raise(connection.error, errors);
   return connection.value;
 }
