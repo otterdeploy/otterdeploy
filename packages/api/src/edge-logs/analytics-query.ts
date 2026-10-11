@@ -32,7 +32,7 @@ import {
   newInternalBucket,
   percentileFromBuckets,
 } from "./analytics-query-buckets";
-import { coveringDayKeys, mergedDayRows } from "./analytics-query-shared";
+import { coveringDayKeys, mergedDayRows, scopeHostCount } from "./analytics-query-shared";
 
 export { percentileFromBuckets } from "./analytics-query-buckets";
 export type {
@@ -84,6 +84,8 @@ export async function queryAnalyticsOverview(
   window: ResolvedWindow,
   geoConfigured: boolean,
   collection: CollectionStatus,
+  /** Every routed domain on the install; read only when `hosts` is null. */
+  installDomains: readonly string[],
 ): Promise<{
   series: SeriesBucket[];
   bucketSeconds: number;
@@ -147,9 +149,11 @@ export async function queryAnalyticsOverview(
       p95: percentileFromBuckets(overall.histogram, 0.95),
       p99: percentileFromBuckets(overall.histogram, 0.99),
       errorRate: overall.requests > 0 ? errors / overall.requests : 0,
-      // Install-wide has no scope list: count the hosts actually seen in the
-      // window instead, so the "no public domains" empty state never fires.
-      hostCount: hosts === null ? new Set(dayRows.map((r) => r.host)).size : hosts.length,
+      hostCount: scopeHostCount(
+        hosts,
+        installDomains,
+        dayRows.map((r) => r.host),
+      ),
     },
     flags: {
       approximate,
