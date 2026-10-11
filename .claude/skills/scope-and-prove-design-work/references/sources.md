@@ -1,0 +1,28 @@
+# Sources
+
+Derived from 24 chapters across 6 videos.
+
+- [6 Things You Probably Need to Hear (as a web designer) — Getting hired as a design is less easy than you think](https://www.youtube.com/watch?v=6CC8lLnqa28&t=113s)
+- [Create A Portfolio With No Experience (or clients) Needed — segment](https://www.youtube.com/watch?v=59XWYgN00nQ&t=0s)
+- [Create A Portfolio With No Experience (or clients) Needed — segment](https://www.youtube.com/watch?v=59XWYgN00nQ&t=72s)
+- [How To Price Website Designs (With Specific Numbers) — method 1](https://www.youtube.com/watch?v=2rtsoM2Dqrs&t=22s)
+- [How To Price Website Designs (With Specific Numbers) — method 2](https://www.youtube.com/watch?v=2rtsoM2Dqrs&t=92s)
+- [How To Price Website Designs (With Specific Numbers) — method 3](https://www.youtube.com/watch?v=2rtsoM2Dqrs&t=177s)
+- [Make A Perfect UX Case Study In 8 Steps — Intro](https://www.youtube.com/watch?v=t7mpEDXzjCg&t=0s)
+- [Make A Perfect UX Case Study In 8 Steps — Define the problem](https://www.youtube.com/watch?v=t7mpEDXzjCg&t=44s)
+- [Make A Perfect UX Case Study In 8 Steps — Making it look good](https://www.youtube.com/watch?v=t7mpEDXzjCg&t=152s)
+- [Make A Perfect UX Case Study In 8 Steps — Final design/problems solved](https://www.youtube.com/watch?v=t7mpEDXzjCg&t=406s)
+- [Make A Perfect UX Case Study In 8 Steps — Case study reflection](https://www.youtube.com/watch?v=t7mpEDXzjCg&t=459s)
+- [Make A Perfect UX Case Study In 8 Steps — Stylistic notes](https://www.youtube.com/watch?v=t7mpEDXzjCg&t=544s)
+- [Make ONE Design Change to Actually Land Clients (Stop Struggling) — segment](https://www.youtube.com/watch?v=5JxUJ1fuyO8&t=0s)
+- [Make ONE Design Change to Actually Land Clients (Stop Struggling) — segment](https://www.youtube.com/watch?v=5JxUJ1fuyO8&t=81s)
+- [Make ONE Design Change to Actually Land Clients (Stop Struggling) — segment](https://www.youtube.com/watch?v=5JxUJ1fuyO8&t=320s)
+- [Make ONE Design Change to Actually Land Clients (Stop Struggling) — segment](https://www.youtube.com/watch?v=5JxUJ1fuyO8&t=379s)
+- [Make ONE Design Change to Actually Land Clients (Stop Struggling) — segment](https://www.youtube.com/watch?v=5JxUJ1fuyO8&t=438s)
+- [Professional Portfolio Breakdown — Why Is Theirs So Much Better? — segment](https://www.youtube.com/watch?v=ToJiXPTNnLY&t=0s)
+- [Professional Portfolio Breakdown — Why Is Theirs So Much Better? — segment](https://www.youtube.com/watch?v=ToJiXPTNnLY&t=84s)
+- [Professional Portfolio Breakdown — Why Is Theirs So Much Better? — segment](https://www.youtube.com/watch?v=ToJiXPTNnLY&t=145s)
+- [Professional Portfolio Breakdown — Why Is Theirs So Much Better? — segment](https://www.youtube.com/watch?v=ToJiXPTNnLY&t=204s)
+- [Professional Portfolio Breakdown — Why Is Theirs So Much Better? — segment](https://www.youtube.com/watch?v=ToJiXPTNnLY&t=265s)
+- [Professional Portfolio Breakdown — Why Is Theirs So Much Better? — segment](https://www.youtube.com/watch?v=ToJiXPTNnLY&t=327s)
+- [Professional Portfolio Breakdown — Why Is Theirs So Much Better? — segment](https://www.youtube.com/watch?v=ToJiXPTNnLY&t=387s)

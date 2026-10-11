@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Type Systems"
+  short_description: "Build Type Systems guidance for design agents"
+  default_prompt: "Use $build-type-systems to help me build type systems."

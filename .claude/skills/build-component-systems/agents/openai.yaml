@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Component Systems"
+  short_description: "Build Component Systems guidance for design agents"
+  default_prompt: "Use $build-component-systems to help me build component systems."

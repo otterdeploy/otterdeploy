@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compose Responsive Layouts"
+  short_description: "Compose Responsive Layouts guidance for design agents"
+  default_prompt: "Use $compose-responsive-layouts to help me compose responsive layouts."

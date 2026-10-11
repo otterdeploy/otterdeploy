@@ -1,0 +1,4 @@
+interface:
+  display_name: "Engineer Colour and Depth"
+  short_description: "Engineer Colour and Depth guidance for design agents"
+  default_prompt: "Use $engineer-ui-colour-and-depth to help me engineer colour and depth."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frame Product Strategy"
+  short_description: "Frame Product Strategy guidance for design agents"
+  default_prompt: "Use $frame-product-strategy to help me frame product strategy."
