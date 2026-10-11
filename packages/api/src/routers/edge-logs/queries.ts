@@ -21,6 +21,14 @@ export async function listOrgDomains(organizationId: OrganizationId): Promise<st
   return [...new Set(rows.map((r) => normalizeHost(r.domain)))];
 }
 
+/** Every routed domain on the install, for the install-wide analytics view
+ *  (the caller has already been authorized for install scope). Canonicalized
+ *  like listOrgDomains. */
+export async function listInstallDomains(): Promise<string[]> {
+  const rows = await db.select({ domain: proxyRoute.domain }).from(proxyRoute);
+  return [...new Set(rows.map((r) => normalizeHost(r.domain)))];
+}
+
 /** A project's enabled HTTP routes with their owning resource, for the
  *  route-stats join (host → resource). HTTP-only on purpose: layer4 routes
  *  (public DBs) never produce access-log rows, so listing them in a traffic

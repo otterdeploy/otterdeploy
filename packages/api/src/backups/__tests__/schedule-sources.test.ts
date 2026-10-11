@@ -76,7 +76,12 @@ describe("partitionSources", () => {
   });
 
   it("returns empty partitions for a schedule with no sources", () => {
-    expect(partitionSources([], resources)).toEqual({ resolved: [], missing: [] });
+    expect(partitionSources([], resources)).toEqual({ resolved: [], missing: [], labels: [] });
+  });
+
+  it("names each source in order: an id by its resource's name, anything else as written", () => {
+    const r = partitionSources(["resource_a", "redis-cache", "resource_gone"], resources);
+    expect(r.labels).toEqual(["postgres-main", "redis-cache", "resource_gone"]);
   });
 
   it("fans a by-name ref out to every same-named resource", () => {

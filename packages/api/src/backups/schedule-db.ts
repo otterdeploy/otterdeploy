@@ -220,6 +220,10 @@ export interface ScheduleSourceResolution {
   /** Source refs that no longer match any live database. The schedule was
    *  orphaned (its DB/volume/stack service was deleted out from under it). */
   missing: string[];
+  /** What to call each source ref, in `sources` order: the resource's name
+   *  for an id ref, the ref itself for a name ref or one that no longer
+   *  resolves. A schedule stores ids, and an id is not something to read. */
+  labels: string[];
 }
 
 /** Pure matcher (no DB): partition `sources` against a set of candidate
@@ -230,20 +234,26 @@ export function partitionSources(
   sources: string[],
   candidates: Array<{ id: ResourceId; name: string; kind: "database" | "stack" }>,
 ): ScheduleSourceResolution {
-  if (sources.length === 0) return { resolved: [], missing: [] };
+  if (sources.length === 0) return { resolved: [], missing: [], labels: [] };
   const wanted = new Set(sources);
   const resolved: ResolvedSource[] = [];
   const matchedRefs = new Set<string>();
+  const nameById = new Map<string, string>();
   for (const c of candidates) {
     if (wanted.has(c.id)) {
       resolved.push({ id: c.id, kind: c.kind });
       matchedRefs.add(c.id);
+      nameById.set(c.id, c.name);
     } else if (wanted.has(c.name)) {
       resolved.push({ id: c.id, kind: c.kind });
       matchedRefs.add(c.name);
     }
   }
-  return { resolved, missing: sources.filter((s) => !matchedRefs.has(s)) };
+  return {
+    resolved,
+    missing: sources.filter((s) => !matchedRefs.has(s)),
+    labels: sources.map((s) => nameById.get(s) ?? s),
+  };
 }
 
 /** Match a schedule's source refs against the org's live databases. Both
@@ -253,7 +263,7 @@ export async function classifyScheduleSources(
   organizationId: OrganizationId,
   sources: string[],
 ): Promise<ScheduleSourceResolution> {
-  if (sources.length === 0) return { resolved: [], missing: [] };
+  if (sources.length === 0) return { resolved: [], missing: [], labels: [] };
   const [dbRows, stackRows] = await Promise.all([
     db
       .select({ id: resource.id, name: resource.name })

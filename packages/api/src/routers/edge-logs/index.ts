@@ -30,7 +30,7 @@ import { geoAvailable } from "../../edge-logs/geo";
 import { getProjectInOrg } from "../project/queries/project";
 import { runEdgeAccessFeed } from "./access-feed";
 import { runEdgeEventFeed } from "./events-feed";
-import { listProjectRoutes, listRouteUpstreams } from "./queries";
+import { listInstallDomains, listProjectRoutes, listRouteUpstreams } from "./queries";
 import { bucketRequestSeries, coveringRange } from "./request-series";
 import { mergeRouteStats } from "./route-stats";
 import { resolveHosts, streamEdgeEvents, streamEdgeLogs } from "./streams";
@@ -256,9 +256,10 @@ export const edgeLogsRouter = {
           bucketMinutes: window.bucketMinutes,
         };
         const collection = collectionStatus();
+        const installDomains = hosts === null ? await listInstallDomains() : [];
         const [current, previous] = await Promise.all([
-          queryAnalyticsOverview(hosts, window, geoAvailable(), collection),
-          queryAnalyticsOverview(hosts, previousWindow, geoAvailable(), collection),
+          queryAnalyticsOverview(hosts, window, geoAvailable(), collection, installDomains),
+          queryAnalyticsOverview(hosts, previousWindow, geoAvailable(), collection, installDomains),
         ]);
         return {
           ...current,

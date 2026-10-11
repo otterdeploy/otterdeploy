@@ -130,6 +130,21 @@ export const serviceContract = {
     .input(getServiceInput)
     .output(serviceMutationSchema),
 
+  // Redeploy an image service: pull its image again and replace what runs
+  // (health-gated). Records a reason="redeploy" deployment. Git services
+  // redeploy by building (`build`).
+  redeploy: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+      NOT_IMAGE_SOURCED: {
+        status: 400,
+        message: "Only image services redeploy by pulling; build a git service instead." as const,
+      },
+    })
+    .meta({ path: `${basePath}/{resourceId}/redeploy`, tag, method: "POST" })
+    .input(getServiceInput)
+    .output(serviceMutationSchema),
+
   // Roll a service back to a prior deployment's image and the ports, health
   // check and command it ran with (current env is kept). Records a new
   // reason="rollback" deployment; one rollback of a service at a time.

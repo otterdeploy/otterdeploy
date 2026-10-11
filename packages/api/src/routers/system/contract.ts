@@ -222,6 +222,28 @@ export const runSnapshotSchema = z.object({
   logs: z.array(progressEventSchema),
 });
 
+// The server's image and the install's own containers that run it, so a build
+// that differs (an agent on the release while the server runs a local build)
+// is visible instead of silent. See system-health/platform-image.ts.
+const platformImagesSchema = z.object({
+  version: z.string(),
+  server: z.object({
+    image: z.string(),
+    imageId: z.string().nullable(),
+    source: z.enum(["container", "configured"]),
+  }),
+  imageMatchesVersion: z.boolean(),
+  components: z.array(
+    z.object({
+      name: z.string(),
+      role: z.enum(["server", "builder", "health-agent"]),
+      image: z.string(),
+      state: z.string(),
+      matchesServer: z.boolean(),
+    }),
+  ),
+});
+
 const caddyfileSchema = z.object({
   caddyfile: z.string(),
   revision: z.string(),
@@ -279,6 +301,11 @@ export const systemContract = {
     // the replay starts after it instead of duplicating every line.
     .input(z.object({ afterSeq: z.number().int().nonnegative().optional() }).optional())
     .output(eventIterator(progressEventSchema)),
+
+  platformImages: oc
+    .meta({ path: `${base}/platform-images`, tag, method: "GET" })
+    .input(emptyInput)
+    .output(platformImagesSchema),
 
   hostHealth: oc
     .meta({ path: `${base}/host-health`, tag, method: "GET" })

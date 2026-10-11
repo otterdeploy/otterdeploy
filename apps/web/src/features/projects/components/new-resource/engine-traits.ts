@@ -1,3 +1,9 @@
+import {
+  DATABASE_ENGINES,
+  databaseDataMount,
+  isDatabaseEngine,
+} from "@otterdeploy/shared/database-engines";
+
 // Per-engine UI traits for the create-wizard. Keeps engine differences in
 // one place so step files stop sprouting `kind.id === "postgres"` ladders
 // (and silently rendering postgres copy when the operator picked redis).
@@ -43,7 +49,7 @@ export interface EngineTraits {
 const TRAITS: Record<string, EngineTraits> = {
   postgres: {
     port: 5432,
-    mountTarget: "/var/lib/postgresql/data",
+    mountTarget: DATABASE_ENGINES.postgres.dataDir,
     hasNamedDatabase: true,
     nameLabel: "Database name",
     supportsPitr: true,
@@ -55,7 +61,7 @@ const TRAITS: Record<string, EngineTraits> = {
   },
   mariadb: {
     port: 3306,
-    mountTarget: "/var/lib/mysql",
+    mountTarget: DATABASE_ENGINES.mariadb.dataDir,
     hasNamedDatabase: true,
     nameLabel: "Database name",
     supportsPitr: true,
@@ -79,7 +85,7 @@ const TRAITS: Record<string, EngineTraits> = {
   },
   redis: {
     port: 6379,
-    mountTarget: "/data",
+    mountTarget: DATABASE_ENGINES.redis.dataDir,
     hasNamedDatabase: false,
     nameLabel: "Instance name",
     supportsPitr: false,
@@ -91,7 +97,7 @@ const TRAITS: Record<string, EngineTraits> = {
   },
   mongodb: {
     port: 27017,
-    mountTarget: "/data/db",
+    mountTarget: DATABASE_ENGINES.mongodb.dataDir,
     hasNamedDatabase: true,
     nameLabel: "Database name",
     supportsPitr: false,
@@ -103,7 +109,7 @@ const TRAITS: Record<string, EngineTraits> = {
   },
   clickhouse: {
     port: 9000,
-    mountTarget: "/var/lib/clickhouse",
+    mountTarget: DATABASE_ENGINES.clickhouse.dataDir,
     hasNamedDatabase: true,
     nameLabel: "Database name",
     supportsPitr: false,
@@ -130,4 +136,14 @@ const FALLBACK: EngineTraits = {
 
 export function traitsFor(engineId: string): EngineTraits {
   return TRAITS[engineId] ?? FALLBACK;
+}
+
+/** Where this kind's data volume mounts for the image it will run: the same
+ *  answer the runtime gives (the shared catalog), so a version-aware engine
+ *  (postgres 18+ mounts /var/lib/postgresql) previews where its data really
+ *  lives. Kinds outside the catalog keep their static trait. */
+export function dataMountFor(kindId: string, image: string): string {
+  return isDatabaseEngine(kindId)
+    ? databaseDataMount(kindId, image)
+    : traitsFor(kindId).mountTarget;
 }

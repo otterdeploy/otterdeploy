@@ -116,11 +116,19 @@ export const schedulesCollection = persistence
         ...schedulesQueryOptions,
         persistence,
         // v2: rows grew keepLast/keepHourly + maxRetries/verifyAfterBackup/
-        // overdueAfterHours (production-hardening pass).
-        schemaVersion: 2,
+        // overdueAfterHours (production-hardening pass). v3: sourceNames.
+        schemaVersion: 3,
       }),
     )
   : createCollection(schedulesQueryOptions);
+
+/** Names for the picked source refs, from the picker's own list (already
+ *  loaded, since the refs were picked from it). The server's names replace
+ *  these on refetch; a ref the list doesn't know stays as written. */
+export function pickedSourceNames(sources: string[]): string[] {
+  const known = queryClient.getQueryData(orpc.backups.sources.queryKey({ input: {} })) ?? [];
+  return sources.map((ref) => known.find((d) => d.resourceId === ref)?.name ?? ref);
+}
 
 /** Trigger a schedule's backups now; refresh the runs list once enqueued. */
 export async function runSchedule(id: Schedule["id"]) {

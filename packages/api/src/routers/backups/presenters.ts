@@ -23,6 +23,7 @@ export function presentSchedule(row: ScheduleRow) {
     ...row.schedule,
     destinationNames: row.destinationNames,
     missingSources: row.missingSources,
+    sourceNames: row.sourceNames,
   };
 }
 

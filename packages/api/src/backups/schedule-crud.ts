@@ -15,6 +15,8 @@ import { backupSchedule } from "@otterdeploy/db/schema";
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { and, eq } from "drizzle-orm";
 
+import { nextCronFire } from "../lib/cron";
+
 /** The operator-editable schedule fields, shared by create (all required)
  *  and update (all optional via Partial). */
 interface ScheduleFields {
@@ -36,6 +38,17 @@ interface ScheduleFields {
   maxRetries: number;
   verifyAfterBackup: boolean;
   overdueAfterHours: number | null;
+}
+
+/**
+ * When a schedule fires first, armed when it is written. Leaving it null for
+ * the scheduler's next tick to fill meant a new (or re-timed) schedule showed
+ * no next run until that tick and a reload. Null only for a cron that cannot
+ * fire, which the contract already refuses. The cron parser takes a Date.
+ */
+function firstFireAt(cron: string): Date | null {
+  const next = nextCronFire(cron, new Date());
+  return next.isOk() ? next.value : null;
 }
 
 export async function createScheduleRecord(
@@ -67,6 +80,7 @@ export async function createScheduleRecord(
       maxRetries: input.maxRetries,
       verifyAfterBackup: input.verifyAfterBackup,
       overdueAfterHours: input.overdueAfterHours,
+      nextRunAt: firstFireAt(input.cron),
     })
     .returning();
   if (!row) throw new Error("createScheduleRecord: insert returned no rows");
@@ -99,8 +113,8 @@ export async function updateScheduleRecord(
     verifyAfterBackup: input.verifyAfterBackup,
     overdueAfterHours: input.overdueAfterHours,
   });
-  // An edited cron recomputes its fire time on the next tick.
-  if (input.cron !== undefined) patch.nextRunAt = null;
+  // An edited cron fires on its new timing from now.
+  if (input.cron !== undefined) patch.nextRunAt = firstFireAt(input.cron);
 
   const [row] = await db
     .update(backupSchedule)

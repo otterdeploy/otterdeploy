@@ -11,8 +11,9 @@
  *    including late joiners). The spec is hand-built, not routed through
  *    buildServiceSpec: the agent is platform infrastructure, not an app
  *    service, and it needs Mode.Global which the app builder doesn't emit.
- *    Drift (image or ingest URL changed, e.g. after a platform update)
- *    recreates the service, which also re-mints the token.
+ *    The agent runs the server's own image (platform-image.ts), so drift
+ *    (image or ingest URL changed, e.g. after a platform update or a
+ *    different build) recreates the service, which also re-mints the token.
  *
  * The MANAGER node runs both the local sampler AND an agent task; both write
  * the same row via the same upsert, so the duplication is harmless (last
@@ -32,6 +33,7 @@ import { HEALTH_SAMPLE_INTERVAL_MS, recordHealthSample } from "./agent-ingest";
 import { mintAgentToken } from "./agent-token";
 import { getHostHealth } from "./host-health";
 import { hostHostname } from "./host-identity";
+import { agentImageFor, configuredServerImage, resolveServerImage } from "./platform-image";
 
 const AGENT_SERVICE_NAME = "otterdeploy-health-agent";
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
@@ -85,10 +87,6 @@ export function startLocalHealthSampler(): () => void {
 }
 
 // ─── swarm agent reconciler ─────────────────────────────────────────────────
-
-function agentImage(): string {
-  return `${env.OTTERDEPLOY_REGISTRY}/server:${env.OTTERDEPLOY_VERSION}`;
-}
 
 /** Where agents POST. Prefers the explicit override (odd topologies, private
  *  networks), else the platform serverIp, which multi-node installs need
@@ -166,9 +164,11 @@ async function reconcileAgentService(): Promise<void> {
     });
     return;
   }
-  const image = agentImage();
   const docker = Docker.fromEnv();
   try {
+    // The server's own image, not the configured release: an install whose
+    // compose file runs another build must not get agents of a different one.
+    const image = agentImageFor(await resolveServerImage(docker), configuredServerImage());
     const listResult = await docker.services.list({ filters: { name: [AGENT_SERVICE_NAME] } });
     if (listResult.isErr()) throw listResult.error;
     const existing = listResult.value.find((s) => s.Spec?.Name === AGENT_SERVICE_NAME);

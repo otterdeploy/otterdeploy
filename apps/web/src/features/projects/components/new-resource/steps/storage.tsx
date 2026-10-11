@@ -11,19 +11,27 @@
  * created against the live resource after deploy, on the Backups page.
  */
 
+import { useSelector } from "@tanstack/react-form";
+
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
 import { Card } from "@/shared/components/ui/card";
 
-import { traitsFor } from "../engine-traits";
+import { dataMountFor } from "../engine-traits";
+import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
+import { resolveDbImage } from "./review-model";
 
 interface StepStorageProps {
   kind: ServiceKind;
 }
 
 export function StepStorage({ kind }: StepStorageProps) {
-  const mountTarget = traitsFor(kind.id).mountTarget;
+  const form = useFormContext();
+  const version = useSelector(form.store, (s) => s.values.version);
+  const extensions = useSelector(form.store, (s) => s.values.extensions);
+  // The image the chosen version deploys decides the path (postgres 18+).
+  const mountTarget = dataMountFor(kind.id, resolveDbImage(kind, version, extensions));
 
   return (
     <>

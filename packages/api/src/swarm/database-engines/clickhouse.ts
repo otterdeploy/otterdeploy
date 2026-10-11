@@ -9,7 +9,7 @@ export const clickhouseAdapter: DatabaseEngineAdapter = {
   nameShort: "ch",
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
-  mountTarget: "/var/lib/clickhouse",
+  mountTarget: meta.dataDir,
   reservedEnvKeys: new Set(["CLICKHOUSE_USER", "CLICKHOUSE_PASSWORD", "CLICKHOUSE_DB"]),
   buildEnv: ({ username, password, databaseName }) => [
     `CLICKHOUSE_USER=${username}`,

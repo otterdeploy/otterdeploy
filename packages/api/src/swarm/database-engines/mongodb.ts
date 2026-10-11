@@ -9,7 +9,7 @@ export const mongodbAdapter: DatabaseEngineAdapter = {
   nameShort: "mongo",
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
-  mountTarget: "/data/db",
+  mountTarget: meta.dataDir,
   reservedEnvKeys: new Set([
     "MONGO_INITDB_ROOT_USERNAME",
     "MONGO_INITDB_ROOT_PASSWORD",

@@ -77,6 +77,9 @@ export const scheduleSchema = createSelectSchema(backupSchedule).extend({
   // Source refs that no longer resolve to a live database resource. Non-empty ⇒
   // the schedule is orphaned (its DB was deleted) and can't run until repaired.
   missingSources: z.array(z.string()),
+  // A readable name for each of `sources`, in the same order (a source is
+  // stored as a resource id).
+  sourceNames: z.array(z.string()),
 });
 
 /**

@@ -8,6 +8,7 @@ import {
   deleteService,
   getService,
   listServices,
+  redeployImageService,
   restartService,
   rollbackService,
   updateService,
@@ -190,6 +191,35 @@ export const serviceRouter = {
             e.unavailable
               ? errors.VAULT_UNAVAILABLE({ message: e.message })
               : errors.VAULT_UNRESOLVED({ message: e.message }),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  redeploy: requirePermission({ service: ["deploy"] }).service.redeploy.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await redeployImageService(
+        {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+          NotImageSourcedError: () => errors.NOT_IMAGE_SOURCED(),
+          RefMissingResourceError: (e) => new Error(e.message),
+          RefCycleError: (e) => new Error(e.message),
+          RefParseError: (e) => new Error(e.message),
+          RefUnknownVarError: (e) => new Error(e.message),
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       return result.value;

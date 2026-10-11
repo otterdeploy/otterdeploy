@@ -1,9 +1,9 @@
 /**
  * A schedule's `last_run_status` reports the last pass that RAN.
  *
- * Arming a schedule (its first tick, or a cron edit) used to stamp `queued`
+ * Arming a schedule (creating it, or editing its cron) used to stamp `queued`
  * over whatever the last pass reported, so a schedule could read "queued"
- * with nothing queued. Arming now sets only `next_run_at`, and a pass that
+ * with nothing queued. Arming sets only `next_run_at`, and a pass that
  * finishes after a newer one has reported never overwrites it.
  *
  * The dump itself is stood in for (`executeBackup` settles the run as the
@@ -112,7 +112,8 @@ async function readSchedule(id: BackupScheduleId) {
   return row;
 }
 
-/** A schedule only the next tick runs: every earlier one is switched off. */
+/** A schedule only the next tick runs: every earlier one is switched off.
+ *  Creating it arms it; the tick clock is far enough ahead that it is due. */
 async function createArmedSchedule(): Promise<BackupScheduleId> {
   for (const id of createdSchedules)
     await db.update(backupSchedule).set({ enabled: false }).where(eq(backupSchedule.id, id));
@@ -138,13 +139,15 @@ async function createArmedSchedule(): Promise<BackupScheduleId> {
     overdueAfterHours: null,
   });
   createdSchedules.push(row.id);
-  await runDueBackupSchedules(tick());
   return row.id;
 }
 
 describe.skipIf(!redisUrl)("backup_schedule.last_run_status", () => {
-  it("the first tick arms a new schedule without a backfill run and reports no pass", async () => {
-    const armed = await readSchedule(await createArmedSchedule());
+  it("a new schedule is armed without a backfill run and reports no pass", async () => {
+    const id = await createArmedSchedule();
+    // A tick before its first fire time runs nothing.
+    await runDueBackupSchedules(new Date());
+    const armed = await readSchedule(id);
     expect(armed.lastRunStatus).toBeNull();
     expect(armed.lastRunAt).toBeNull();
     expect(armed.nextRunAt).not.toBeNull();
@@ -159,8 +162,9 @@ describe.skipIf(!redisUrl)("backup_schedule.last_run_status", () => {
     expect(ran.lastRunAt).not.toBeNull();
 
     await updateScheduleRecord({ organizationId, id, cron: "30 * * * *" });
-    await runDueBackupSchedules(tick());
-    expect((await readSchedule(id)).lastRunStatus).toBe("failed");
+    const rearmed = await readSchedule(id);
+    expect(rearmed.nextRunAt?.getUTCMinutes()).toBe(30);
+    expect(rearmed.lastRunStatus).toBe("failed");
   });
 
   it("a pass that finishes after a newer one has reported does not overwrite it", async () => {

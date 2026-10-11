@@ -56,6 +56,23 @@ export function resolveAnalyticsWindow(
   return { fromMs: nowMs - spanMs, toMs: nowMs, bucketMinutes: bucketMinutesFor(spanMs) };
 }
 
+/**
+ * How many public domains the view covers: what decides between "no public
+ * domains yet" and an ordinary quiet window. A scoped view (org, project) has
+ * its domain list. Install-wide has none, so it counts every route on the
+ * install plus any host that sent traffic without one (a route deleted inside
+ * the window). Counting only the hosts seen in the window said "no public
+ * domains" about an install with live routes and a quiet hour.
+ */
+export function scopeHostCount(
+  scope: readonly string[] | null,
+  installDomains: readonly string[],
+  seenHosts: Iterable<string>,
+): number {
+  if (scope !== null) return scope.length;
+  return new Set([...installDomains, ...seenHosts]).size;
+}
+
 export interface SeriesBucket {
   t: string;
   requests: number;
