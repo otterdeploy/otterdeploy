@@ -22,6 +22,7 @@
 import { Docker, type ContainerSummary, type Task } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
+import { taskLabel } from "../../lib/task-labels";
 import { isSwarmRuntime } from "../../runtime";
 
 export interface ResourceInstance {
@@ -93,20 +94,9 @@ export function collapseInstanceState(state: string | null | undefined): Instanc
 // otherwise counts toward cyclomatic complexity on these wide data shapes).
 const orNull = <T>(v: T | undefined | null): T | null => v ?? null;
 
-/**
- * `Spec.ContainerSpec.Labels["otterdeploy.deployment.id"]`. The docker client
- * types `Task.Spec` as `Record<string, unknown>`, so each level is narrowed
- * for real instead of asserting a nested shape onto it.
- */
-function taskDeploymentId(spec: Task["Spec"]): string | null {
-  const containerSpec = spec?.ContainerSpec;
-  if (typeof containerSpec !== "object" || containerSpec === null) return null;
-  if (!("Labels" in containerSpec)) return null;
-  const labels = containerSpec.Labels;
-  if (typeof labels !== "object" || labels === null) return null;
-  if (!("otterdeploy.deployment.id" in labels)) return null;
-  const id = labels["otterdeploy.deployment.id"];
-  return typeof id === "string" ? id : null;
+/** The deployment a task belongs to. */
+function taskDeploymentIdOf(spec: Task["Spec"]): string | null {
+  return taskLabel(spec, "otterdeploy.deployment.id");
 }
 
 function taskToInstance(t: Task): ResourceInstance {
@@ -121,7 +111,7 @@ function taskToInstance(t: Task): ResourceInstance {
     exitCode: typeof cs.ExitCode === "number" ? cs.ExitCode : null,
     createdAt: orNull(t.CreatedAt),
     updatedAt: orNull(t.UpdatedAt ?? status.Timestamp),
-    deploymentId: taskDeploymentId(t.Spec),
+    deploymentId: taskDeploymentIdOf(t.Spec),
     slot: orNull(t.Slot),
     nodeId: orNull(t.NodeID),
     desiredState: orNull(t.DesiredState),
