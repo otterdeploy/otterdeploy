@@ -40,6 +40,8 @@ export const EVENTS: EventRow[] = [
   { id: "build.failed", label: "Build failed", severity: "err" },
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },
+  { id: "service.down", label: "Service is down", severity: "err" },
+  { id: "service.up", label: "Service back up", severity: "ok" },
   { id: "host.pressure", label: "Server resource pressure", severity: "warn" },
   { id: "host.pressure.cleared", label: "Server pressure cleared", severity: "ok" },
   { id: "cert.expiring", label: "Cert expiring soon", severity: "warn", wired: false },
