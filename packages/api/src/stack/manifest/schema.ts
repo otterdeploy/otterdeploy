@@ -581,18 +581,96 @@ export type EnvironmentOverride = z.infer<typeof environmentBlockSchema>;
 
 // ── Top-level manifest ─────────────────────────────────────────────────
 
-export const manifestSchema = z.object({
-  $schema: z.string().optional(),
-  version: z.literal(MANIFEST_SCHEMA_VERSION).optional(),
-  project: zSlug(ID_PREFIX.project),
-  services: servicesMap.default({}),
-  databases: databasesMap.default({}),
-  // Compose stacks. Optional + defaulted so manifests written before compose
-  // joined the manifest still parse. Environment overrides intentionally don't
-  // apply to compose (no `composes` on environmentBlockSchema). A stack is an
-  // atomic unit, not a per-env-tunable resource, in v1.
-  composes: composesMap.default({}),
-  environments: z.record(z.string().min(1), environmentBlockSchema).optional(),
-});
+/**
+ * Resource names are one namespace across services, databases and compose
+ * stacks, not one per map. All three become rows in one `resource` table under
+ * one unique index on (project, environment, name), so `services.api` beside
+ * `databases.api` used to parse fine and then fail mid-apply: the database is
+ * created first and the service dies on the index, with apply not
+ * transactional across phases.
+ *
+ * Checked per environment as well as on the base, because an environment block
+ * can add a name, or free one with `null`.
+ */
+const RESOURCE_KINDS = ["a service", "a database", "a compose stack"] as const;
+
+function reportNameCollisions(
+  ctx: z.core.$RefinementCtx,
+  path: (string | number)[],
+  names: Record<(typeof RESOURCE_KINDS)[number], Iterable<string>>,
+  /** Collisions already reported on the base, which every environment
+   *  inherits: reported once, not once more per environment. */
+  alreadyReported: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const colliding = new Set<string>();
+  const kindsByName = new Map<string, string[]>();
+  for (const kind of RESOURCE_KINDS) {
+    for (const name of names[kind]) {
+      kindsByName.set(name, [...(kindsByName.get(name) ?? []), kind]);
+    }
+  }
+  for (const [name, kinds] of kindsByName) {
+    if (kinds.length < 2) continue;
+    colliding.add(name);
+    if (alreadyReported.has(name)) continue;
+    ctx.addIssue({
+      code: "custom",
+      path,
+      message: `"${name}" is declared as ${kinds.join(" and ")}. Services, databases and compose stacks share one set of names, so each name must be unique across all three.`,
+    });
+  }
+  return colliding;
+}
+
+/** The names an environment ends up with: the base map, plus what its block
+ *  declares, minus what it sets to `null` (resource absent here). */
+function namesInEnvironment(
+  base: Record<string, unknown>,
+  override: Record<string, unknown> | undefined,
+): Set<string> {
+  const names = new Set(Object.keys(base));
+  for (const [name, value] of Object.entries(override ?? {})) {
+    if (value === null) names.delete(name);
+    else names.add(name);
+  }
+  return names;
+}
+
+export const manifestSchema = z
+  .object({
+    $schema: z.string().optional(),
+    version: z.literal(MANIFEST_SCHEMA_VERSION).optional(),
+    project: zSlug(ID_PREFIX.project),
+    services: servicesMap.default({}),
+    databases: databasesMap.default({}),
+    // Compose stacks. Optional + defaulted so manifests written before compose
+    // joined the manifest still parse. Environment overrides intentionally don't
+    // apply to compose (no `composes` on environmentBlockSchema). A stack is an
+    // atomic unit, not a per-env-tunable resource, in v1.
+    composes: composesMap.default({}),
+    environments: z.record(z.string().min(1), environmentBlockSchema).optional(),
+  })
+  .superRefine((manifest, ctx) => {
+    const composes = Object.keys(manifest.composes);
+    const inBase = reportNameCollisions(ctx, [], {
+      "a service": Object.keys(manifest.services),
+      "a database": Object.keys(manifest.databases),
+      "a compose stack": composes,
+    });
+    for (const [environment, block] of Object.entries(manifest.environments ?? {})) {
+      reportNameCollisions(
+        ctx,
+        ["environments", environment],
+        {
+          "a service": namesInEnvironment(manifest.services, block.services),
+          "a database": namesInEnvironment(manifest.databases, block.databases),
+          // Compose stacks take no environment overrides, so every environment
+          // has the base set.
+          "a compose stack": composes,
+        },
+        inBase,
+      );
+    }
+  });
 
 export type Manifest = z.infer<typeof manifestSchema>;
