@@ -110,6 +110,7 @@
       },
       "devDependencies": {
         "@getworkbench/hono": "^0.9.1",
+        "@orpc/client": "catalog:",
         "@otterdeploy/config": "workspace:*",
         "@types/bun": "catalog:",
         "@vitest/coverage-v8": "catalog:",

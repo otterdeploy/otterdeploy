@@ -145,9 +145,16 @@ function parseMetadata(
  */
 export async function resolveRequestActor(
   headers: Headers,
-  options: { bearerOverride?: string } = {},
+  options: {
+    bearerOverride?: string;
+    /** Read the session from Postgres, not the signed session-cache cookie.
+     *  For headers captured once and replayed for a long time (the live
+     *  socket's upgrade request): the cache cookie in them never refreshes,
+     *  so an org switch would otherwise go unseen for up to its maxAge. */
+    freshSession?: boolean;
+  } = {},
 ): Promise<Result<ResolvedActor, ApiKeyRateLimitedError | AuthStoreUnavailableError>> {
-  const session = await resolveSession(headers);
+  const session = await resolveSession(headers, options.freshSession === true);
   if (session.isErr() || session.value) return session;
 
   const credential = readApiKeyCredential(headers, options.bearerOverride);
@@ -166,9 +173,14 @@ async function anonymousUnlessStoreDown(
 
 async function resolveSession(
   headers: Headers,
+  freshSession: boolean,
 ): Promise<Result<SessionActor | null, AuthStoreUnavailableError>> {
   const sessionResult = await Result.tryPromise({
-    try: () => auth.api.getSession({ headers }),
+    try: () =>
+      auth.api.getSession({
+        headers,
+        query: freshSession ? { disableCookieCache: true } : undefined,
+      }),
     catch: (cause) => cause,
   });
   // better-auth answers a session it could not READ with a 500, the same as a
