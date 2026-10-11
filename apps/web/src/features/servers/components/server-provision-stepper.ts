@@ -1,8 +1,6 @@
-import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { epochMsFromIso } from "@/shared/lib/clock";
 
-import { Spinner } from "@/shared/components/ui/spinner";
-import { cn } from "@/shared/lib/utils";
+import { clockSpan, type InstallStep, type InstallStepState } from "../add-server/install-step";
 
 /**
  * A structured, honest view of a provisioning run. The runner (server/
@@ -11,7 +9,10 @@ import { cn } from "@/shared/lib/utils";
  * seen so far, and fall back to the persisted `provisionStatus` for the
  * terminal verdict, so a run whose live log was missed (see the
  * provision-stream race note) still resolves to ready/failed instead of an
- * eternal spinner. Raw log stays available under the stepper for detail.
+ * eternal spinner.
+ *
+ * The dialog shows these grouped into the same four steps the command path
+ * uses (see `sshSteps`); the detailed stages stay the source of truth.
  */
 
 export type ProvisionStatus = "pending" | "provisioning" | "joining" | "ready" | "failed";
@@ -26,7 +27,7 @@ export interface ProvisionStageRow {
   buildServer: boolean;
 }
 
-type StageState = "pending" | "active" | "done" | "failed";
+type StageState = InstallStepState;
 
 interface StageDef {
   key: string;
@@ -143,52 +144,78 @@ export function computeStages(lines: string[], row: ProvisionStageRow | undefine
   });
 }
 
-function StageIcon({ state }: { state: StageState }) {
-  if (state === "done")
-    return (
-      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2.5} className="size-4 text-emerald-500" />
-    );
-  if (state === "failed")
-    return <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2.5} className="size-4 text-red-500" />;
-  if (state === "active") return <Spinner className="size-4 text-foreground" />;
-  return <span aria-hidden className="size-3 rounded-full ring-1 ring-foreground/25" />;
+/** A provisioning log line as the stream delivers it. */
+export interface ProvisionLine {
+  line: string;
+  ts: string;
 }
 
-export function ProvisionStepper({
-  lines,
-  row,
-}: {
-  lines: string[];
-  row: ProvisionStageRow | undefined;
-}) {
-  const stages = computeStages(lines, row);
-  const failedError = row?.provisionStatus === "failed" ? row.provisionError : null;
+/**
+ * The detailed stages folded into the four steps the dialog shows. Each
+ * milestone owns the runner stages that lead up to it: mesh, tunnel, joining
+ * and verification are all part of "Connected", because the server is not
+ * usable until every one of them has passed.
+ */
+const PHASES: readonly { key: string; label: string; stages: readonly string[] }[] = [
+  { key: "ssh", label: "Connected over SSH", stages: ["connect", "ssh-key"] },
+  { key: "check", label: "System checked", stages: ["probe", "prereqs"] },
+  { key: "docker", label: "Installing Docker", stages: ["docker"] },
+  {
+    key: "connected",
+    label: "Connected",
+    stages: ["mesh", "cloudflare", "swarm", "verify", "label", "ready"],
+  },
+];
 
-  return (
-    <ol className="flex flex-col gap-1">
-      {stages.map((s) => (
-        <li key={s.key} className="flex items-center gap-3 py-1">
-          <span className="flex size-4 shrink-0 items-center justify-center">
-            <StageIcon state={s.state} />
-          </span>
-          <span
-            className={cn(
-              "text-sm",
-              s.state === "pending" && "text-muted-foreground",
-              s.state === "active" && "text-foreground",
-              s.state === "done" && "text-foreground",
-              s.state === "failed" && "text-red-500",
-            )}
-          >
-            {s.label}
-          </span>
-        </li>
-      ))}
-      {failedError ? (
-        <li className="mt-1 rounded-md bg-red-500/[0.06] px-3 py-2 text-[12px] leading-relaxed text-red-500 ring-1 ring-red-500/20">
-          {failedError}
-        </li>
-      ) : null}
-    </ol>
+function phaseIndexOfMarker(line: string): number {
+  const stage = STAGES.find((s) => s.match(line));
+  return stage ? PHASES.findIndex((p) => p.stages.includes(stage.key)) : -1;
+}
+
+function phaseState(states: StageState[]): StageState {
+  if (states.includes("failed")) return "failed";
+  if (states.length > 0 && states.every((s) => s === "done")) return "done";
+  if (states.some((s) => s !== "pending")) return "active";
+  return "pending";
+}
+
+/**
+ * When each phase finished, as epoch ms: the first marker of any later phase,
+ * or the run's own success line for the last one.
+ */
+function phaseEnds(lines: readonly ProvisionLine[]): (number | null)[] {
+  return PHASES.map((_, i) => {
+    const next = lines.find((l) =>
+      i === PHASES.length - 1
+        ? l.line.startsWith("✓")
+        : l.line.startsWith("──") && phaseIndexOfMarker(l.line) > i,
+    );
+    return next ? epochMsFromIso(next.ts) : null;
+  });
+}
+
+/** The four steps of an SSH install, timed from the run's first line. */
+export function sshSteps(
+  lines: readonly ProvisionLine[],
+  row: ProvisionStageRow | undefined,
+): InstallStep[] {
+  const stages = computeStages(
+    lines.map((l) => l.line),
+    row,
   );
+  const start = lines[0] ? epochMsFromIso(lines[0].ts) : null;
+  const ends = phaseEnds(lines);
+  return PHASES.map((phase, i) => {
+    const state = phaseState(
+      stages.filter((s) => phase.stages.includes(s.key)).map((s) => s.state),
+    );
+    const end = ends[i] ?? null;
+    const at = state === "done" && start !== null && end !== null ? clockSpan(end - start) : null;
+    return { key: phase.key, label: phase.label, state, at };
+  });
+}
+
+/** The step a failed run stopped on, for the outcome's headline. */
+export function failedSshStep(steps: readonly InstallStep[]): string | null {
+  return steps.find((s) => s.state === "failed")?.key ?? null;
 }

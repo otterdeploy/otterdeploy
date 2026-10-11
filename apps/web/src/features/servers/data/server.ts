@@ -22,7 +22,7 @@ const serverQueryOptions = queryCollectionOptions({
   // over the org event stream (use-org-events refetches this collection),
   // so the poll is only a dead-stream backstop, and the sidebar mounts
   // this app-wide, so its cadence is ambient traffic on every page. An
-  // active provision has its own fast poller (server-provision-progress).
+  // active provision has its own fast poller (add-server/use-provision-run).
   refetchInterval: 300_000,
   onInsert: async ({ transaction }) => {
     await Promise.all(

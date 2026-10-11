@@ -24,7 +24,6 @@ import { Route as AppOrgSlugShellTerminalRouteImport } from "./routes/_app/$orgS
 import { Route as AppOrgSlugShellTemplatesRouteImport } from "./routes/_app/$orgSlug/_shell/templates"
 import { Route as AppOrgSlugShellEdgeLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/edge/layout"
 import { Route as AppOrgSlugSettingsInstanceLayoutRouteImport } from "./routes/_app/$orgSlug/_settings/instance/layout"
-import { Route as AppOrgSlugShellServersIndexRouteImport } from "./routes/_app/$orgSlug/_shell/servers/index"
 import { Route as AppOrgSlugShellProjectsIndexRouteImport } from "./routes/_app/$orgSlug/_shell/projects/index"
 import { Route as AppOrgSlugShellEdgeIndexRouteImport } from "./routes/_app/$orgSlug/_shell/edge/index"
 import { Route as AppOrgSlugShellDataIndexRouteImport } from "./routes/_app/$orgSlug/_shell/data/index"
@@ -47,11 +46,13 @@ import { Route as AppOrgSlugSettingsInstanceMigrationRouteImport } from "./route
 import { Route as AppOrgSlugSettingsInstanceAccessRouteImport } from "./routes/_app/$orgSlug/_settings/instance/access"
 import { Route as AppOrgSlugSettingsAccountSessionsRouteImport } from "./routes/_app/$orgSlug/_settings/account/sessions"
 import { Route as AppOrgSlugSettingsAccountSecurityRouteImport } from "./routes/_app/$orgSlug/_settings/account/security"
+import { Route as AppOrgSlugShellServersFleetLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/servers/_fleet/layout"
 import { Route as AppOrgSlugShellServersServerIdLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/servers/$serverId/layout"
 import { Route as AppOrgSlugShellProjectsProjectSlugLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/projects/$projectSlug/layout"
 import { Route as AppOrgSlugShellMonitoringAnalyticsLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/monitoring/analytics/layout"
 import { Route as AppOrgSlugSettingsWorkspaceWebhooksLayoutRouteImport } from "./routes/_app/$orgSlug/_settings/workspace/webhooks/layout"
 import { Route as AppOrgSlugShellWorkspaceGitIndexRouteImport } from "./routes/_app/$orgSlug/_shell/workspace/git/index"
+import { Route as AppOrgSlugShellServersFleetIndexRouteImport } from "./routes/_app/$orgSlug/_shell/servers/_fleet/index"
 import { Route as AppOrgSlugShellServersServerIdIndexRouteImport } from "./routes/_app/$orgSlug/_shell/servers/$serverId/index"
 import { Route as AppOrgSlugShellMonitoringAnalyticsIndexRouteImport } from "./routes/_app/$orgSlug/_shell/monitoring/analytics/index"
 import { Route as AppOrgSlugShellEdgeFirewallIndexRouteImport } from "./routes/_app/$orgSlug/_shell/edge/firewall/index"
@@ -79,10 +80,14 @@ import { Route as AppOrgSlugShellEdgeCertificatesCasRouteImport } from "./routes
 import { Route as AppOrgSlugShellDataBackupsSchedulesRouteImport } from "./routes/_app/$orgSlug/_shell/data/backups/schedules"
 import { Route as AppOrgSlugShellDataBackupsDestinationsRouteImport } from "./routes/_app/$orgSlug/_shell/data/backups/destinations"
 import { Route as AppOrgSlugSettingsWorkspaceWebhooksInboundRouteImport } from "./routes/_app/$orgSlug/_settings/workspace/webhooks/inbound"
+import { Route as AppOrgSlugShellServersFleetNewLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/servers/_fleet/new/layout"
 import { Route as AppOrgSlugShellServersServerIdContainersLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/servers/$serverId/containers/layout"
 import { Route as AppOrgSlugShellProjectsProjectSlugCanvasLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/projects/$projectSlug/_canvas/layout"
+import { Route as AppOrgSlugShellServersFleetNewIndexRouteImport } from "./routes/_app/$orgSlug/_shell/servers/_fleet/new/index"
 import { Route as AppOrgSlugShellServersServerIdContainersIndexRouteImport } from "./routes/_app/$orgSlug/_shell/servers/$serverId/containers/index"
 import { Route as AppOrgSlugShellProjectsProjectSlugCanvasIndexRouteImport } from "./routes/_app/$orgSlug/_shell/projects/$projectSlug/_canvas/index"
+import { Route as AppOrgSlugShellServersFleetNewSshRouteImport } from "./routes/_app/$orgSlug/_shell/servers/_fleet/new/ssh"
+import { Route as AppOrgSlugShellServersFleetNewCommandRouteImport } from "./routes/_app/$orgSlug/_shell/servers/_fleet/new/command"
 import { Route as AppOrgSlugShellServersServerIdContainersTasksRouteImport } from "./routes/_app/$orgSlug/_shell/servers/$serverId/containers/tasks"
 import { Route as AppOrgSlugShellServersServerIdContainersNetworksRouteImport } from "./routes/_app/$orgSlug/_shell/servers/$serverId/containers/networks"
 import { Route as AppOrgSlugShellServersServerIdContainersImagesRouteImport } from "./routes/_app/$orgSlug/_shell/servers/$serverId/containers/images"
@@ -191,12 +196,6 @@ const AppOrgSlugSettingsInstanceLayoutRoute =
     id: "/instance",
     path: "/instance",
     getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
-  } as any)
-const AppOrgSlugShellServersIndexRoute =
-  AppOrgSlugShellServersIndexRouteImport.update({
-    id: "/servers/",
-    path: "/servers/",
-    getParentRoute: () => AppOrgSlugShellLayoutRoute,
   } as any)
 const AppOrgSlugShellProjectsIndexRoute =
   AppOrgSlugShellProjectsIndexRouteImport.update({
@@ -330,6 +329,12 @@ const AppOrgSlugSettingsAccountSecurityRoute =
     path: "/account/security",
     getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
   } as any)
+const AppOrgSlugShellServersFleetLayoutRoute =
+  AppOrgSlugShellServersFleetLayoutRouteImport.update({
+    id: "/servers/_fleet",
+    path: "/servers",
+    getParentRoute: () => AppOrgSlugShellLayoutRoute,
+  } as any)
 const AppOrgSlugShellServersServerIdLayoutRoute =
   AppOrgSlugShellServersServerIdLayoutRouteImport.update({
     id: "/servers/$serverId",
@@ -359,6 +364,12 @@ const AppOrgSlugShellWorkspaceGitIndexRoute =
     id: "/workspace/git/",
     path: "/workspace/git/",
     getParentRoute: () => AppOrgSlugShellLayoutRoute,
+  } as any)
+const AppOrgSlugShellServersFleetIndexRoute =
+  AppOrgSlugShellServersFleetIndexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => AppOrgSlugShellServersFleetLayoutRoute,
   } as any)
 const AppOrgSlugShellServersServerIdIndexRoute =
   AppOrgSlugShellServersServerIdIndexRouteImport.update({
@@ -522,6 +533,12 @@ const AppOrgSlugSettingsWorkspaceWebhooksInboundRoute =
     path: "/inbound",
     getParentRoute: () => AppOrgSlugSettingsWorkspaceWebhooksLayoutRoute,
   } as any)
+const AppOrgSlugShellServersFleetNewLayoutRoute =
+  AppOrgSlugShellServersFleetNewLayoutRouteImport.update({
+    id: "/new",
+    path: "/new",
+    getParentRoute: () => AppOrgSlugShellServersFleetLayoutRoute,
+  } as any)
 const AppOrgSlugShellServersServerIdContainersLayoutRoute =
   AppOrgSlugShellServersServerIdContainersLayoutRouteImport.update({
     id: "/containers",
@@ -532,6 +549,12 @@ const AppOrgSlugShellProjectsProjectSlugCanvasLayoutRoute =
   AppOrgSlugShellProjectsProjectSlugCanvasLayoutRouteImport.update({
     id: "/_canvas",
     getParentRoute: () => AppOrgSlugShellProjectsProjectSlugLayoutRoute,
+  } as any)
+const AppOrgSlugShellServersFleetNewIndexRoute =
+  AppOrgSlugShellServersFleetNewIndexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => AppOrgSlugShellServersFleetNewLayoutRoute,
   } as any)
 const AppOrgSlugShellServersServerIdContainersIndexRoute =
   AppOrgSlugShellServersServerIdContainersIndexRouteImport.update({
@@ -544,6 +567,18 @@ const AppOrgSlugShellProjectsProjectSlugCanvasIndexRoute =
     id: "/",
     path: "/",
     getParentRoute: () => AppOrgSlugShellProjectsProjectSlugCanvasLayoutRoute,
+  } as any)
+const AppOrgSlugShellServersFleetNewSshRoute =
+  AppOrgSlugShellServersFleetNewSshRouteImport.update({
+    id: "/ssh",
+    path: "/ssh",
+    getParentRoute: () => AppOrgSlugShellServersFleetNewLayoutRoute,
+  } as any)
+const AppOrgSlugShellServersFleetNewCommandRoute =
+  AppOrgSlugShellServersFleetNewCommandRouteImport.update({
+    id: "/command",
+    path: "/command",
+    getParentRoute: () => AppOrgSlugShellServersFleetNewLayoutRoute,
   } as any)
 const AppOrgSlugShellServersServerIdContainersTasksRoute =
   AppOrgSlugShellServersServerIdContainersTasksRouteImport.update({
@@ -797,6 +832,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/monitoring/analytics": typeof AppOrgSlugShellMonitoringAnalyticsLayoutRouteWithChildren
   "/$orgSlug/projects/$projectSlug": typeof AppOrgSlugShellProjectsProjectSlugLayoutRouteWithChildren
   "/$orgSlug/servers/$serverId": typeof AppOrgSlugShellServersServerIdLayoutRouteWithChildren
+  "/$orgSlug/servers": typeof AppOrgSlugShellServersFleetLayoutRouteWithChildren
   "/$orgSlug/account/security": typeof AppOrgSlugSettingsAccountSecurityRoute
   "/$orgSlug/account/sessions": typeof AppOrgSlugSettingsAccountSessionsRoute
   "/$orgSlug/instance/access": typeof AppOrgSlugSettingsInstanceAccessRoute
@@ -819,8 +855,8 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/data/": typeof AppOrgSlugShellDataIndexRoute
   "/$orgSlug/edge/": typeof AppOrgSlugShellEdgeIndexRoute
   "/$orgSlug/projects/": typeof AppOrgSlugShellProjectsIndexRoute
-  "/$orgSlug/servers/": typeof AppOrgSlugShellServersIndexRoute
   "/$orgSlug/servers/$serverId/containers": typeof AppOrgSlugShellServersServerIdContainersLayoutRouteWithChildren
+  "/$orgSlug/servers/new": typeof AppOrgSlugShellServersFleetNewLayoutRouteWithChildren
   "/$orgSlug/workspace/webhooks/inbound": typeof AppOrgSlugSettingsWorkspaceWebhooksInboundRoute
   "/$orgSlug/data/backups/destinations": typeof AppOrgSlugShellDataBackupsDestinationsRoute
   "/$orgSlug/data/backups/schedules": typeof AppOrgSlugShellDataBackupsSchedulesRoute
@@ -848,6 +884,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/edge/firewall/": typeof AppOrgSlugShellEdgeFirewallIndexRoute
   "/$orgSlug/monitoring/analytics/": typeof AppOrgSlugShellMonitoringAnalyticsIndexRoute
   "/$orgSlug/servers/$serverId/": typeof AppOrgSlugShellServersServerIdIndexRoute
+  "/$orgSlug/servers/": typeof AppOrgSlugShellServersFleetIndexRoute
   "/$orgSlug/workspace/git/": typeof AppOrgSlugShellWorkspaceGitIndexRoute
   "/$orgSlug/projects/$projectSlug/$envSlug/logs": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsLayoutRouteWithChildren
   "/$orgSlug/projects/$projectSlug/$envSlug/deployments": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugDeploymentsRoute
@@ -858,8 +895,11 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/servers/$serverId/containers/images": typeof AppOrgSlugShellServersServerIdContainersImagesRoute
   "/$orgSlug/servers/$serverId/containers/networks": typeof AppOrgSlugShellServersServerIdContainersNetworksRoute
   "/$orgSlug/servers/$serverId/containers/tasks": typeof AppOrgSlugShellServersServerIdContainersTasksRoute
+  "/$orgSlug/servers/new/command": typeof AppOrgSlugShellServersFleetNewCommandRoute
+  "/$orgSlug/servers/new/ssh": typeof AppOrgSlugShellServersFleetNewSshRoute
   "/$orgSlug/projects/$projectSlug/": typeof AppOrgSlugShellProjectsProjectSlugCanvasIndexRoute
   "/$orgSlug/servers/$serverId/containers/": typeof AppOrgSlugShellServersServerIdContainersIndexRoute
+  "/$orgSlug/servers/new/": typeof AppOrgSlugShellServersFleetNewIndexRoute
   "/$orgSlug/projects/$projectSlug/previews/$previewId": typeof AppOrgSlugShellProjectsProjectSlugCanvasPreviewsPreviewIdLayoutRouteWithChildren
   "/$orgSlug/projects/$projectSlug/$envSlug/logs/edge": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsEdgeRoute
   "/$orgSlug/projects/$projectSlug/$envSlug/logs/": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsIndexRoute
@@ -915,7 +955,6 @@ export interface FileRoutesByTo {
   "/$orgSlug/data": typeof AppOrgSlugShellDataIndexRoute
   "/$orgSlug/edge": typeof AppOrgSlugShellEdgeIndexRoute
   "/$orgSlug/projects": typeof AppOrgSlugShellProjectsIndexRoute
-  "/$orgSlug/servers": typeof AppOrgSlugShellServersIndexRoute
   "/$orgSlug/workspace/webhooks/inbound": typeof AppOrgSlugSettingsWorkspaceWebhooksInboundRoute
   "/$orgSlug/data/backups/destinations": typeof AppOrgSlugShellDataBackupsDestinationsRoute
   "/$orgSlug/data/backups/schedules": typeof AppOrgSlugShellDataBackupsSchedulesRoute
@@ -943,6 +982,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/edge/firewall": typeof AppOrgSlugShellEdgeFirewallIndexRoute
   "/$orgSlug/monitoring/analytics": typeof AppOrgSlugShellMonitoringAnalyticsIndexRoute
   "/$orgSlug/servers/$serverId": typeof AppOrgSlugShellServersServerIdIndexRoute
+  "/$orgSlug/servers": typeof AppOrgSlugShellServersFleetIndexRoute
   "/$orgSlug/workspace/git": typeof AppOrgSlugShellWorkspaceGitIndexRoute
   "/$orgSlug/projects/$projectSlug/$envSlug/deployments": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugDeploymentsRoute
   "/$orgSlug/projects/$projectSlug/$envSlug/metrics": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugMetricsRoute
@@ -952,7 +992,10 @@ export interface FileRoutesByTo {
   "/$orgSlug/servers/$serverId/containers/images": typeof AppOrgSlugShellServersServerIdContainersImagesRoute
   "/$orgSlug/servers/$serverId/containers/networks": typeof AppOrgSlugShellServersServerIdContainersNetworksRoute
   "/$orgSlug/servers/$serverId/containers/tasks": typeof AppOrgSlugShellServersServerIdContainersTasksRoute
+  "/$orgSlug/servers/new/command": typeof AppOrgSlugShellServersFleetNewCommandRoute
+  "/$orgSlug/servers/new/ssh": typeof AppOrgSlugShellServersFleetNewSshRoute
   "/$orgSlug/servers/$serverId/containers": typeof AppOrgSlugShellServersServerIdContainersIndexRoute
+  "/$orgSlug/servers/new": typeof AppOrgSlugShellServersFleetNewIndexRoute
   "/$orgSlug/projects/$projectSlug/$envSlug/logs/edge": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsEdgeRoute
   "/$orgSlug/projects/$projectSlug/$envSlug/logs": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsIndexRoute
   "/$orgSlug/projects/$projectSlug/$envSlug": typeof AppOrgSlugShellProjectsProjectSlugCanvasEnvSlugIndexRoute
@@ -994,6 +1037,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/monitoring/analytics": typeof AppOrgSlugShellMonitoringAnalyticsLayoutRouteWithChildren
   "/_app/$orgSlug/_shell/projects/$projectSlug": typeof AppOrgSlugShellProjectsProjectSlugLayoutRouteWithChildren
   "/_app/$orgSlug/_shell/servers/$serverId": typeof AppOrgSlugShellServersServerIdLayoutRouteWithChildren
+  "/_app/$orgSlug/_shell/servers/_fleet": typeof AppOrgSlugShellServersFleetLayoutRouteWithChildren
   "/_app/$orgSlug/_settings/account/security": typeof AppOrgSlugSettingsAccountSecurityRoute
   "/_app/$orgSlug/_settings/account/sessions": typeof AppOrgSlugSettingsAccountSessionsRoute
   "/_app/$orgSlug/_settings/instance/access": typeof AppOrgSlugSettingsInstanceAccessRoute
@@ -1016,9 +1060,9 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/data/": typeof AppOrgSlugShellDataIndexRoute
   "/_app/$orgSlug/_shell/edge/": typeof AppOrgSlugShellEdgeIndexRoute
   "/_app/$orgSlug/_shell/projects/": typeof AppOrgSlugShellProjectsIndexRoute
-  "/_app/$orgSlug/_shell/servers/": typeof AppOrgSlugShellServersIndexRoute
   "/_app/$orgSlug/_shell/projects/$projectSlug/_canvas": typeof AppOrgSlugShellProjectsProjectSlugCanvasLayoutRouteWithChildren
   "/_app/$orgSlug/_shell/servers/$serverId/containers": typeof AppOrgSlugShellServersServerIdContainersLayoutRouteWithChildren
+  "/_app/$orgSlug/_shell/servers/_fleet/new": typeof AppOrgSlugShellServersFleetNewLayoutRouteWithChildren
   "/_app/$orgSlug/_settings/workspace/webhooks/inbound": typeof AppOrgSlugSettingsWorkspaceWebhooksInboundRoute
   "/_app/$orgSlug/_shell/data/backups/destinations": typeof AppOrgSlugShellDataBackupsDestinationsRoute
   "/_app/$orgSlug/_shell/data/backups/schedules": typeof AppOrgSlugShellDataBackupsSchedulesRoute
@@ -1046,6 +1090,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/edge/firewall/": typeof AppOrgSlugShellEdgeFirewallIndexRoute
   "/_app/$orgSlug/_shell/monitoring/analytics/": typeof AppOrgSlugShellMonitoringAnalyticsIndexRoute
   "/_app/$orgSlug/_shell/servers/$serverId/": typeof AppOrgSlugShellServersServerIdIndexRoute
+  "/_app/$orgSlug/_shell/servers/_fleet/": typeof AppOrgSlugShellServersFleetIndexRoute
   "/_app/$orgSlug/_shell/workspace/git/": typeof AppOrgSlugShellWorkspaceGitIndexRoute
   "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/logs": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsLayoutRouteWithChildren
   "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/deployments": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugDeploymentsRoute
@@ -1056,8 +1101,11 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/servers/$serverId/containers/images": typeof AppOrgSlugShellServersServerIdContainersImagesRoute
   "/_app/$orgSlug/_shell/servers/$serverId/containers/networks": typeof AppOrgSlugShellServersServerIdContainersNetworksRoute
   "/_app/$orgSlug/_shell/servers/$serverId/containers/tasks": typeof AppOrgSlugShellServersServerIdContainersTasksRoute
+  "/_app/$orgSlug/_shell/servers/_fleet/new/command": typeof AppOrgSlugShellServersFleetNewCommandRoute
+  "/_app/$orgSlug/_shell/servers/_fleet/new/ssh": typeof AppOrgSlugShellServersFleetNewSshRoute
   "/_app/$orgSlug/_shell/projects/$projectSlug/_canvas/": typeof AppOrgSlugShellProjectsProjectSlugCanvasIndexRoute
   "/_app/$orgSlug/_shell/servers/$serverId/containers/": typeof AppOrgSlugShellServersServerIdContainersIndexRoute
+  "/_app/$orgSlug/_shell/servers/_fleet/new/": typeof AppOrgSlugShellServersFleetNewIndexRoute
   "/_app/$orgSlug/_shell/projects/$projectSlug/_canvas/previews/$previewId": typeof AppOrgSlugShellProjectsProjectSlugCanvasPreviewsPreviewIdLayoutRouteWithChildren
   "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/logs/edge": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsEdgeRoute
   "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/logs/": typeof AppOrgSlugShellProjectsProjectSlugEnvSlugLogsIndexRoute
@@ -1099,6 +1147,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/monitoring/analytics"
     | "/$orgSlug/projects/$projectSlug"
     | "/$orgSlug/servers/$serverId"
+    | "/$orgSlug/servers"
     | "/$orgSlug/account/security"
     | "/$orgSlug/account/sessions"
     | "/$orgSlug/instance/access"
@@ -1121,8 +1170,8 @@ export interface FileRouteTypes {
     | "/$orgSlug/data/"
     | "/$orgSlug/edge/"
     | "/$orgSlug/projects/"
-    | "/$orgSlug/servers/"
     | "/$orgSlug/servers/$serverId/containers"
+    | "/$orgSlug/servers/new"
     | "/$orgSlug/workspace/webhooks/inbound"
     | "/$orgSlug/data/backups/destinations"
     | "/$orgSlug/data/backups/schedules"
@@ -1150,6 +1199,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/edge/firewall/"
     | "/$orgSlug/monitoring/analytics/"
     | "/$orgSlug/servers/$serverId/"
+    | "/$orgSlug/servers/"
     | "/$orgSlug/workspace/git/"
     | "/$orgSlug/projects/$projectSlug/$envSlug/logs"
     | "/$orgSlug/projects/$projectSlug/$envSlug/deployments"
@@ -1160,8 +1210,11 @@ export interface FileRouteTypes {
     | "/$orgSlug/servers/$serverId/containers/images"
     | "/$orgSlug/servers/$serverId/containers/networks"
     | "/$orgSlug/servers/$serverId/containers/tasks"
+    | "/$orgSlug/servers/new/command"
+    | "/$orgSlug/servers/new/ssh"
     | "/$orgSlug/projects/$projectSlug/"
     | "/$orgSlug/servers/$serverId/containers/"
+    | "/$orgSlug/servers/new/"
     | "/$orgSlug/projects/$projectSlug/previews/$previewId"
     | "/$orgSlug/projects/$projectSlug/$envSlug/logs/edge"
     | "/$orgSlug/projects/$projectSlug/$envSlug/logs/"
@@ -1217,7 +1270,6 @@ export interface FileRouteTypes {
     | "/$orgSlug/data"
     | "/$orgSlug/edge"
     | "/$orgSlug/projects"
-    | "/$orgSlug/servers"
     | "/$orgSlug/workspace/webhooks/inbound"
     | "/$orgSlug/data/backups/destinations"
     | "/$orgSlug/data/backups/schedules"
@@ -1245,6 +1297,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/edge/firewall"
     | "/$orgSlug/monitoring/analytics"
     | "/$orgSlug/servers/$serverId"
+    | "/$orgSlug/servers"
     | "/$orgSlug/workspace/git"
     | "/$orgSlug/projects/$projectSlug/$envSlug/deployments"
     | "/$orgSlug/projects/$projectSlug/$envSlug/metrics"
@@ -1254,7 +1307,10 @@ export interface FileRouteTypes {
     | "/$orgSlug/servers/$serverId/containers/images"
     | "/$orgSlug/servers/$serverId/containers/networks"
     | "/$orgSlug/servers/$serverId/containers/tasks"
+    | "/$orgSlug/servers/new/command"
+    | "/$orgSlug/servers/new/ssh"
     | "/$orgSlug/servers/$serverId/containers"
+    | "/$orgSlug/servers/new"
     | "/$orgSlug/projects/$projectSlug/$envSlug/logs/edge"
     | "/$orgSlug/projects/$projectSlug/$envSlug/logs"
     | "/$orgSlug/projects/$projectSlug/$envSlug"
@@ -1295,6 +1351,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/monitoring/analytics"
     | "/_app/$orgSlug/_shell/projects/$projectSlug"
     | "/_app/$orgSlug/_shell/servers/$serverId"
+    | "/_app/$orgSlug/_shell/servers/_fleet"
     | "/_app/$orgSlug/_settings/account/security"
     | "/_app/$orgSlug/_settings/account/sessions"
     | "/_app/$orgSlug/_settings/instance/access"
@@ -1317,9 +1374,9 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/data/"
     | "/_app/$orgSlug/_shell/edge/"
     | "/_app/$orgSlug/_shell/projects/"
-    | "/_app/$orgSlug/_shell/servers/"
     | "/_app/$orgSlug/_shell/projects/$projectSlug/_canvas"
     | "/_app/$orgSlug/_shell/servers/$serverId/containers"
+    | "/_app/$orgSlug/_shell/servers/_fleet/new"
     | "/_app/$orgSlug/_settings/workspace/webhooks/inbound"
     | "/_app/$orgSlug/_shell/data/backups/destinations"
     | "/_app/$orgSlug/_shell/data/backups/schedules"
@@ -1347,6 +1404,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/edge/firewall/"
     | "/_app/$orgSlug/_shell/monitoring/analytics/"
     | "/_app/$orgSlug/_shell/servers/$serverId/"
+    | "/_app/$orgSlug/_shell/servers/_fleet/"
     | "/_app/$orgSlug/_shell/workspace/git/"
     | "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/logs"
     | "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/deployments"
@@ -1357,8 +1415,11 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/servers/$serverId/containers/images"
     | "/_app/$orgSlug/_shell/servers/$serverId/containers/networks"
     | "/_app/$orgSlug/_shell/servers/$serverId/containers/tasks"
+    | "/_app/$orgSlug/_shell/servers/_fleet/new/command"
+    | "/_app/$orgSlug/_shell/servers/_fleet/new/ssh"
     | "/_app/$orgSlug/_shell/projects/$projectSlug/_canvas/"
     | "/_app/$orgSlug/_shell/servers/$serverId/containers/"
+    | "/_app/$orgSlug/_shell/servers/_fleet/new/"
     | "/_app/$orgSlug/_shell/projects/$projectSlug/_canvas/previews/$previewId"
     | "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/logs/edge"
     | "/_app/$orgSlug/_shell/projects/$projectSlug/$envSlug/logs/"
@@ -1497,13 +1558,6 @@ declare module "@tanstack/react-router" {
       fullPath: "/$orgSlug/instance"
       preLoaderRoute: typeof AppOrgSlugSettingsInstanceLayoutRouteImport
       parentRoute: typeof AppOrgSlugSettingsLayoutRoute
-    }
-    "/_app/$orgSlug/_shell/servers/": {
-      id: "/_app/$orgSlug/_shell/servers/"
-      path: "/servers"
-      fullPath: "/$orgSlug/servers/"
-      preLoaderRoute: typeof AppOrgSlugShellServersIndexRouteImport
-      parentRoute: typeof AppOrgSlugShellLayoutRoute
     }
     "/_app/$orgSlug/_shell/projects/": {
       id: "/_app/$orgSlug/_shell/projects/"
@@ -1659,6 +1713,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugSettingsAccountSecurityRouteImport
       parentRoute: typeof AppOrgSlugSettingsLayoutRoute
     }
+    "/_app/$orgSlug/_shell/servers/_fleet": {
+      id: "/_app/$orgSlug/_shell/servers/_fleet"
+      path: "/servers"
+      fullPath: "/$orgSlug/servers"
+      preLoaderRoute: typeof AppOrgSlugShellServersFleetLayoutRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
     "/_app/$orgSlug/_shell/servers/$serverId": {
       id: "/_app/$orgSlug/_shell/servers/$serverId"
       path: "/servers/$serverId"
@@ -1693,6 +1754,13 @@ declare module "@tanstack/react-router" {
       fullPath: "/$orgSlug/workspace/git/"
       preLoaderRoute: typeof AppOrgSlugShellWorkspaceGitIndexRouteImport
       parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
+    "/_app/$orgSlug/_shell/servers/_fleet/": {
+      id: "/_app/$orgSlug/_shell/servers/_fleet/"
+      path: "/"
+      fullPath: "/$orgSlug/servers/"
+      preLoaderRoute: typeof AppOrgSlugShellServersFleetIndexRouteImport
+      parentRoute: typeof AppOrgSlugShellServersFleetLayoutRoute
     }
     "/_app/$orgSlug/_shell/servers/$serverId/": {
       id: "/_app/$orgSlug/_shell/servers/$serverId/"
@@ -1883,6 +1951,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugSettingsWorkspaceWebhooksInboundRouteImport
       parentRoute: typeof AppOrgSlugSettingsWorkspaceWebhooksLayoutRoute
     }
+    "/_app/$orgSlug/_shell/servers/_fleet/new": {
+      id: "/_app/$orgSlug/_shell/servers/_fleet/new"
+      path: "/new"
+      fullPath: "/$orgSlug/servers/new"
+      preLoaderRoute: typeof AppOrgSlugShellServersFleetNewLayoutRouteImport
+      parentRoute: typeof AppOrgSlugShellServersFleetLayoutRoute
+    }
     "/_app/$orgSlug/_shell/servers/$serverId/containers": {
       id: "/_app/$orgSlug/_shell/servers/$serverId/containers"
       path: "/containers"
@@ -1897,6 +1972,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugShellProjectsProjectSlugCanvasLayoutRouteImport
       parentRoute: typeof AppOrgSlugShellProjectsProjectSlugLayoutRoute
     }
+    "/_app/$orgSlug/_shell/servers/_fleet/new/": {
+      id: "/_app/$orgSlug/_shell/servers/_fleet/new/"
+      path: "/"
+      fullPath: "/$orgSlug/servers/new/"
+      preLoaderRoute: typeof AppOrgSlugShellServersFleetNewIndexRouteImport
+      parentRoute: typeof AppOrgSlugShellServersFleetNewLayoutRoute
+    }
     "/_app/$orgSlug/_shell/servers/$serverId/containers/": {
       id: "/_app/$orgSlug/_shell/servers/$serverId/containers/"
       path: "/"
@@ -1910,6 +1992,20 @@ declare module "@tanstack/react-router" {
       fullPath: "/$orgSlug/projects/$projectSlug/"
       preLoaderRoute: typeof AppOrgSlugShellProjectsProjectSlugCanvasIndexRouteImport
       parentRoute: typeof AppOrgSlugShellProjectsProjectSlugCanvasLayoutRoute
+    }
+    "/_app/$orgSlug/_shell/servers/_fleet/new/ssh": {
+      id: "/_app/$orgSlug/_shell/servers/_fleet/new/ssh"
+      path: "/ssh"
+      fullPath: "/$orgSlug/servers/new/ssh"
+      preLoaderRoute: typeof AppOrgSlugShellServersFleetNewSshRouteImport
+      parentRoute: typeof AppOrgSlugShellServersFleetNewLayoutRoute
+    }
+    "/_app/$orgSlug/_shell/servers/_fleet/new/command": {
+      id: "/_app/$orgSlug/_shell/servers/_fleet/new/command"
+      path: "/command"
+      fullPath: "/$orgSlug/servers/new/command"
+      preLoaderRoute: typeof AppOrgSlugShellServersFleetNewCommandRouteImport
+      parentRoute: typeof AppOrgSlugShellServersFleetNewLayoutRoute
     }
     "/_app/$orgSlug/_shell/servers/$serverId/containers/tasks": {
       id: "/_app/$orgSlug/_shell/servers/$serverId/containers/tasks"
@@ -2478,6 +2574,45 @@ const AppOrgSlugShellServersServerIdLayoutRouteWithChildren =
     AppOrgSlugShellServersServerIdLayoutRouteChildren,
   )
 
+interface AppOrgSlugShellServersFleetNewLayoutRouteChildren {
+  AppOrgSlugShellServersFleetNewCommandRoute: typeof AppOrgSlugShellServersFleetNewCommandRoute
+  AppOrgSlugShellServersFleetNewSshRoute: typeof AppOrgSlugShellServersFleetNewSshRoute
+  AppOrgSlugShellServersFleetNewIndexRoute: typeof AppOrgSlugShellServersFleetNewIndexRoute
+}
+
+const AppOrgSlugShellServersFleetNewLayoutRouteChildren: AppOrgSlugShellServersFleetNewLayoutRouteChildren =
+  {
+    AppOrgSlugShellServersFleetNewCommandRoute:
+      AppOrgSlugShellServersFleetNewCommandRoute,
+    AppOrgSlugShellServersFleetNewSshRoute:
+      AppOrgSlugShellServersFleetNewSshRoute,
+    AppOrgSlugShellServersFleetNewIndexRoute:
+      AppOrgSlugShellServersFleetNewIndexRoute,
+  }
+
+const AppOrgSlugShellServersFleetNewLayoutRouteWithChildren =
+  AppOrgSlugShellServersFleetNewLayoutRoute._addFileChildren(
+    AppOrgSlugShellServersFleetNewLayoutRouteChildren,
+  )
+
+interface AppOrgSlugShellServersFleetLayoutRouteChildren {
+  AppOrgSlugShellServersFleetNewLayoutRoute: typeof AppOrgSlugShellServersFleetNewLayoutRouteWithChildren
+  AppOrgSlugShellServersFleetIndexRoute: typeof AppOrgSlugShellServersFleetIndexRoute
+}
+
+const AppOrgSlugShellServersFleetLayoutRouteChildren: AppOrgSlugShellServersFleetLayoutRouteChildren =
+  {
+    AppOrgSlugShellServersFleetNewLayoutRoute:
+      AppOrgSlugShellServersFleetNewLayoutRouteWithChildren,
+    AppOrgSlugShellServersFleetIndexRoute:
+      AppOrgSlugShellServersFleetIndexRoute,
+  }
+
+const AppOrgSlugShellServersFleetLayoutRouteWithChildren =
+  AppOrgSlugShellServersFleetLayoutRoute._addFileChildren(
+    AppOrgSlugShellServersFleetLayoutRouteChildren,
+  )
+
 interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellEdgeLayoutRoute: typeof AppOrgSlugShellEdgeLayoutRouteWithChildren
   AppOrgSlugShellTemplatesRoute: typeof AppOrgSlugShellTemplatesRoute
@@ -2486,6 +2621,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellMonitoringAnalyticsLayoutRoute: typeof AppOrgSlugShellMonitoringAnalyticsLayoutRouteWithChildren
   AppOrgSlugShellProjectsProjectSlugLayoutRoute: typeof AppOrgSlugShellProjectsProjectSlugLayoutRouteWithChildren
   AppOrgSlugShellServersServerIdLayoutRoute: typeof AppOrgSlugShellServersServerIdLayoutRouteWithChildren
+  AppOrgSlugShellServersFleetLayoutRoute: typeof AppOrgSlugShellServersFleetLayoutRouteWithChildren
   AppOrgSlugShellDataBucketsRoute: typeof AppOrgSlugShellDataBucketsRoute
   AppOrgSlugShellDataQueryRoute: typeof AppOrgSlugShellDataQueryRoute
   AppOrgSlugShellWorkspaceAuditRoute: typeof AppOrgSlugShellWorkspaceAuditRoute
@@ -2495,7 +2631,6 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellWorkspaceSshKeysRoute: typeof AppOrgSlugShellWorkspaceSshKeysRoute
   AppOrgSlugShellDataIndexRoute: typeof AppOrgSlugShellDataIndexRoute
   AppOrgSlugShellProjectsIndexRoute: typeof AppOrgSlugShellProjectsIndexRoute
-  AppOrgSlugShellServersIndexRoute: typeof AppOrgSlugShellServersIndexRoute
   AppOrgSlugShellDataBackupsDestinationsRoute: typeof AppOrgSlugShellDataBackupsDestinationsRoute
   AppOrgSlugShellDataBackupsSchedulesRoute: typeof AppOrgSlugShellDataBackupsSchedulesRoute
   AppOrgSlugShellWorkspaceGitProviderIdRoute: typeof AppOrgSlugShellWorkspaceGitProviderIdRoute
@@ -2514,6 +2649,8 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
     AppOrgSlugShellProjectsProjectSlugLayoutRouteWithChildren,
   AppOrgSlugShellServersServerIdLayoutRoute:
     AppOrgSlugShellServersServerIdLayoutRouteWithChildren,
+  AppOrgSlugShellServersFleetLayoutRoute:
+    AppOrgSlugShellServersFleetLayoutRouteWithChildren,
   AppOrgSlugShellDataBucketsRoute: AppOrgSlugShellDataBucketsRoute,
   AppOrgSlugShellDataQueryRoute: AppOrgSlugShellDataQueryRoute,
   AppOrgSlugShellWorkspaceAuditRoute: AppOrgSlugShellWorkspaceAuditRoute,
@@ -2526,7 +2663,6 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellWorkspaceSshKeysRoute: AppOrgSlugShellWorkspaceSshKeysRoute,
   AppOrgSlugShellDataIndexRoute: AppOrgSlugShellDataIndexRoute,
   AppOrgSlugShellProjectsIndexRoute: AppOrgSlugShellProjectsIndexRoute,
-  AppOrgSlugShellServersIndexRoute: AppOrgSlugShellServersIndexRoute,
   AppOrgSlugShellDataBackupsDestinationsRoute:
     AppOrgSlugShellDataBackupsDestinationsRoute,
   AppOrgSlugShellDataBackupsSchedulesRoute:

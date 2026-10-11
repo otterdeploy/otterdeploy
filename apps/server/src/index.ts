@@ -19,6 +19,7 @@ import { agentHealthIngestHandler, checkReadiness } from "@otterdeploy/api/syste
 import { auth, getRegistrationMode } from "@otterdeploy/auth";
 import { guardSignInMethod, publicAuthConfig } from "@otterdeploy/auth/public-config";
 import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
+import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { REQUEST_QUERY_TIMEOUT_MS, runWithQueryDeadline } from "@otterdeploy/db/query-deadline";
 import { env } from "@otterdeploy/env/server";
 import { workbenchQueues } from "@otterdeploy/jobs";
@@ -57,6 +58,7 @@ import {
 } from "./handlers";
 import { registerAnalyticsRoutes } from "./handlers/analytics";
 import { completeNodeEnrollmentHandler, redeemNodeEnrollmentHandler } from "./handlers/enrollment";
+import { createInstallNodeHandler } from "./handlers/install-node";
 import { liveSocketHandler } from "./handlers/live";
 import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
@@ -396,6 +398,13 @@ app.post("/api/agent/health", agentHealthIngestHandler);
 // hashed in Postgres, single-use, expiring and role-scoped; completion rotates
 // Docker's underlying role-wide join token.
 app.post("/api/node-enrollments/:id/redeem", redeemNodeEnrollmentHandler);
+// The short command's script: public, token-free; it redeems at the route above.
+app.get(
+  "/install-node.sh",
+  createInstallNodeHandler(() =>
+    resolveCanonicalWebOrigin(env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL),
+  ),
+);
 app.post("/api/node-enrollments/:id/complete", completeNodeEnrollmentHandler);
 
 // ─── Local source upload ───────────────────────────────────────────
