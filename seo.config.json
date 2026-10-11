@@ -1,5 +1,5 @@
 {
-  "$comment": "Read by .github/workflows/seo-check.yml. Keep this product-side crawl configuration in sync with the otterdeploy entry in dr34mw0rk5/seo-ops/sites.json. Collector credentials and analytics properties belong only in the private hub.",
+  "$comment": "Read by .github/workflows/seo-check.yml. Keep this product-side crawl configuration in sync with the otterdeploy entry in dr34mw0rk5/seo-ops/sites.json. Collector credentials and analytics properties belong only in the private hub. As of 2026-09-15 the hub is behind this file on two keys, and the fix belongs there, not here: see docs/seo-decisions.md. Do not resolve the drift by deleting from this file. '^/docs/openapi/' reads as dead configuration because production currently serves no operation pages, but only because the OpenAPI spec URL is unset and the loader falls back to an empty document; configure that URL and the guard is what keeps hundreds of generated leaf pages out of the crawl. 'landing-next/content.ts' holds the copy for the landing page promoted to '/', which is one of the few places the tier 2 fixer is meant to be able to edit.",
   "project": "otterdeploy",
   "repo": "otterdeploy/otterdeploy",
   "origin": "https://otterdeploy.com",
