@@ -18,6 +18,29 @@ import { serviceRuntimeName } from "./runtime-name";
 // View types
 // ---------------------------------------------------------------------------
 
+/** A service's live runtime as the API reports it: the driver's answer, or
+ *  `unknown` with a reason when the driver could not be read. */
+export type ServiceRuntimeView = Omit<SwarmServiceRuntime, "status" | "errorMessage"> & {
+  status: SwarmServiceRuntime["status"] | "unknown";
+  errorMessage: string | null;
+};
+
+/** The runtime of a service whose live state could not be read. */
+export function unknownRuntime(
+  serviceName: string,
+  networkName: string,
+  reason: string,
+): ServiceRuntimeView {
+  return {
+    serviceId: null,
+    serviceName,
+    networkName,
+    status: "unknown",
+    health: null,
+    errorMessage: reason,
+  };
+}
+
 export interface ServiceView {
   id: string;
   projectId: string;
@@ -72,7 +95,7 @@ export interface ServiceView {
   extraNetworks: string[];
 
   /** The live runtime; `errorMessage` always present (null when none). */
-  runtime: SwarmServiceRuntime & { errorMessage: string | null };
+  runtime: ServiceRuntimeView;
 
   /** Whether the env on screen is the env the container runs: see
    *  {@link envLiveness}. */
@@ -171,7 +194,7 @@ export function normalizePorts(ports: PortInput[]) {
 export async function mapServiceView(
   record: ServiceRecord,
   projectSlug: string,
-  runtime?: SwarmServiceRuntime,
+  runtime?: SwarmServiceRuntime | ServiceRuntimeView,
 ): Promise<ServiceView> {
   const live =
     runtime ??

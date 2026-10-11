@@ -87,6 +87,16 @@ describe("serviceState", () => {
       serviceState({ ...base, runtime: undefined, latestDeployment: { status: null } }),
     ).toEqual({ tone: "pending", label: "not deployed", why: null });
   });
+  it("says the live state is unknown, with the reason, when Docker could not be read", () => {
+    const reason = "Docker did not answer, so the live status is unknown.";
+    expect(
+      serviceState({
+        ...base,
+        runtime: { status: "unknown", errorMessage: reason },
+        latestDeployment: { status: "running" },
+      }),
+    ).toEqual({ tone: "pending", label: "status unknown", why: reason });
+  });
 });
 
 describe("stackState", () => {

@@ -197,7 +197,9 @@ export function stackState(
 
 /** Runtime as the runtime driver reports it (`service.get`, database rows). */
 export interface RuntimeFacts {
-  status: "running" | "starting" | "stopped" | "missing" | "error";
+  /** `unknown`: the live state could not be read (Docker did not answer);
+   *  `errorMessage` says so. */
+  status: "running" | "starting" | "stopped" | "missing" | "error" | "unknown";
   health?: "healthy" | "unhealthy" | "starting" | null;
   /** The runtime's own reason for `error` (a task that will not pull or
    *  start, a full disk). Shown as the why: an error with no reason is the
@@ -269,11 +271,7 @@ function runtimeState(
   if (!rt) return dep === null ? { tone: "pending", label: "not deployed", why: null } : null;
   switch (rt.status) {
     case "running":
-      if (rt.health === "unhealthy")
-        return { tone: "error", label: "unhealthy", why: "healthcheck failing" };
-      if (rt.health === "starting")
-        return { tone: "building", label: "starting", why: "healthcheck pending" };
-      return { tone: "running", label: "running", why: tasks };
+      return runningState(rt, tasks);
     case "starting":
       return { tone: "building", label: "starting", why: null };
     case "stopped":
@@ -286,7 +284,25 @@ function runtimeState(
         : { tone: "error", label: "not running", why: tasks ?? "no container" };
     case "error":
       return { tone: "error", label: "error", why: rt.errorMessage ?? tasks };
+    case "unknown":
+      return unknownRuntimeState(rt);
   }
+}
+
+/** A running container: its healthcheck decides the tone. */
+function runningState(rt: RuntimeFacts, tasks: string | null): ResourceState {
+  if (rt.health === "unhealthy")
+    return { tone: "error", label: "unhealthy", why: "healthcheck failing" };
+  if (rt.health === "starting")
+    return { tone: "building", label: "starting", why: "healthcheck pending" };
+  return { tone: "running", label: "running", why: tasks };
+}
+
+/** The live state could not be read (Docker did not answer). Not a failure of
+ *  the resource: say so, with the reason, rather than guess a colour the
+ *  runtime never reported. */
+function unknownRuntimeState(rt: RuntimeFacts): ResourceState {
+  return { tone: "pending", label: "status unknown", why: rt.errorMessage ?? null };
 }
 
 /** A database's state, from its container runtime. */
@@ -318,5 +334,7 @@ export function databaseState(input: {
       return { tone: "error", label: "not running", why: "no container" };
     case "error":
       return { tone: "error", label: "error", why: null };
+    case "unknown":
+      return unknownRuntimeState(rt);
   }
 }

@@ -60,7 +60,10 @@ const serviceRuntimeSchema = z.object({
   serviceId: z.string().nullable(),
   serviceName: z.string(),
   networkName: z.string(),
-  status: z.enum(["running", "starting", "stopped", "missing", "error"]),
+  /** `unknown`: the live state could not be read (Docker did not answer), so
+   *  the row shows its saved configuration and `errorMessage` says why. A list
+   *  never fails whole because the daemon is down. */
+  status: z.enum(["running", "starting", "stopped", "missing", "error", "unknown"]),
   health: z.enum(["healthy", "unhealthy", "starting"]).nullable(),
   /** Why the runtime is failing, in the runtime's own words (a task's error:
    *  an image that will not pull, a full disk, a container that will not
