@@ -68,6 +68,16 @@ const unknownEnvironment = {
   BAD_REQUEST: { status: 400, message: "Unknown environment" as const },
 } as const;
 
+/** An environment block that does not merge into a valid manifest. The
+ *  document is wrong, so 400. The handler replaces the message with one naming
+ *  the environment, the resource and the field. */
+const invalidOverride = {
+  INVALID_MANIFEST: {
+    status: 400,
+    message: "Environment overrides do not merge into a valid manifest" as const,
+  },
+} as const;
+
 const manifestDiffInput = z.object({
   projectId: getProjectInput.shape.id,
   // Resolve overrides for this environment before diffing. Omit to diff
@@ -239,6 +249,17 @@ const conflict = {
   },
 };
 
+/** The manifest's `project` names a different project than the one it is
+ *  being saved to. Refused, never silently corrected: the CLI resolves its
+ *  target from that field, so rewriting it would hide which project the file
+ *  really points at. */
+const projectMismatch = {
+  PROJECT_MISMATCH: {
+    status: 400,
+    message: "This manifest names a different project" as const,
+  },
+} as const;
+
 /**
  * Apply found no saved manifest to reconcile. It used to answer SUCCESS with
  * `appliedCount: 0` and nothing skipped, which a caller cannot tell apart from
@@ -270,18 +291,18 @@ export const manifestContractSlice = {
     .output(manifestGetOutput),
   save: oc
     .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
-    .errors({ ...projectNotFoundErrors, ...conflict, ...placementUnsupported })
+    .errors({ ...projectNotFoundErrors, ...conflict, ...placementUnsupported, ...projectMismatch })
     .meta({ path: `${basePath}/{projectId}/manifest`, tag, method: "PUT" })
     .input(manifestSaveInput)
     .output(manifestSaveOutput),
   diff: oc
     .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...invalidOverride })
     .meta({ path: `${basePath}/{projectId}/manifest/diff`, tag, method: "POST" })
     .input(manifestDiffInput)
     .output(manifestDiffOutput),
   apply: oc
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...noManifest })
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...noManifest, ...invalidOverride })
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
@@ -292,6 +313,8 @@ export const manifestContractSlice = {
       ...conflict,
       ...unknownEnvironment,
       ...placementUnsupported,
+      ...invalidOverride,
+      ...projectMismatch,
     })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)

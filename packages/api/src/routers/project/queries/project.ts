@@ -13,7 +13,7 @@ import {
   projectEnvVar,
   type NixpacksConfig,
 } from "@otterdeploy/db/schema/project";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql, type AnyColumn } from "drizzle-orm";
 
 import { getProxyRouteById } from "../../../caddy/queries";
 import { decryptForDomain } from "../../../lib/crypto";
@@ -158,10 +158,28 @@ export async function updateProjectRecord(input: {
 
   const [record] = await db
     .update(project)
-    .set(patch)
+    .set({ ...patch, ...(input.slug === undefined ? {} : manifestsFollowSlug(input.slug)) })
     .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning();
   return record;
+}
+
+/**
+ * A stored manifest names its project by slug, and a save is refused unless
+ * that name matches the project (see saveManifest). So a rename carries the
+ * name into the stored manifest and the applied snapshot in the same write;
+ * otherwise every later read-modify-save of the manifest would be refused for
+ * predating the rename. The version moves on a real rename so a session
+ * holding the old copy gets a conflict and re-reads, rather than a mismatch.
+ */
+function manifestsFollowSlug(slug: string) {
+  const renamed = (column: AnyColumn) =>
+    sql`case when jsonb_typeof(${column}) = 'object' then jsonb_set(${column}, '{project}', to_jsonb(${slug}::text)) else ${column} end`;
+  return {
+    manifest: renamed(project.manifest),
+    lastAppliedManifest: renamed(project.lastAppliedManifest),
+    manifestVersion: sql`case when ${project.slug} <> ${slug} then ${project.manifestVersion} + 1 else ${project.manifestVersion} end`,
+  };
 }
 
 /** Overwrite the project's whole graph-layout map (callers merge first). */

@@ -15,7 +15,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { manifestSchema } from "../../../stack/manifest";
-import { manifestRemovals } from "../manifest";
+import { manifestRemovals } from "../manifest-removals";
 
 const parse = (input: Record<string, unknown>) =>
   manifestSchema.parse({ project: "acme", ...input });

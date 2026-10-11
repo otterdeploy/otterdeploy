@@ -29,7 +29,7 @@ describe("withEnvironmentOverlay", () => {
     // This is the whole design. Inheritance is the ABSENCE of an override, so
     // the mirror needs no copying and cannot drift.
     const next = withEnvironmentOverlay(base, "staging");
-    const resolved = resolveEnvironment(next, "staging");
+    const resolved = resolveEnvironment(next, "staging").unwrap();
     expect(resolved.services).toEqual(base.services);
     expect(resolved.databases).toEqual(base.databases);
   });
@@ -42,7 +42,7 @@ describe("withEnvironmentOverlay", () => {
       services: { web: { source: "image", image: "nginx:2", replicas: 5 } },
     };
     // ...and staging sees it, because it overrode nothing.
-    const resolved = resolveEnvironment(changed, "staging");
+    const resolved = resolveEnvironment(changed, "staging").unwrap();
     const web = resolved.services.web;
     if (web?.source !== "image") throw new Error("expected the image-sourced web service");
     expect(web.image).toBe("nginx:2");

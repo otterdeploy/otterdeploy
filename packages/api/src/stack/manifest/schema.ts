@@ -49,8 +49,29 @@ const envMap = z.record(
   envValue,
 );
 
+/**
+ * Upper bounds. None of these is a policy on what a host can afford; each is
+ * the line past which the value is certainly a mistake (bytes typed as
+ * megabytes, seconds typed as milliseconds), which otherwise parses cleanly
+ * and fails later against docker, somewhere that cannot name the field.
+ * Generous on purpose. numeric-bounds.test.ts walks the schema so a new
+ * numeric field without one fails CI.
+ */
+/** The TCP/UDP port space. */
+const PORT_MAX = 65_535;
+/** An hour. A healthcheck or restart timing past this is a unit mistake. */
+const MAX_DURATION_MS = 3_600_000;
+const MAX_CPUS = 1024;
+/** 4 TiB in MB: past any single container, and where a bytes-vs-MB mix-up lands. */
+const MAX_MEMORY_MB = 4_194_304;
+/** The Linux `pid_max` ceiling on 64-bit. */
+const MAX_PIDS = 4_194_304;
+const MAX_REPLICAS = 10_000;
+const MAX_HEALTHCHECK_RETRIES = 100;
+const MAX_RESTART_ATTEMPTS = 1_000_000;
+
 const portSchema = z.object({
-  container: z.number().int().positive(),
+  container: z.number().int().positive().max(PORT_MAX),
   protocol: z.enum(["tcp", "udp"]).optional(),
   appProtocol: z.enum(["http", "tcp"]).optional(),
   primary: z.boolean().optional(),
@@ -84,30 +105,30 @@ const shellOrExecForm = z.union([
 
 const healthcheckSchema = z.object({
   cmd: z.array(z.string()),
-  intervalMs: z.number().int().positive().optional(),
-  timeoutMs: z.number().int().positive().optional(),
-  retries: z.number().int().nonnegative().optional(),
-  startMs: z.number().int().nonnegative().optional(),
+  intervalMs: z.number().int().positive().max(MAX_DURATION_MS).optional(),
+  timeoutMs: z.number().int().positive().max(MAX_DURATION_MS).optional(),
+  retries: z.number().int().nonnegative().max(MAX_HEALTHCHECK_RETRIES).optional(),
+  startMs: z.number().int().nonnegative().max(MAX_DURATION_MS).optional(),
 });
 
 const resourcesSchema = z.object({
-  cpuLimit: z.number().nonnegative().optional(),
-  memoryMb: z.number().int().positive().optional(),
-  cpuReservation: z.number().nonnegative().optional(),
-  memoryReservationMb: z.number().int().positive().optional(),
-  diskMb: z.number().int().positive().optional(),
-  swapMb: z.number().int().positive().optional(),
-  pidsLimit: z.number().int().positive().optional(),
+  cpuLimit: z.number().nonnegative().max(MAX_CPUS).optional(),
+  memoryMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+  cpuReservation: z.number().nonnegative().max(MAX_CPUS).optional(),
+  memoryReservationMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+  diskMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+  swapMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+  pidsLimit: z.number().int().positive().max(MAX_PIDS).optional(),
 });
 
 const restartSchema = z.object({
   condition: z.enum(["none", "on-failure", "any"]),
-  maxAttempts: z.number().int().nonnegative().nullable().optional(),
-  delayMs: z.number().int().nonnegative().optional(),
+  maxAttempts: z.number().int().nonnegative().max(MAX_RESTART_ATTEMPTS).nullable().optional(),
+  delayMs: z.number().int().nonnegative().max(MAX_DURATION_MS).optional(),
   // Window (ms) over which `maxAttempts` is counted when condition is
   // `on-failure`. Matches docker swarm's restart_policy.window. Outside
   // the window, the failure counter resets to zero.
-  windowMs: z.number().int().nonnegative().optional(),
+  windowMs: z.number().int().nonnegative().max(MAX_DURATION_MS).optional(),
 });
 
 // Build config. Only meaningful for git-sourced services. Discriminated
@@ -201,7 +222,8 @@ export const buildSchema = z.discriminatedUnion("builder", [
 // ── Service ─────────────────────────────────────────────────────────────
 
 const serviceCommonSchema = z.object({
-  replicas: z.number().int().nonnegative().optional(),
+  // 0 is a deliberate scale-to-zero.
+  replicas: z.number().int().nonnegative().max(MAX_REPLICAS).optional(),
   ports: z.array(portSchema).optional(),
   env: envMap.optional(),
   /** Keys in `env` the operator marked sensitive. A display flag, not storage:
@@ -432,7 +454,7 @@ const composeServicesMap = z.record(z.string().min(1), z.object({ env: composeEn
 
 const composeExposedSchema = z.object({
   service: z.string().min(1),
-  port: z.number().int().positive(),
+  port: z.number().int().positive().max(PORT_MAX),
   domain: z.string().optional(),
 });
 
@@ -559,18 +581,96 @@ export type EnvironmentOverride = z.infer<typeof environmentBlockSchema>;
 
 // ── Top-level manifest ─────────────────────────────────────────────────
 
-export const manifestSchema = z.object({
-  $schema: z.string().optional(),
-  version: z.literal(MANIFEST_SCHEMA_VERSION).optional(),
-  project: zSlug(ID_PREFIX.project),
-  services: servicesMap.default({}),
-  databases: databasesMap.default({}),
-  // Compose stacks. Optional + defaulted so manifests written before compose
-  // joined the manifest still parse. Environment overrides intentionally don't
-  // apply to compose (no `composes` on environmentBlockSchema). A stack is an
-  // atomic unit, not a per-env-tunable resource, in v1.
-  composes: composesMap.default({}),
-  environments: z.record(z.string().min(1), environmentBlockSchema).optional(),
-});
+/**
+ * Resource names are one namespace across services, databases and compose
+ * stacks, not one per map. All three become rows in one `resource` table under
+ * one unique index on (project, environment, name), so `services.api` beside
+ * `databases.api` used to parse fine and then fail mid-apply: the database is
+ * created first and the service dies on the index, with apply not
+ * transactional across phases.
+ *
+ * Checked per environment as well as on the base, because an environment block
+ * can add a name, or free one with `null`.
+ */
+const RESOURCE_KINDS = ["a service", "a database", "a compose stack"] as const;
+
+function reportNameCollisions(
+  ctx: z.core.$RefinementCtx,
+  path: (string | number)[],
+  names: Record<(typeof RESOURCE_KINDS)[number], Iterable<string>>,
+  /** Collisions already reported on the base, which every environment
+   *  inherits: reported once, not once more per environment. */
+  alreadyReported: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const colliding = new Set<string>();
+  const kindsByName = new Map<string, string[]>();
+  for (const kind of RESOURCE_KINDS) {
+    for (const name of names[kind]) {
+      kindsByName.set(name, [...(kindsByName.get(name) ?? []), kind]);
+    }
+  }
+  for (const [name, kinds] of kindsByName) {
+    if (kinds.length < 2) continue;
+    colliding.add(name);
+    if (alreadyReported.has(name)) continue;
+    ctx.addIssue({
+      code: "custom",
+      path,
+      message: `"${name}" is declared as ${kinds.join(" and ")}. Services, databases and compose stacks share one set of names, so each name must be unique across all three.`,
+    });
+  }
+  return colliding;
+}
+
+/** The names an environment ends up with: the base map, plus what its block
+ *  declares, minus what it sets to `null` (resource absent here). */
+function namesInEnvironment(
+  base: Record<string, unknown>,
+  override: Record<string, unknown> | undefined,
+): Set<string> {
+  const names = new Set(Object.keys(base));
+  for (const [name, value] of Object.entries(override ?? {})) {
+    if (value === null) names.delete(name);
+    else names.add(name);
+  }
+  return names;
+}
+
+export const manifestSchema = z
+  .object({
+    $schema: z.string().optional(),
+    version: z.literal(MANIFEST_SCHEMA_VERSION).optional(),
+    project: zSlug(ID_PREFIX.project),
+    services: servicesMap.default({}),
+    databases: databasesMap.default({}),
+    // Compose stacks. Optional + defaulted so manifests written before compose
+    // joined the manifest still parse. Environment overrides intentionally don't
+    // apply to compose (no `composes` on environmentBlockSchema). A stack is an
+    // atomic unit, not a per-env-tunable resource, in v1.
+    composes: composesMap.default({}),
+    environments: z.record(z.string().min(1), environmentBlockSchema).optional(),
+  })
+  .superRefine((manifest, ctx) => {
+    const composes = Object.keys(manifest.composes);
+    const inBase = reportNameCollisions(ctx, [], {
+      "a service": Object.keys(manifest.services),
+      "a database": Object.keys(manifest.databases),
+      "a compose stack": composes,
+    });
+    for (const [environment, block] of Object.entries(manifest.environments ?? {})) {
+      reportNameCollisions(
+        ctx,
+        ["environments", environment],
+        {
+          "a service": namesInEnvironment(manifest.services, block.services),
+          "a database": namesInEnvironment(manifest.databases, block.databases),
+          // Compose stacks take no environment overrides, so every environment
+          // has the base set.
+          "a compose stack": composes,
+        },
+        inBase,
+      );
+    }
+  });
 
 export type Manifest = z.infer<typeof manifestSchema>;

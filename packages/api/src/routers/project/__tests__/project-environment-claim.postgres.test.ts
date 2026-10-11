@@ -242,21 +242,28 @@ describe("the main-environment pointer is held by a foreign key", () => {
     expect(await pointerRefusal(own.projectId, null)).toEqual({ code: null, constraint: null });
   });
 
-  test("deleting the main environment, then the project, still works", async () => {
+  test("the main environment is not deleted on its own, and deleting the project still works", async () => {
     const organizationId = await seedOrganization("main-fk-del");
     const own = await seedProject(organizationId);
+    // A project's main environment goes with the project, never alone: env
+    // delete refuses it (IS_MAIN on the wire) and the pointer stays put.
     const deletedMain = await deleteEnv({ id: own.mainEnvironmentId, organizationId });
-    expect(deletedMain.isOk()).toBe(true);
+    expect(deletedMain.isErr() && deletedMain.error._tag).toBe("EnvironmentIsMainError");
     const [row] = await db
       .select({ environmentId: project.environmentId })
       .from(project)
       .where(eq(project.id, own.projectId));
-    expect(row?.environmentId).toBeNull();
+    expect(row?.environmentId).toBe(own.mainEnvironmentId);
 
+    // The foreign key on that pointer does not block deleting the project.
     // Both rows go in one statement: the project, and (cascading) its main
     // environment, which the project's own pointer still names.
-    const other = await seedProject(organizationId);
-    await db.delete(project).where(eq(project.id, other.projectId));
-    expect(await environmentRow(other.mainEnvironmentId)).toBeUndefined();
+    await db.delete(project).where(eq(project.id, own.projectId));
+    expect(await environmentRow(own.mainEnvironmentId)).toBeUndefined();
+    const [gone] = await db
+      .select({ id: project.id })
+      .from(project)
+      .where(eq(project.id, own.projectId));
+    expect(gone).toBeUndefined();
   });
 });

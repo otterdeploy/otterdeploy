@@ -35,7 +35,7 @@ describe("environment-scoped resources", () => {
 
   it("removes the database the environment does not have", () => {
     const manifest = manifestSchema.parse(base);
-    const staging = resolveEnvironment(manifest, "staging");
+    const staging = resolveEnvironment(manifest, "staging").unwrap();
     expect(Object.keys(staging.databases)).toEqual(["postgres"]);
     // Only the named resource goes: a scoping rule that also dropped siblings
     // would trade a phantom create for a phantom delete.
@@ -44,14 +44,14 @@ describe("environment-scoped resources", () => {
 
   it("removes the service the environment does not have", () => {
     const manifest = manifestSchema.parse(base);
-    const production = resolveEnvironment(manifest, "production");
+    const production = resolveEnvironment(manifest, "production").unwrap();
     expect(Object.keys(production.services)).toEqual(["api"]);
     expect(Object.keys(production.databases).sort()).toEqual(["postgres", "postgres-prod"]);
   });
 
   it("leaves the base manifest intact for an environment that scopes nothing", () => {
     const manifest = manifestSchema.parse(base);
-    const other = resolveEnvironment(manifest, "does-not-exist");
+    const other = resolveEnvironment(manifest, "does-not-exist").unwrap();
     expect(Object.keys(other.services).sort()).toEqual(["api", "web-admin"]);
     expect(Object.keys(other.databases).sort()).toEqual(["postgres", "postgres-prod"]);
   });
@@ -61,7 +61,7 @@ describe("environment-scoped resources", () => {
   // delete it from the project.
   it("does not mutate the base manifest", () => {
     const manifest = manifestSchema.parse(base);
-    resolveEnvironment(manifest, "staging");
+    resolveEnvironment(manifest, "staging").unwrap();
     expect(Object.keys(manifest.databases).sort()).toEqual(["postgres", "postgres-prod"]);
   });
 });

@@ -29,6 +29,7 @@ import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shar
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
+import { Result } from "better-result";
 import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
@@ -113,6 +114,55 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     if (applyQueues.get(input.projectId) === settled) applyQueues.delete(input.projectId);
   });
   return run;
+}
+
+/**
+ * Record what landed: `lastAppliedManifest`, then the escape hatch and the
+ * stale-diff broadcast that follow it.
+ *
+ * Record what LANDED, not what was asked for. A resource in `skipped[]` never
+ * happened, and writing it here would bake it into the snapshot that `discard`
+ * reverts to, making a failed create both unappliable (its name collides with
+ * whatever did get created) and undiscardable, forever. See
+ * manifest-applied-snapshot.ts.
+ */
+async function persistApplied(input: {
+  projectId: ProjectId;
+  organizationId: OrganizationId;
+  manifest: Manifest;
+  skipped: ApplyResult["skipped"];
+}): Promise<void> {
+  const { projectId, organizationId, manifest, skipped } = input;
+  const [before] = await db
+    .select({ lastApplied: project.lastAppliedManifest })
+    .from(project)
+    .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)))
+    .limit(1)
+    .$withCache(false);
+  // `lastApplied` is a jsonb column written exclusively by this pipeline from
+  // schema-validated manifests, so re-parse it at the read boundary instead of
+  // asserting. A row that no longer parses is treated as a first apply.
+  const parsedBefore = manifestSchema.safeParse(before?.lastApplied);
+  const applied = snapshotAfterApply({
+    submitted: manifest,
+    previous: parsedBefore.success ? parsedBefore.data : null,
+    skipped,
+  });
+
+  await db
+    .update(project)
+    .set({ lastAppliedManifest: applied, lastManifestAppliedAt: new Date() })
+    .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)));
+
+  // Refresh the project's DR escape hatch (rendered compose + JSON snapshot)
+  // from the now-current rows. Best-effort: it never throws, never blocks the
+  // apply result, and no-ops when the data folder isn't writable.
+  await writeProjectEscapeHatch(organizationId, projectId);
+
+  // lastAppliedManifest just moved, so every open tab's pending-changes diff
+  // is stale, announce it so the stream resyncs them now instead of at the
+  // slow poll backstop.
+  publishManifestChanged(projectId);
 }
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
@@ -221,80 +271,94 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     rollouts.push(...(c.rollouts ?? []));
   };
 
-  // 1. Database creates first. Services may reference them.
-  fold(await runDatabaseCreates(ctx, plan.databaseCreates));
-  // 2. Build the ${database:…}/${service:…} ref table now the database rows
-  // exist, with the services this apply creates already in it, so a ref to
-  // one lands in THIS apply instead of a second one.
-  const refTable = withStagedServices(
-    await loadRefTable(projectId, scope),
-    plan.serviceCreates.map((c) => c.name),
-  );
-  // A source change diffs to delete+create of the SAME name (see diff.ts) and
-  // MUST delete before it creates. Otherwise the create collides with the
-  // still-live resource ("service already exists") and is skipped, leaving the
-  // service torn down and never recreated. Split those replace-deletes out and
-  // run them first; unrelated deletes stay last (frees their ports/domains
-  // without tearing anything down early).
-  const createdServiceNames = new Set(plan.serviceCreates.map((c) => c.name));
-  const replaceDeletes = plan.serviceDeletes.filter((c) => createdServiceNames.has(c.name));
-  const standaloneDeletes = plan.serviceDeletes.filter((c) => !createdServiceNames.has(c.name));
+  // Every change this apply will run, tagged with its resource kind. A phase
+  // marks its changes before it runs; on an abort the unmarked ones never ran.
+  const toRun: ReadonlyArray<
+    readonly [resource: "service" | "database" | "compose", change: { name: string }]
+  > = [
+    ...plan.databaseCreates.map((c) => ["database", c] as const),
+    ...plan.serviceDeletes.map((c) => ["service", c] as const),
+    ...plan.serviceCreates.map((c) => ["service", c] as const),
+    ...plan.serviceUpdates.map((c) => ["service", c] as const),
+    ...plan.composeCreates.map((c) => ["compose", c] as const),
+    ...plan.databaseUpdates.map((c) => ["database", c] as const),
+    ...plan.databaseDeletes.map((c) => ["database", c] as const),
+  ];
+  // A change counts as reached once its phase starts, even if that phase then
+  // throws part-way. Recording one that did not land costs a create the next
+  // diff re-proposes; dropping one that did land orphans it for good.
+  const reached = new Set<{ name: string }>();
+  const starting = <T extends { name: string }>(changes: T[]): T[] => {
+    for (const change of changes) reached.add(change);
+    return changes;
+  };
 
-  // 3-7. Same-name replace-deletes, then creates, updates, then deletes.
-  fold(await runServiceDeletes(ctx, replaceDeletes));
-  fold(await runServiceCreates(ctx, plan.serviceCreates, refTable));
-  fold(await runServiceUpdates(ctx, plan.serviceUpdates, refTable));
-  fold(await runComposeCreates(ctx, plan.composeCreates));
-  fold(await runDatabaseUpdates(ctx, plan.databaseUpdates));
-  fold(await runServiceDeletes(ctx, standaloneDeletes));
-  fold(await runDatabaseDeletes(ctx, plan.databaseDeletes));
+  // The snapshot of what landed is written after the last phase. A hard throw
+  // anywhere in between would skip it while the rows earlier phases wrote stay,
+  // so it is written on the way out too. No `catch`: the error propagates as
+  // it was.
+  let completed = false;
+  try {
+    // 1. Database creates first. Services may reference them.
+    fold(await runDatabaseCreates(ctx, starting(plan.databaseCreates)));
+    // 2. Build the ${database:…}/${service:…} ref table now the database rows
+    // exist, with the services this apply creates already in it, so a ref to
+    // one lands in THIS apply instead of a second one.
+    const refTable = withStagedServices(
+      await loadRefTable(projectId, scope),
+      plan.serviceCreates.map((c) => c.name),
+    );
+    // A source change diffs to delete+create of the SAME name (see diff.ts) and
+    // MUST delete before it creates. Otherwise the create collides with the
+    // still-live resource ("service already exists") and is skipped, leaving the
+    // service torn down and never recreated. Split those replace-deletes out and
+    // run them first; unrelated deletes stay last (frees their ports/domains
+    // without tearing anything down early).
+    const createdServiceNames = new Set(plan.serviceCreates.map((c) => c.name));
+    const replaceDeletes = plan.serviceDeletes.filter((c) => createdServiceNames.has(c.name));
+    const standaloneDeletes = plan.serviceDeletes.filter((c) => !createdServiceNames.has(c.name));
 
-  // 8. A git service with no change of its own that was created and never
-  // built (an earlier apply was cut short before its build) builds now, if
-  // this apply covers it. A failure joins skipped[].
-  const unchanged = planned
-    .filter((c) => c.kind === "no-op" && c.resource === "service")
-    .map((c) => c.name)
-    .filter((name) => selected === null || selected.has(`service:${name}`));
-  for (const e of await runGitBuilds(ctx, await unbuiltGitServices(ctx, unchanged))) {
-    skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
+    // 3-7. Same-name replace-deletes, then creates, updates, then deletes.
+    fold(await runServiceDeletes(ctx, starting(replaceDeletes)));
+    fold(await runServiceCreates(ctx, starting(plan.serviceCreates), refTable));
+    fold(await runServiceUpdates(ctx, starting(plan.serviceUpdates), refTable));
+    fold(await runComposeCreates(ctx, starting(plan.composeCreates)));
+    fold(await runDatabaseUpdates(ctx, starting(plan.databaseUpdates)));
+    fold(await runServiceDeletes(ctx, starting(standaloneDeletes)));
+    fold(await runDatabaseDeletes(ctx, starting(plan.databaseDeletes)));
+
+    // 8. A git service with no change of its own that was created and never
+    // built (an earlier apply was cut short before its build) builds now, if
+    // this apply covers it. A failure joins skipped[].
+    const unchanged = planned
+      .filter((c) => c.kind === "no-op" && c.resource === "service")
+      .map((c) => c.name)
+      .filter((name) => selected === null || selected.has(`service:${name}`));
+    for (const e of await runGitBuilds(ctx, await unbuiltGitServices(ctx, unchanged))) {
+      skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
+    }
+    completed = true;
+  } finally {
+    if (!completed) {
+      for (const [resource, change] of toRun) {
+        if (reached.has(change)) continue;
+        skipped.push({
+          resource,
+          name: change.name,
+          reason: "the apply stopped before reaching this resource",
+        });
+      }
+      // Best-effort: the error already on its way out is the one the caller
+      // needs, so a second failure here must not replace it.
+      await Result.tryPromise({
+        try: () => persistApplied({ projectId, organizationId, manifest, skipped }),
+        catch: (cause) => cause,
+      });
+    }
   }
 
-  // Record what LANDED, not what was asked for. A resource in `skipped[]`
-  // never happened, and writing it here would bake it into the snapshot that
-  // `discard` reverts to, making a failed create both unappliable (its name
-  // collides with whatever did get created) and undiscardable, forever. See
-  // manifest-applied-snapshot.ts.
-  const [before] = await db
-    .select({ lastApplied: project.lastAppliedManifest })
-    .from(project)
-    .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)))
-    .limit(1)
-    .$withCache(false);
-  // `lastApplied` is a jsonb column written exclusively by this pipeline from
-  // schema-validated manifests, so re-parse it at the read boundary instead of
-  // asserting. A row that no longer parses is treated as a first apply.
-  const parsedBefore = manifestSchema.safeParse(before?.lastApplied);
-  const applied = snapshotAfterApply({
-    submitted: manifest,
-    previous: parsedBefore.success ? parsedBefore.data : null,
-    skipped,
-  });
-
-  await db
-    .update(project)
-    .set({ lastAppliedManifest: applied, lastManifestAppliedAt: new Date() })
-    .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)));
-
-  // Refresh the project's DR escape hatch (rendered compose + JSON snapshot)
-  // from the now-current rows. Best-effort: it never throws, never blocks the
-  // apply result, and no-ops when the data folder isn't writable.
-  await writeProjectEscapeHatch(organizationId, projectId);
-
-  // lastAppliedManifest just moved, so every open tab's pending-changes diff
-  // is stale, announce it so the stream resyncs them now instead of at the
-  // slow poll backstop.
-  publishManifestChanged(projectId);
+  // Outside the `finally`, so a failure of the normal write surfaces as itself.
+  await persistApplied({ projectId, organizationId, manifest, skipped });
 
   return {
     appliedCount,
