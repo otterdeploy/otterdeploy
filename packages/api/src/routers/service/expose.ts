@@ -128,6 +128,25 @@ export async function exposeService(
 }
 
 /**
+ * The host {@link generateServiceDomain} would mint for this service, without
+ * writing anything. Null when the service cannot be loaded.
+ *
+ * The manifest seed asks this to tell the platform's own address apart from a
+ * domain the operator brought: the new-service wizard stages the generated
+ * host it previewed, and that host has to land as the generated route, not as
+ * a custom domain that happens to carry the same name.
+ */
+export async function previewGeneratedHost(input: ResourceRef): Promise<string | null> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return null;
+  const { project, record } = ctx.value;
+  const { resolved } = await resolveGeneratedDomain(input, record, sanitizeSlug(project.slug), {
+    honorOverride: false,
+  });
+  return resolved.fqdn;
+}
+
+/**
  * Mint the platform-generated host for this service and publish on it.
  *
  * This is the "Generate Domain" button, not a toggle: it always yields a
