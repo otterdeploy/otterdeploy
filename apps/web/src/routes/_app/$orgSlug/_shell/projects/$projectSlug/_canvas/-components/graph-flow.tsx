@@ -19,6 +19,7 @@ import { Button } from "@/shared/components/ui/button";
 
 import { GraphLegend } from "./graph-legend";
 import { formatRps } from "./route-traffic";
+import { graphFitPadding } from "./graph-fit";
 
 const nodeTypes = { resource: ResourceNode };
 
@@ -88,7 +89,7 @@ export function GraphFlow({
       nodeExtent={nodeExtent}
       translateExtent={translateExtent}
       fitView
-      fitViewOptions={{ padding: 0.2 }}
+      fitViewOptions={{ padding: graphFitPadding() }}
       // Wider than React Flow's 0.5–2 default: 0.2 lets a large stack fit on
       // one screen, 2.5 keeps a single card readable when zoomed in.
       minZoom={0.2}
@@ -113,7 +114,9 @@ export function GraphFlow({
           which renders the nodes invisible. */}
       {/* Hidden below `sm`: the minimap is ~150px wide, which is 40% of a
           375px canvas: it costs more of the real graph than the overview it
-          buys back. Pinch-zoom and the fit-view control cover the same need. */}
+          buys back. Pinch-zoom and the fit-view control cover the same need.
+          Every fit keeps a strip clear for it (graph-fit.ts), so it never
+          sits on a card and takes that card's clicks. */}
       {nodes.length > 0 ? (
         <MiniMap
           position="bottom-left"
@@ -135,6 +138,8 @@ export function GraphFlow({
           already 4.19:1 here). */}
       <Controls
         showInteractive={false}
+        // The fit button frames the graph clear of the minimap too.
+        fitViewOptions={{ padding: graphFitPadding() }}
         position="bottom-right"
         style={{ bottom: bottomInset }}
         className="rounded-md! border! border-foreground/35! bg-card! shadow-sm! transition-[bottom]! duration-200! [&_button]:border-foreground/20! [&_button]:bg-transparent! [&_button]:text-muted-foreground! hover:[&_button]:bg-muted/60! hover:[&_button]:text-foreground!"

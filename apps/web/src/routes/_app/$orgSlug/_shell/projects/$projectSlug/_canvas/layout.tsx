@@ -47,6 +47,7 @@ import { GraphNodeDialogs } from "./-components/graph-node-dialogs";
 import { commitNodeDrop, resolveDroppedPositions } from "./-components/laid-out-nodes";
 import { canvasEnvSlug, canvasNodeTarget } from "./-components/canvas-links";
 import { GraphPanelShell } from "./-components/panel-shell";
+import { graphFitPadding } from "./-components/graph-fit";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/projects/$projectSlug/_canvas")({
   component: RouteComponent,
@@ -284,7 +285,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   useEffect(() => {
     const hasNodes = boundedNodes.length > 0;
     if (hasNodes && !hadNodesRef.current) {
-      requestAnimationFrame(() => void fitView({ padding: 0.2, duration: 300 }));
+      requestAnimationFrame(() => void fitView({ padding: graphFitPadding(), duration: 300 }));
     }
     hadNodesRef.current = hasNodes;
   }, [boundedNodes.length, fitView]);
@@ -339,7 +340,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
       .call({ id: project.id, positions: {}, replace: true })
       .catch(() => {});
     requestAnimationFrame(() => {
-      void fitView({ padding: 0.2, duration: 400 });
+      void fitView({ padding: graphFitPadding(), duration: 400 });
     });
   };
 

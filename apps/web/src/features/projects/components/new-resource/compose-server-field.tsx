@@ -41,6 +41,12 @@ export function ComposeServerField({ form }: { form: ComposeForm }) {
   // not quietly start serving traffic too. Same filter as placement-pin.tsx.
   const candidates = servers.filter((s) => !s.buildServer);
   if (candidates.length < 2) return null;
+  // `items` is what the closed trigger reads its label from. Without it the
+  // trigger printed the raw value, the "no pin" sentinel included.
+  const items = [
+    { value: ANYWHERE, label: "Any server (scheduler decides)" },
+    ...candidates.map((s) => ({ value: s.name, label: s.name })),
+  ];
 
   return (
     <form.Field name="file.serverName">
@@ -50,6 +56,7 @@ export function ComposeServerField({ form }: { form: ComposeForm }) {
             Server <span className="text-muted-foreground/60">(optional)</span>
           </span>
           <Select
+            items={items}
             value={field.state.value === "" ? ANYWHERE : field.state.value}
             onValueChange={(v) => field.handleChange(v === null || v === ANYWHERE ? "" : v)}
           >
@@ -57,10 +64,9 @@ export function ComposeServerField({ form }: { form: ComposeForm }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANYWHERE}>Any server (scheduler decides)</SelectItem>
-              {candidates.map((s) => (
-                <SelectItem key={s.id} value={s.name}>
-                  {s.name}
+              {items.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
                 </SelectItem>
               ))}
             </SelectContent>

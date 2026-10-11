@@ -40,6 +40,7 @@ import { PanelWidthProvider, usePanelWidth } from "@/features/resources/componen
 import { cn } from "@/shared/lib/utils";
 
 import { focusNodeInView } from "./graph-camera";
+import { graphFitPadding } from "./graph-fit";
 
 const noop = () => {};
 
@@ -146,7 +147,7 @@ export function GraphPanelShell({
     // Same 400ms as the drawer spring's settle. The route-change refit in
     // useDetailPanelRefit still fires when navigation lands, but by then the
     // camera is already there, so it's a no-op, not a second delayed pan.
-    void fitView({ padding: 0.2, duration: 400 });
+    void fitView({ padding: graphFitPadding(), duration: 400 });
   };
 
   return (

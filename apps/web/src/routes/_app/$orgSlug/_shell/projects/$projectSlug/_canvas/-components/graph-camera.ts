@@ -9,6 +9,7 @@ import { useMatch, useParams, type useRouter } from "@tanstack/react-router";
 import { useReactFlow, type Node } from "@xyflow/react";
 
 import { CARD_W } from "./laid-out-nodes";
+import { graphFitPadding } from "./graph-fit";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -165,7 +166,7 @@ export function useRevealNewNodes(
     const fresh = nodes.filter((n) => !previous.has(n.id));
     if (fresh.length === 0) return;
     if (fresh.every((n) => isNodeOnScreen(n, getViewport()))) return;
-    void fitView({ padding: 0.2, duration: 400 });
+    void fitView({ padding: graphFitPadding(), duration: 400 });
   }, [nodes, fitView, getViewport]);
 }
 
@@ -204,7 +205,7 @@ export function useDetailPanelRefit(
   const wasOpen = useRef(panelOpen);
   useEffect(() => {
     if (wasOpen.current && !panelOpen) {
-      void fitView({ padding: 0.2, duration: 400 });
+      void fitView({ padding: graphFitPadding(), duration: 400 });
     }
     wasOpen.current = panelOpen;
   }, [panelOpen, fitView]);
