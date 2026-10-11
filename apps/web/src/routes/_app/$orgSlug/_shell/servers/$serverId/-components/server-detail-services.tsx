@@ -21,6 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import { KeyValueList, SectionCard } from "./server-detail-parts";
 import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
 import { serverDisplayName } from "@/features/servers/detail/server-facts";
+import { isControlPlaneRow } from "@/features/servers/detail/server-state";
 
 function Reservation({
   label,
@@ -92,10 +93,17 @@ function ProjectRows({
   );
 }
 
-function emptyPlacementCopy(isSwarm: boolean): string {
-  return isSwarm
-    ? "Nothing is scheduled on this server. Pin a service here from its Settings → Placement."
-    : "Nothing runs on this server. On plain Docker every service runs on the control plane.";
+/**
+ * What an empty server says. Only Swarm can place work on a worker, so only
+ * there does it point at Placement: on plain Docker that pin is refused, and a
+ * hint to make it would send the operator into an error.
+ */
+function emptyPlacementCopy(isSwarm: boolean, controlPlane: boolean): string {
+  if (isSwarm) {
+    return "Nothing is scheduled on this server. Pin a service here from its Settings → Placement.";
+  }
+  if (controlPlane) return "Nothing runs on this server yet.";
+  return "Nothing runs on this server. This install runs services on the control plane only; placing work here needs the Swarm runtime.";
 }
 
 export function ServerServicesTab({
@@ -145,7 +153,7 @@ export function ServerServicesTab({
           <ProjectRows slugs={stats.projects} orgSlug={orgSlug} />
         ) : (
           <p className="px-4 py-3 text-[12.5px] text-muted-foreground">
-            {emptyPlacementCopy(isSwarm)}
+            {emptyPlacementCopy(isSwarm, isControlPlaneRow(server))}
           </p>
         )}
       </SectionCard>

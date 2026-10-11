@@ -3,6 +3,7 @@ import type { Collection } from "@tanstack/db";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
+import { useLiveQuery } from "@tanstack/react-db";
 
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -53,4 +54,16 @@ export const swarmNodesCollection: Collection<SwarmNodesView, string | number> =
  *  out the 10s poll to show the new quorum truth. */
 export function refetchSwarmNodes(): void {
   void queryClient.invalidateQueries({ queryKey: orpc.server.swarmNodes.queryKey() });
+}
+
+/**
+ * Whether this install runs on Swarm, or null until the topology has loaded.
+ *
+ * Placement pickers render only when this is true: plain Docker starts every
+ * workload on the control plane and refuses a pin to any other server, so a
+ * picker there would only offer a choice that cannot be made.
+ */
+export function useIsSwarm(): boolean | null {
+  const { data = [] } = useLiveQuery(() => swarmNodesCollection);
+  return data[0]?.swarm ?? null;
 }

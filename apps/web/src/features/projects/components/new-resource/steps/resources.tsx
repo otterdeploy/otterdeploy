@@ -1,6 +1,7 @@
 import { useSelector } from "@tanstack/react-form";
 
 import { RESOURCE_PRESETS } from "@/features/projects/data/service-kinds";
+import { useIsSwarm } from "@/features/servers/data/swarm";
 import { Card, CardContent } from "@/shared/components/ui/card";
 
 import { useFormContext } from "../form-context";
@@ -26,6 +27,9 @@ export function StepResources({ isDb }: StepResourcesProps) {
   const totalMem = ((mem * replicas) / 1024).toFixed(2);
 
   const { nodes, loading: nodesLoading } = useSwarmNodes();
+  // Placement is a Swarm decision: plain Docker runs everything on the
+  // control plane and refuses a pin anywhere else.
+  const isSwarm = useIsSwarm();
   const clusterCpu = nodes.reduce(
     (acc, n) => ({ total: acc.total + n.cpuTotal, used: acc.used + n.cpuUsed }),
     { total: 0, used: 0 },
@@ -50,7 +54,7 @@ export function StepResources({ isDb }: StepResourcesProps) {
 
       {!isDb && <ReplicasSection />}
 
-      <PlacementSection />
+      {isSwarm === true && <PlacementSection />}
 
       <Card className="mt-3.5 rounded-md bg-muted py-3.5">
         <CardContent className="px-3.5">

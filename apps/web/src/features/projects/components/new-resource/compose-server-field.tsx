@@ -8,10 +8,11 @@
  * still be moved later from its own Settings tab, which stays the only surface
  * that CHANGES placement.
  *
- * Hidden entirely when there is one machine or none. A picker with a single
- * option is not a choice, and rendering it implies a decision the operator
- * does not have to make. This is the same reasoning `placement-pin.tsx` uses
- * to hide itself on plain docker.
+ * Hidden entirely when there is one machine or none, and on plain Docker. A
+ * picker with a single option is not a choice; on plain Docker every workload
+ * runs on the control plane and a pin to any other server is refused, so the
+ * other options are not choices either. The same reasoning `placement-pin.tsx`
+ * uses to hide itself on plain docker.
  *
  * The value is the server NAME, not its id: it is staged into the manifest,
  * which is portable across installs where the name survives and the id does
@@ -21,6 +22,7 @@
 import { useLiveQuery } from "@tanstack/react-db";
 
 import { serverCollection } from "@/features/servers/data/server";
+import { useIsSwarm } from "@/features/servers/data/swarm";
 import {
   Select,
   SelectContent,
@@ -37,10 +39,11 @@ const ANYWHERE = "__anywhere__";
 
 export function ComposeServerField({ form }: { form: ComposeForm }) {
   const { data: servers = [] } = useLiveQuery(() => serverCollection);
+  const isSwarm = useIsSwarm();
   // A dedicated build server exists to build; a box sized for builds should
   // not quietly start serving traffic too. Same filter as placement-pin.tsx.
   const candidates = servers.filter((s) => !s.buildServer);
-  if (candidates.length < 2) return null;
+  if (isSwarm !== true || candidates.length < 2) return null;
   // `items` is what the closed trigger reads its label from. Without it the
   // trigger printed the raw value, the "no pin" sentinel included.
   const items = [
