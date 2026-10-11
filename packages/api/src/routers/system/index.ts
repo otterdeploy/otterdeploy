@@ -6,6 +6,7 @@
 import { requireInstallAdmin } from "../..";
 import { renderInstalledCaddyfile } from "../../caddy";
 import { getHostHealth, growBranchPool, reclaimSpace } from "../../system-health";
+import { listPlatformImages } from "../../system-health/platform-image";
 import { cancelUpdate, settleStaleRun, startApply } from "./apply";
 import { checkForUpdate, getUpdateSettings, getVersionInfo, saveUpdateSettings } from "./check";
 import { snapshot, streamProgress } from "./state";
@@ -50,6 +51,10 @@ export const systemRouter = {
 
   progress: requireInstallAdmin().system.progress.handler(async function* ({ input, signal }) {
     yield* streamProgress(signal, input?.afterSeq);
+  }),
+
+  platformImages: requireInstallAdmin().system.platformImages.handler(async () => {
+    return listPlatformImages();
   }),
 
   hostHealth: requireInstallAdmin().system.hostHealth.handler(async () => {
