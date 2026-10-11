@@ -32,7 +32,7 @@ describe("managerPromotionWarning", () => {
     const warning = managerPromotionWarning(1);
     expect(warning).not.toBeNull();
     expect(warning).toContain("less available");
-    expect(warning).toContain("worker");
+    expect(warning).toContain("unchecked");
   });
 
   test("stays silent when the promotion is sound", () => {

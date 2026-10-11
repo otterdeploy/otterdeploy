@@ -232,18 +232,10 @@
   "servers": {
     "title": "Server",
     "addServer": "+ Server hinzufügen",
-    "secureEnrollment": "Sichere Aufnahme",
     "nodeDescription_one": "{{count}} Node in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
     "nodeDescription_other": "{{count}} Nodes in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
     "nodeDescriptionDocker_one": "{{count}} Server · einfaches Docker: alle Dienste laufen auf der Control Plane",
     "nodeDescriptionDocker_other": "{{count}} Server · einfaches Docker: alle Dienste laufen auf der Control Plane",
-    "addServerTitle": "Server hinzufügen",
-    "form": {
-      "host": "Host / IP",
-      "sshUser": "SSH-Benutzer",
-      "role": "Rolle",
-      "sshKey": "SSH-Schlüssel"
-    },
     "advanced": {
       "connectivity": "Konnektivität",
       "buildNode": "Dedizierter Build-Node",
@@ -251,21 +243,6 @@
       "tunnelHint": "Optional. Installiert cloudflared für eingehenden Traffic",
       "tunnelToken": "Tunnel-Token",
       "tunnelPlaceholder": "installiert cloudflared auf dem Node"
-    },
-    "stepUp": {
-      "confirmTitle": "Manager-Berechtigung bestätigen",
-      "authenticatorCode": "Authenticator-Code",
-      "passwordPlaceholder": "Das Passwort deines Kontos",
-      "confirmPhrase": "ENROLL MANAGER"
-    },
-    "enrollment": {
-      "title": "Sichere Node-Aufnahme",
-      "worker": "Worker-Aufnahme",
-      "manager": "Manager-Aufnahme",
-      "revoked": "Aufnahme widerrufen",
-      "recent": "Zuletzt erstellte Aufnahme-Credentials",
-      "none": "Keine Aufnahme-Credentials erstellt.",
-      "progress": "Fortschritt der Aufnahme"
     }
   },
   "environments": {
@@ -329,11 +306,7 @@
       },
       "addServer": {
         "title": "Server hinzufügen",
-        "description": "Provisioniere per SSH, und otterdeploy geht den ganzen Weg selbst: Docker installieren, dem Mesh beitreten, dem Swarm beitreten, den Node verifizieren, ihn für Builds labeln. Jede Phase meldet ehrlich, was passiert."
-      },
-      "enrollment": {
-        "title": "Oder ohne SSH aufnehmen",
-        "description": "Du willst keinen SSH-Zugang herausgeben? Erzeuge stattdessen einen kurzlebigen Join-Token und führe einen einzigen Befehl auf der Maschine aus. Praktisch für Hosts, die du nur über eine Konsole erreichst."
+        "description": "Führe einen Befehl auf der Maschine aus, oder lass otterdeploy sich per SSH verbinden und die Installation selbst erledigen. So oder so siehst du jeden Schritt, während er passiert."
       },
       "projectGraph": {
         "title": "Der Projektgraph",

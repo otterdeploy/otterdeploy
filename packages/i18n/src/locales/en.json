@@ -232,18 +232,10 @@
   "servers": {
     "title": "Servers",
     "addServer": "+ Add server",
-    "secureEnrollment": "Secure enrollment",
     "nodeDescription_one": "{{count}} node in this swarm · replicas placed via Docker Stack rolling updates",
     "nodeDescription_other": "{{count}} nodes in this swarm · replicas placed via Docker Stack rolling updates",
     "nodeDescriptionDocker_one": "{{count}} server · plain Docker: every service runs on the control plane",
     "nodeDescriptionDocker_other": "{{count}} servers · plain Docker: every service runs on the control plane",
-    "addServerTitle": "Add server",
-    "form": {
-      "host": "Host / IP",
-      "sshUser": "SSH user",
-      "role": "Role",
-      "sshKey": "SSH key"
-    },
     "advanced": {
       "connectivity": "Connectivity",
       "buildNode": "Dedicated build node",
@@ -251,21 +243,6 @@
       "tunnelHint": "Optional. Installs cloudflared for ingress",
       "tunnelToken": "Tunnel token",
       "tunnelPlaceholder": "installs cloudflared on the node"
-    },
-    "stepUp": {
-      "confirmTitle": "Confirm manager authority",
-      "authenticatorCode": "Authenticator code",
-      "passwordPlaceholder": "Your account password",
-      "confirmPhrase": "ENROLL MANAGER"
-    },
-    "enrollment": {
-      "title": "Secure node enrollment",
-      "worker": "Worker enrollment",
-      "manager": "Manager enrollment",
-      "revoked": "Enrollment revoked",
-      "recent": "Recent enrollment credentials",
-      "none": "No enrollment credentials created.",
-      "progress": "Enrollment progress"
     }
   },
   "environments": {
@@ -329,11 +306,7 @@
       },
       "addServer": {
         "title": "Add a server",
-        "description": "Provision over SSH and otterdeploy walks the whole path itself: install Docker, join the mesh, join the swarm, verify the node, label it for builds. Each phase reports honestly as it runs."
-      },
-      "enrollment": {
-        "title": "Or enrol without SSH",
-        "description": "Prefer not to hand over SSH? Generate a short-lived join token and run one command on the machine instead. Useful for hosts you can only reach from a console."
+        "description": "Run one command on the machine, or let otterdeploy connect over SSH and do the install itself. Either way, each step shows as it happens."
       },
       "projectGraph": {
         "title": "The project graph",

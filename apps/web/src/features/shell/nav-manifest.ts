@@ -38,6 +38,7 @@ import {
   LockKeyIcon,
   Key02Icon,
   PackageIcon,
+  PlusSignIcon,
   ServerStack01Icon,
   Settings01Icon,
   ShieldKeyIcon,
@@ -325,11 +326,17 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
  * (od-u63.2). Merged into the palette's first group; see `ORG_NAV_GROUPS` in
  * `command-palette/components/nav-items.tsx`.
  *
- * Empty since Templates graduated to a real sidebar slot. Kept because the
- * seam is the useful part: the next creation path that needs palette reach
- * without a sidebar row belongs here, and the palette already spreads it.
+ * Templates graduated to a real sidebar slot; Add a server lives here because
+ * it is a dialog over the Servers page, not a page of its own.
  */
-export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [];
+export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [
+  {
+    title: "Add a server",
+    to: "/$orgSlug/servers/new/command",
+    icon: PlusSignIcon,
+    keywords: ["server", "machine", "node", "install", "enroll", "ssh", "command"],
+  },
+];
 
 /** Pinned entry at the bottom of the operational sidebar: enters the zone. */
 export const SETTINGS_ENTRY: NavManifestItem = {

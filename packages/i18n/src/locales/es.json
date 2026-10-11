@@ -252,18 +252,10 @@
   "servers": {
     "title": "Servidores",
     "addServer": "+ Añadir servidor",
-    "secureEnrollment": "Inscripción segura",
     "nodeDescription_one": "{{count}} nodo en este swarm · réplicas colocadas mediante actualizaciones progresivas de Docker Stack",
     "nodeDescription_other": "{{count}} nodos en este swarm · réplicas colocadas mediante actualizaciones progresivas de Docker Stack",
     "nodeDescriptionDocker_one": "{{count}} servidor · Docker simple: todos los servicios se ejecutan en el plano de control",
     "nodeDescriptionDocker_other": "{{count}} servidores · Docker simple: todos los servicios se ejecutan en el plano de control",
-    "addServerTitle": "Añadir servidor",
-    "form": {
-      "host": "Host / IP",
-      "sshUser": "Usuario SSH",
-      "role": "Rol",
-      "sshKey": "Clave SSH"
-    },
     "advanced": {
       "connectivity": "Conectividad",
       "buildNode": "Nodo dedicado de compilación",
@@ -271,21 +263,6 @@
       "tunnelHint": "Opcional. Instala cloudflared para el tráfico entrante",
       "tunnelToken": "Token del túnel",
       "tunnelPlaceholder": "instala cloudflared en el nodo"
-    },
-    "stepUp": {
-      "confirmTitle": "Confirma la autoridad de manager",
-      "authenticatorCode": "Código del autenticador",
-      "passwordPlaceholder": "La contraseña de tu cuenta",
-      "confirmPhrase": "ENROLL MANAGER"
-    },
-    "enrollment": {
-      "title": "Inscripción segura de nodos",
-      "worker": "Inscripción de worker",
-      "manager": "Inscripción de manager",
-      "revoked": "Inscripción revocada",
-      "recent": "Credenciales de inscripción recientes",
-      "none": "No se han creado credenciales de inscripción.",
-      "progress": "Progreso de la inscripción"
     }
   },
   "tour": {
@@ -329,11 +306,7 @@
       },
       "addServer": {
         "title": "Añadir un servidor",
-        "description": "Aprovisiona por SSH y otterdeploy recorre el camino entero: instala Docker, se une a la red mallada, se une al swarm, verifica el nodo y lo etiqueta para compilaciones. Cada fase informa con honestidad mientras se ejecuta."
-      },
-      "enrollment": {
-        "title": "O inscribe sin SSH",
-        "description": "¿Prefieres no ceder el acceso SSH? Genera un token de unión de vida corta y ejecuta un solo comando en la máquina. Útil para hosts a los que solo llegas por consola."
+        "description": "Ejecuta un comando en la máquina, o deja que otterdeploy se conecte por SSH y haga la instalación por sí mismo. En ambos casos, cada paso se muestra mientras ocurre."
       },
       "projectGraph": {
         "title": "El grafo del proyecto",

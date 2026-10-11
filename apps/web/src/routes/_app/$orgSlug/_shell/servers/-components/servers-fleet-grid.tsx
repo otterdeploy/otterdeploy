@@ -12,7 +12,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
 
-import type { ProvisionInitialValues } from "@/features/servers/components/server-provision-form";
 import type { ServerHealthEntry } from "@/features/servers/data/health";
 import type { Server } from "@/features/servers/data/server";
 import type { SwarmNode } from "@/features/servers/data/swarm";
@@ -120,7 +119,6 @@ function FleetCard({
   attention,
   isSwarm,
   orgSlug,
-  onReAdd,
 }: {
   server: Server;
   stats: ServerNodeStats | null;
@@ -129,7 +127,6 @@ function FleetCard({
   attention: number;
   isSwarm: boolean;
   orgSlug: string;
-  onReAdd: (initial: ProvisionInitialValues) => void;
 }) {
   const state = deriveServerState(server, entry);
   const health = hasReadings(state.kind) ? (entry?.health ?? null) : null;
@@ -185,23 +182,23 @@ function FleetCard({
 
       {server.provisionStatus === "failed" && (
         <div className="relative">
-          <ProvisionRetryCell server={server} onReAdd={onReAdd} />
+          <ProvisionRetryCell server={server} orgSlug={orgSlug} />
         </div>
       )}
     </Card>
   );
 }
 
-function AddServerInvite({ onCreate }: { onCreate: () => void }) {
+function AddServerInvite({ orgSlug }: { orgSlug: string }) {
   return (
-    <button
-      type="button"
-      onClick={onCreate}
+    <Link
+      to="/$orgSlug/servers/new/command"
+      params={{ orgSlug }}
       className="flex min-h-40 flex-col items-center justify-center gap-1 rounded-md border border-dashed text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
     >
       <span className="text-sm font-medium">+ Add a server</span>
-      <span className="text-xs">join a worker or manager over SSH</span>
-    </button>
+      <span className="text-xs">run one command, or connect over SSH</span>
+    </Link>
   );
 }
 
@@ -213,8 +210,6 @@ export function ServerFleetGrid({
   attentionByServer,
   isSwarm,
   orgSlug,
-  onCreate,
-  onReAdd,
 }: {
   servers: Server[];
   /** Swarm runtime: workload is counted in tasks there, containers otherwise. */
@@ -226,9 +221,6 @@ export function ServerFleetGrid({
   nodesByServer: ReadonlyMap<string, SwarmNode>;
   attentionByServer: ReadonlyMap<string, number>;
   orgSlug: string;
-  onCreate: () => void;
-  /** Re-open Add server prefilled, for failed runs that stored no credential. */
-  onReAdd: (initial: ProvisionInitialValues) => void;
 }) {
   if (servers.length === 0) {
     return (
@@ -245,7 +237,12 @@ export function ServerFleetGrid({
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button size="sm" className="h-8" onClick={onCreate}>
+          <Button
+            size="sm"
+            className="h-8"
+            nativeButton={false}
+            render={<Link to="/$orgSlug/servers/new/command" params={{ orgSlug }} />}
+          >
             + Add server
           </Button>
         </EmptyContent>
@@ -265,10 +262,9 @@ export function ServerFleetGrid({
           attention={attentionByServer.get(server.id) ?? 0}
           isSwarm={isSwarm}
           orgSlug={orgSlug}
-          onReAdd={onReAdd}
         />
       ))}
-      <AddServerInvite onCreate={onCreate} />
+      <AddServerInvite orgSlug={orgSlug} />
     </div>
   );
 }

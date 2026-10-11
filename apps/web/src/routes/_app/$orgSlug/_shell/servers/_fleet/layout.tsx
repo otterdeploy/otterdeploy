@@ -1,15 +1,10 @@
 import { useState } from "react";
 
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Key01Icon } from "@hugeicons/core-free-icons";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "@/shared/components/page";
-import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
-import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
-import { useAddServerDialog } from "@/features/servers/components/use-add-server-dialog";
 import { serverCollection } from "@/features/servers/data/server";
 import { serverHealthCollection } from "@/features/servers/data/health";
 import {
@@ -25,11 +20,11 @@ import { fleetAttention } from "@/features/servers/detail/fleet-attention";
 import { deriveServerState, isReporting } from "@/features/servers/detail/server-state";
 import { Button } from "@/shared/components/ui/button";
 
-import { FleetAttention } from "./-components/servers-fleet-attention";
-import { ServerFleetGrid } from "./-components/servers-fleet-grid";
-import { ManagersQuorumCard } from "./-components/servers-managers-card";
-import { FleetTiles, ProjectFilters, SectionHeading } from "./-components/servers-parts";
-import { ServersPending } from "./-components/servers-pending";
+import { FleetAttention } from "../-components/servers-fleet-attention";
+import { ServerFleetGrid } from "../-components/servers-fleet-grid";
+import { ManagersQuorumCard } from "../-components/servers-managers-card";
+import { FleetTiles, ProjectFilters, SectionHeading } from "../-components/servers-parts";
+import { ServersPending } from "../-components/servers-pending";
 import { serverDisplayName } from "@/features/servers/detail/server-facts";
 
 // Pulled out of ServersRoute (rather than inline IIFEs) to keep the
@@ -71,34 +66,28 @@ function fleetSubtitleKey(isSwarm: boolean) {
   return isSwarm ? "servers.nodeDescription" : "servers.nodeDescriptionDocker";
 }
 
-function ServerPageActions({
-  onEnroll,
-  onCreate,
-}: {
-  onEnroll: () => void;
-  onCreate: () => void;
-}) {
+/** The one way in. Both methods (a command, or SSH) are tabs inside it. */
+function AddServerButton({ orgSlug }: { orgSlug: string }) {
   const { t } = useTranslation();
   return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 gap-1.5"
-        data-tour="secure-enrollment"
-        onClick={onEnroll}
-      >
-        <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
-        {t("servers.secureEnrollment")}
-      </Button>
-      <Button size="sm" className="h-8 gap-1.5" data-tour="add-server" onClick={onCreate}>
-        {t("servers.addServer")}
-      </Button>
-    </>
+    <Button
+      size="sm"
+      className="h-8 gap-1.5"
+      data-tour="add-server"
+      nativeButton={false}
+      render={<Link to="/$orgSlug/servers/new/command" params={{ orgSlug }} />}
+    >
+      {t("servers.addServer")}
+    </Button>
   );
 }
 
-export const Route = createFileRoute("/_app/$orgSlug/_shell/servers/")({
+/**
+ * The fleet page is a pathless layout so that `/servers/new/*` can render the
+ * Add a server dialog over it: the page stays mounted underneath, and closing
+ * the dialog is a navigation back to `/servers`, not a state reset.
+ */
+export const Route = createFileRoute("/_app/$orgSlug/_shell/servers/_fleet")({
   staticData: { crumb: "Servers" },
   loader: async () => {
     await serverCollection.preload();
@@ -111,8 +100,6 @@ function ServersRoute() {
   const { t } = useTranslation();
   const { orgSlug } = Route.useParams();
   const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }));
-  const addDialog = useAddServerDialog();
-  const [tokenOpen, setTokenOpen] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
 
   // Live cluster + per-node aggregates via TanStack DB collections sharing
@@ -149,9 +136,7 @@ function ServersRoute() {
         <PageHeader
           title={t("servers.title")}
           description={t(fleetSubtitleKey(isSwarm), { count: servers.length })}
-          actions={
-            <ServerPageActions onEnroll={() => setTokenOpen(true)} onCreate={addDialog.openFresh} />
-          }
+          actions={<AddServerButton orgSlug={orgSlug} />}
         />
       </div>
 
@@ -197,21 +182,12 @@ function ServersRoute() {
             attentionByServer={countBy(attention)}
             isSwarm={isSwarm}
             orgSlug={orgSlug}
-            onCreate={addDialog.openFresh}
-            onReAdd={addDialog.openWith}
           />
         </section>
       </div>
 
-      {/* Keyed so a re-add remounts the form. TanStack Form reads
-          defaultValues on mount only, so a live prop change wouldn't apply. */}
-      <ServerCreateDialog
-        key={addDialog.formKey}
-        open={addDialog.open}
-        onOpenChange={addDialog.onOpenChange}
-        initial={addDialog.initial}
-      />
-      <JoinTokenDialog open={tokenOpen} onOpenChange={setTokenOpen} />
+      {/* `/servers/new/*`: the Add a server dialog, over this page. */}
+      <Outlet />
     </div>
   );
 }

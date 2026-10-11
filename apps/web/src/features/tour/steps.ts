@@ -131,12 +131,6 @@ const SERVERS: readonly TourStep[] = [
     side: "bottom",
     align: "end",
   },
-  {
-    id: "enrollment",
-    element: '[data-tour="secure-enrollment"]',
-    side: "bottom",
-    align: "end",
-  },
 ];
 
 /**

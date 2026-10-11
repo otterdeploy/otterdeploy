@@ -24,14 +24,16 @@ export function promotionAddsResilience(currentManagerCount: number): boolean {
 }
 
 /**
- * Operator-facing warning when promoting to manager would not help, or would
- * actively hurt. Null when the promotion is a sound choice.
+ * Operator-facing warning when adding one more control plane would not help,
+ * or would actively hurt. Null when it is a sound choice. Worded for the Add a
+ * server dialog's "Control plane" checkbox, in the product's words rather
+ * than the scheduler's.
  */
 export function managerPromotionWarning(currentManagerCount: number): string | null {
   if (promotionAddsResilience(currentManagerCount)) return null;
   const next = currentManagerCount + 1;
   if (next === 2) {
-    return "A second manager makes this cluster less available, not more: a swarm needs a majority of managers, and the majority of two is two, so both machines would then have to stay up. Quorum needs three. Add this as a worker.";
+    return "A second control plane makes this less available, not more: both would then have to stay up. It takes three to survive losing one. Leave this unchecked.";
   }
-  return `Going from ${currentManagerCount} to ${next} managers tolerates no extra failures. Quorum needs an odd number. Add this as a worker, or add two managers.`;
+  return `Going from ${currentManagerCount} to ${next} control planes survives no extra failures. Keep the count odd, or leave this unchecked.`;
 }
