@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { serverDisplayAddress, serverDisplayName, workloadCount } from "./server-facts";
+import { serverAddressView, serverDisplayName, workloadCount } from "./server-facts";
 
 const cp = {
   name: "localhost",
@@ -31,18 +31,27 @@ describe("serverDisplayName", () => {
   });
 });
 
-describe("serverDisplayAddress", () => {
+describe("serverAddressView", () => {
   it("shows the address the server list resolved (the public IP for the control plane)", () => {
-    expect(serverDisplayAddress({ ...cp, address: "203.0.113.7" })).toBe("203.0.113.7");
+    expect(serverAddressView({ ...cp, address: "203.0.113.7" })).toEqual({
+      kind: "known",
+      address: "203.0.113.7",
+    });
   });
 
   it("never shows loopback as a machine's address", () => {
-    expect(serverDisplayAddress({ ...cp, address: null })).toBe("unknown");
-    expect(serverDisplayAddress(cp)).toBe("unknown");
+    expect(serverAddressView({ ...cp, address: null })).toEqual({ kind: "unknown" });
+    expect(serverAddressView(cp)).toEqual({ kind: "unknown" });
+  });
+
+  it("says the control plane has an address this viewer was not sent", () => {
+    expect(serverAddressView({ ...cp, address: null, addressHidden: true })).toEqual({
+      kind: "hidden",
+    });
   });
 
   it("falls back to the registered host for other servers", () => {
-    expect(serverDisplayAddress(worker)).toBe("10.0.0.5");
+    expect(serverAddressView(worker)).toEqual({ kind: "known", address: "10.0.0.5" });
   });
 });
 

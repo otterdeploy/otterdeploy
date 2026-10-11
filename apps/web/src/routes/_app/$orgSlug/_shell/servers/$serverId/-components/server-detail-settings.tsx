@@ -19,6 +19,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
+import { machineRegistration } from "./server-detail-overview-parts";
 import { KeyValueList } from "./server-detail-parts";
 import { AvailabilitySelect } from "./servers-row";
 import { ServerDeleteButton } from "./servers-row-delete";
@@ -67,17 +68,9 @@ function ClusterRole({
 }: {
   server: Server;
   node: SwarmNode | null;
-  swarmView: SwarmNodesView | null;
+  swarmView: SwarmNodesView;
   onRemoved: () => void;
 }) {
-  if (!swarmView?.swarm) {
-    return (
-      <p className="text-[12.5px] text-muted-foreground">
-        Node roles and swarm membership need the Docker Swarm runtime. This install runs plain
-        Docker.
-      </p>
-    );
-  }
   if (!node) {
     return (
       <p className="text-[12.5px] text-muted-foreground">
@@ -102,7 +95,8 @@ function ClusterRole({
   );
 }
 
-/** Availability and cluster role: swarm procedures, shown on Swarm only. */
+/** Availability and cluster role: swarm procedures, shown on Swarm only.
+ *  On plain Docker there is no scheduler and no cluster to have a role in. */
 function SwarmSections({
   server,
   node,
@@ -111,7 +105,7 @@ function SwarmSections({
 }: {
   server: Server;
   node: SwarmNode | null;
-  swarmView: SwarmNodesView | null;
+  swarmView: SwarmNodesView;
   onRemoved: () => void;
 }) {
   return (
@@ -147,11 +141,10 @@ export function ServerSettingsTab({
   swarmView: SwarmNodesView | null;
   onRemoved: () => void;
 }) {
-  const isSwarm = swarmView?.swarm ?? false;
   const local = isControlPlaneRow(server);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      {isSwarm ? (
+      {swarmView?.swarm ? (
         <SwarmSections server={server} node={node} swarmView={swarmView} onRemoved={onRemoved} />
       ) : null}
 
@@ -167,17 +160,7 @@ export function ServerSettingsTab({
       </SettingsSection>
 
       <SettingsSection title="Machine" description="How this server was registered. Facts the host reports live on Overview.">
-        <KeyValueList
-          className="py-1"
-          items={[
-            { label: "SSH", value: `${server.sshUser}@${server.host}:${server.sshPort}` },
-            { label: "Mesh", value: server.meshAddress ? `${server.meshProvider} · ${server.meshAddress}` : server.meshProvider },
-            { label: "Region", value: server.region ?? "–" },
-            { label: "Labels", value: server.labels.length ? server.labels.join(", ") : "–" },
-            { label: "Build server", value: server.buildServer ? (server.buildLane ?? "yes") : "no" },
-            { label: "Registered role", value: server.role },
-          ]}
-        />
+        <KeyValueList className="py-1" items={machineRegistration(server)} />
       </SettingsSection>
 
       <SettingsSection

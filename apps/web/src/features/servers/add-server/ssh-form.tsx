@@ -13,6 +13,7 @@ import type { ServerId } from "@otterdeploy/shared/id";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 
+import { SensitiveInput } from "@/shared/components/sensitive-input";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
@@ -56,12 +57,11 @@ function AddressRow({ form }: { form: SshFormApi }) {
             data-invalid={field.state.meta.errors.length > 0 || undefined}
           >
             <FieldLabel htmlFor="add-server-host">Address</FieldLabel>
-            <Input
+            <SensitiveInput
+              label="address"
               id="add-server-host"
               className="font-mono"
               placeholder="203.0.113.24"
-              autoComplete="off"
-              spellCheck={false}
               value={field.state.value}
               aria-invalid={field.state.meta.errors.length > 0 || undefined}
               onBlur={field.handleBlur}
