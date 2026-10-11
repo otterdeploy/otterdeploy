@@ -18,6 +18,13 @@ export class ServiceNotFoundError extends TaggedError("ServiceNotFoundError")<{
   }
 }
 
+/** Redeploy pulls an image service's image again; a git service redeploys
+ *  by building (service.build). */
+export class NotImageSourcedError extends TaggedError("NotImageSourcedError")<{
+  message: string;
+  resourceId: ResourceId;
+}>() {}
+
 export class ServiceConflictError extends TaggedError("ServiceConflictError")<{
   message: string;
   name: string;

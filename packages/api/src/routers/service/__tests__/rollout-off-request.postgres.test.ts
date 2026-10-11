@@ -17,7 +17,7 @@ import type { ServiceRolloutPayload } from "@otterdeploy/jobs";
 import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
+import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -28,7 +28,8 @@ import type { SwarmServiceRuntime } from "../../../swarm";
 vi.mock("../../../runtime", () => ({ runtime: vi.fn(), isSwarmRuntime: () => false }));
 
 const { runtime } = await import("../../../runtime");
-const { createService, restartService, updateService } = await import("../handlers");
+const { createService, redeployImageService, restartService, updateService } =
+  await import("../handlers");
 const { rolloutDispatch, runServiceRollout } = await import("../rollout");
 const { seedOrganization, seedProject, seedService } =
   await import("../../../__tests__/postgres-seed");
@@ -197,6 +198,37 @@ describe("rollouts run off the request", () => {
     expect(settled.status).toBe("failed");
     expect(settled.errorMessage).toContain("was still pulling");
     expect(settled.errorMessage).toContain("the previous version keeps serving");
+  });
+
+  it("a redeploy of an image service records a redeploy and rolls (and so pulls) it again", async () => {
+    const redeployed = await answersWhileHeld(redeployImageService(ref, log));
+    if (redeployed.isErr()) throw redeployed.error;
+    const deploymentId = redeployed.value.deploymentId;
+    if (deploymentId === null) throw new Error("the redeploy recorded no deployment");
+    expect((await row(deploymentId)).reason).toBe("redeploy");
+    expect(queued[0]?.kind).toBe("roll");
+
+    const job = runQueuedJob();
+    // The runtime's update is the roll that pulls the image again.
+    await held.started;
+    held.settle(RUNNING);
+    await job;
+    expect((await row(deploymentId)).status).toBe("running");
+  });
+
+  it("refuses to redeploy a git service by pulling: it redeploys by building", async () => {
+    const { resourceId } = await seedService({
+      projectId: ref.projectId,
+      environmentId,
+      name: `git-${crypto.randomUUID().slice(0, 8)}`,
+    });
+    await db
+      .update(serviceResource)
+      .set({ source: "git" })
+      .where(eq(serviceResource.resourceId, resourceId));
+    const refused = await redeployImageService({ ...ref, resourceId }, log);
+    expect(refused.isErr() && refused.error._tag).toBe("NotImageSourcedError");
+    expect(queued).toEqual([]);
   });
 
   it("an image create answers `starting` with its deployment; a rollout that never gets ready fails it with the reason", async () => {

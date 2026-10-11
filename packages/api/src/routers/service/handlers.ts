@@ -20,7 +20,12 @@ import { runtimeServiceName } from "../../lib/environment/scoping";
 import { runtime } from "../../runtime";
 import { removeServiceFromManifest } from "../project/manifest";
 import { loadProject, loadResource } from "./context";
-import { ServiceInUseError, ServiceNotFoundError, type ResolveError } from "./errors";
+import {
+  NotImageSourcedError,
+  ServiceInUseError,
+  ServiceNotFoundError,
+  type ResolveError,
+} from "./errors";
 import { getService } from "./get-service";
 import {
   type ProjectRef,
@@ -129,6 +134,28 @@ export async function updateService(
 
   const imageChanged = input.image !== undefined && input.image !== ctx.value.record.service.image;
   const started = await rollInBackground(input, imageChanged ? "image-change" : "redeploy", log);
+  if (started.isErr()) return Result.err(started.error);
+  return withDeployment(await getService(input), started.value);
+}
+
+/**
+ * Redeploy an image service: pull its image again and replace what runs,
+ * health-gated like any roll. The answer to "`:latest` moved, run the new
+ * one". Restart rolls the same way, but it is recorded and offered as a
+ * restart; this is the deploy verb image services lacked. Git services
+ * redeploy by building (service.build).
+ */
+export async function redeployImageService(
+  input: ResourceRef,
+  log: RequestLogger,
+): Promise<Result<ServiceMutationView, RedeployFailure | NotImageSourcedError>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
+  if (ctx.value.record.service.source !== "image") {
+    const message = `service ${input.resourceId} is not image-sourced: redeploy it by building`;
+    return Result.err(new NotImageSourcedError({ resourceId: input.resourceId, message }));
+  }
+  const started = await rollInBackground(input, "redeploy", log);
   if (started.isErr()) return Result.err(started.error);
   return withDeployment(await getService(input), started.value);
 }
