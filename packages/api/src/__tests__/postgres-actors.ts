@@ -71,7 +71,7 @@ export async function createMemberContext(organizationId: OrganizationId): Promi
   };
 }
 
-const PASSWORD = "member-Password-123!";
+export const PASSWORD = "member-Password-123!";
 export const ORIGIN = "http://localhost:3000";
 
 const setCookiePair = /^([^=;\s]+)=([^;]*)/;

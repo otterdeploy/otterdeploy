@@ -150,6 +150,12 @@ export const twoFactor = pgTable(
     // not exist in the \"twoFactor\" Drizzle schema". Default true matches the
     // plugin's own schema (pre-existing rows are treated as verified).
     verified: boolean("verified").default(true),
+    // Account-level lockout budget (better-auth ≥1.6.25): consecutive failed
+    // verifications, and when the account unlocks once the budget is spent.
+    // Nullable on purpose: rows written before these columns existed read as
+    // zero failures / not locked.
+    failedVerificationCount: integer("failed_verification_count").default(0),
+    lockedUntil: timestamp("locked_until"),
   },
   (table) => [index("two_factor_userId_idx").on(table.userId)],
 );
