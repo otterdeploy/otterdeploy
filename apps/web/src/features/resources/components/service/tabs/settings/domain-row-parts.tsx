@@ -1,21 +1,11 @@
 /**
- * The interactive pieces of one domain row: the target-port picker, the
- * inline edit row, and the copy / edit / remove icon actions.
- *
- * Split from ./domains-card-parts (which keeps the status chip and the DNS
- * hint) so neither file carries the other's concerns. All stateless.
- * Handlers and busy flags come in as props.
+ * The editing pieces of one domain row: the target-port picker and the inline
+ * edit row. The row's actions live in ./domain-row-actions and its status in
+ * ./domain-status-card. All stateless; handlers and busy flags come in as props.
  */
 
-import type { IconSvgElement } from "@hugeicons/react";
-
-import { useState } from "react";
-
-import { Copy01Icon, Delete02Icon, PencilEdit02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
-import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -26,10 +16,6 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Spinner } from "@/shared/components/ui/spinner";
-import { Switch } from "@/shared/components/ui/switch";
-import { cn } from "@/shared/lib/utils";
-
-import type { DomainView } from "./domains-card-parts";
 
 /** The container ports a host may be routed at. Empty means the service
  *  declares none: the caller hides the picker rather than offering nothing. */
@@ -143,135 +129,5 @@ export function DomainEditRow({
         {t("common.cancel")}
       </Button>
     </div>
-  );
-}
-
-/**
- * Per-host actions. Copy / edit / remove are the three icons that sit on
- * every row: the shape Railway's public-networking list uses, and the three
- * things an operator reaches for most. Recheck DNS and Set primary are
- * conditional and stay worded, because neither is guessable from a glyph.
- */
-export function DomainRowActions({
-  domain,
-  busy,
-  recheckPending,
-  needsDns,
-  copied,
-  onCopy,
-  onRecheck,
-  onSetPrimary,
-  onEdit,
-  onRemove,
-  onSetEnabled,
-}: {
-  domain: DomainView;
-  busy: boolean;
-  recheckPending: boolean;
-  needsDns: boolean;
-  copied: boolean;
-  onCopy: () => void;
-  onRecheck: () => void;
-  onSetPrimary: () => void;
-  onEdit: () => void;
-  onRemove: () => void;
-  onSetEnabled: (enabled: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  // Removing a host takes it off the internet for every visitor: a styled
-  // confirm. Pausing it is the switch beside it, undone the same way.
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  return (
-    <div className="flex shrink-0 flex-wrap items-center gap-1">
-      {/* Pause/resume without deleting: checked while the operator hasn't
-          paused it, whatever the system gate currently says. */}
-      <Switch
-        checked={domain.status !== "paused"}
-        onCheckedChange={onSetEnabled}
-        disabled={busy}
-        aria-label={t("domains.serveDomain", { domain: domain.domain })}
-        className="mr-1"
-      />
-      {/* Custom hosts always offer it; generated hosts too once they carry a
-          real (non-sslip/localhost) name, so "does my wildcard actually reach
-          this server?" has an answer instead of an unverifiable badge. */}
-      {(domain.source === "custom" ||
-        (!domain.domain.endsWith(".sslip.io") && !domain.domain.endsWith(".localhost"))) && (
-        <Button
-          size="xs"
-          variant={needsDns ? "secondary" : "ghost"}
-          onClick={onRecheck}
-          disabled={busy}
-        >
-          {recheckPending ? <Spinner className="size-3" /> : t("domains.recheckDns")}
-        </Button>
-      )}
-      {!domain.isPrimary && domain.status === "live" && (
-        <Button size="xs" variant="ghost" onClick={onSetPrimary} disabled={busy}>
-          {t("domains.setPrimary")}
-        </Button>
-      )}
-      <IconAction
-        label={copied ? t("common.copied") : t("domains.copyUrl")}
-        icon={copied ? Tick02Icon : Copy01Icon}
-        onClick={onCopy}
-        className={copied ? "text-primary" : undefined}
-      />
-      <IconAction
-        label={t("domains.editDomain")}
-        icon={PencilEdit02Icon}
-        onClick={onEdit}
-        disabled={busy}
-      />
-      <IconAction
-        label={t("domains.removeDomain")}
-        icon={Delete02Icon}
-        onClick={() => setConfirmRemove(true)}
-        disabled={busy}
-        className="hover:text-destructive"
-      />
-      <TypedConfirmDialog
-        open={confirmRemove}
-        onOpenChange={setConfirmRemove}
-        title={`Remove ${domain.domain}?`}
-        description="Visitors stop reaching this service on this host at once. To take it offline for a while instead, turn its switch off."
-        confirmLabel="Remove domain"
-        onConfirm={() => {
-          setConfirmRemove(false);
-          onRemove();
-        }}
-      />
-    </div>
-  );
-}
-
-function IconAction({
-  label,
-  icon,
-  onClick,
-  disabled,
-  className,
-}: {
-  label: string;
-  icon: IconSvgElement;
-  onClick: () => void;
-  disabled?: boolean;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      aria-label={label}
-      className={cn(
-        "grid size-7 place-items-center rounded text-muted-foreground/70 transition-colors",
-        "hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40",
-        className,
-      )}
-    >
-      <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5" />
-    </button>
   );
 }
