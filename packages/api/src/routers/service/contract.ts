@@ -56,6 +56,12 @@ const sharedErrors = {
   },
   DOMAIN_CONFLICT: { status: 409, message: "Domain is already in use or invalid" as const },
   DOMAIN_NOT_FOUND: { status: 404, message: "Domain not found" as const },
+  // The runtime cannot start anything on the server asked for (plain Docker
+  // runs every workload on the control plane). The message names the server.
+  PLACEMENT_UNSUPPORTED: {
+    status: 422,
+    message: "This install runs services on the control plane only" as const,
+  },
   MISSING_BUILD_BINDING: {
     status: 412,
     message:
@@ -86,6 +92,7 @@ export const serviceContract = {
       CONFLICT: sharedErrors.CONFLICT,
       INVALID_INPUT: sharedErrors.INVALID_INPUT,
       MISSING_BUILD_BINDING: sharedErrors.MISSING_BUILD_BINDING,
+      PLACEMENT_UNSUPPORTED: sharedErrors.PLACEMENT_UNSUPPORTED,
       REF_MISSING: sharedErrors.REF_MISSING,
       REF_CYCLE: sharedErrors.REF_CYCLE,
       VAULT_UNRESOLVED: sharedErrors.VAULT_UNRESOLVED,
@@ -269,6 +276,7 @@ export const serviceContract = {
   setPlacement: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
+      PLACEMENT_UNSUPPORTED: sharedErrors.PLACEMENT_UNSUPPORTED,
       // The service has node-local volumes that will NOT follow it. Retry with
       // `acknowledgeVolumeLoss: true` to move anyway and start with empty ones.
       PLACEMENT_VOLUME_LOSS: {

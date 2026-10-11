@@ -135,6 +135,12 @@ export async function enqueueGitBuild(args: {
   projectId: ProjectId;
   organizationId: OrganizationId;
   resourceId: ResourceId;
+  /** `create` for a service's first build, `redeploy` for a later one asked
+   *  for by hand (see gitBuildReason). Recorded on the deployment. */
+  reason: "create" | "redeploy";
+  /** The signed-in user who asked for this build, recorded as its trigger
+   *  (separately from the commit author). Null/omitted: nobody did by hand. */
+  triggeredByUserId?: string | null;
   /** Per-deploy cache bypass ("Redeploy without cache"). Persisted on the
    *  deployment row so the builder sees it without a second lookup. */
   noCache?: boolean;
@@ -206,7 +212,8 @@ export async function enqueueGitBuild(args: {
       resourceId: args.resourceId,
       // Rewritten to the real registry tag by the builder once known.
       image: `pending:${sha.slice(0, 12)}`,
-      reason: "create" as const,
+      reason: args.reason,
+      triggeredByUserId: args.triggeredByUserId ?? null,
       status: "pending" as const,
       gitSha: sha,
       gitRef: ref,
@@ -229,7 +236,7 @@ export async function enqueueGitBuild(args: {
   await emitDeployStarted({
     deploymentId: claimed.id,
     resourceId: args.resourceId,
-    reason: "create",
+    reason: args.reason,
   });
   // Push the pending build to the stream so the node shows progress at once.
   void publishResourceChanged(args.resourceId);

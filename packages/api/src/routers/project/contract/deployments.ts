@@ -81,6 +81,10 @@ export const deploymentSchema = z.object({
   // Content hash of an uploaded source tarball (source:"upload"): the upload
   // analog of gitSha. Null for git / image-only deploys.
   sourceSha: z.string().nullable(),
+  /** Who asked for this deployment (clicked Deploy, applied the manifest).
+   *  Null when nobody did by hand: a git push, an API key. Not the commit
+   *  author, who wrote the code and is often a bot. */
+  triggeredBy: z.object({ name: z.string(), image: z.string().nullable() }).nullable(),
   completedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

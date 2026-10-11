@@ -33,11 +33,12 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
+import { user } from "@otterdeploy/db/schema/auth";
 import { deployment, environment, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { and, desc, eq, gte, isNull, type SQL } from "drizzle-orm";
 
-import type { DeploymentRow } from "../project/deployments";
+import type { DeploymentActor, DeploymentRow } from "../project/deployments";
 import type { DerivedDeploymentStatus } from "../project/deployments-list";
 
 import {
@@ -82,6 +83,7 @@ export interface ProjectDeploymentItem {
   gitCommitAuthor: string | null;
   gitCommitAuthorAvatar: string | null;
   sourceSha: string | null;
+  triggeredBy: DeploymentActor | null;
   isLatest: boolean;
   completedAt: string | null;
   createdAt: string;
@@ -120,6 +122,8 @@ interface JoinedRow {
   gitCommitAuthor: string | null;
   gitCommitAuthorAvatar: string | null;
   sourceSha: string | null;
+  actorName: string | null;
+  actorImage: string | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -242,6 +246,8 @@ export async function listProjectDeployments(
       gitCommitAuthor: deployment.gitCommitAuthor,
       gitCommitAuthorAvatar: deployment.gitCommitAuthorAvatar,
       sourceSha: deployment.sourceSha,
+      actorName: user.name,
+      actorImage: user.image,
       completedAt: deployment.completedAt,
       createdAt: deployment.createdAt,
       updatedAt: deployment.updatedAt,
@@ -255,6 +261,8 @@ export async function listProjectDeployments(
     // Left join: NULL-stamped resources (main environment) have no
     // environment row; their name resolves via mainEnvironmentName below.
     .leftJoin(environment, eq(environment.id, resource.environmentId))
+    // Left join: most deployments have no person behind them (a push, a key).
+    .leftJoin(user, eq(user.id, deployment.triggeredByUserId))
     .where(and(...conditions))
     .orderBy(desc(deployment.createdAt), desc(deployment.id));
 
@@ -309,6 +317,8 @@ export async function listProjectDeployments(
     gitCommitAuthor: row.gitCommitAuthor,
     gitCommitAuthorAvatar: row.gitCommitAuthorAvatar,
     sourceSha: row.sourceSha,
+    triggeredBy:
+      row.actorName === null ? null : { name: row.actorName, image: row.actorImage ?? null },
     isLatest: row.isLatest,
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),

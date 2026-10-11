@@ -15,6 +15,7 @@ import {
   saveManifest,
 } from "./manifest";
 import { applyManifest } from "./manifest-apply";
+import { refuseUnrunnablePlacement } from "./manifest-apply-placement";
 import { loadRefTable, makeEnvRefResolver, withStagedServices } from "./manifest-apply-refs";
 import { renameResource } from "./manifest-rename-apply";
 import { loadCurrentState } from "./manifest-state";
@@ -75,6 +76,17 @@ export const manifestRouter = {
         throw matchError(stored.error, { ProjectNotFoundError: () => errors.NOT_FOUND() });
       }
       const removed = manifestRemovals(stored.value.manifest, input.manifest);
+
+      // Refused at stage time, so the form that staged it can say why and stay
+      // open, rather than staging a change apply can only ever skip.
+      const placement = await refuseUnrunnablePlacement({
+        previous: stored.value.manifest,
+        next: input.manifest,
+        organizationId: context.activeOrganizationId,
+      });
+      if (placement.isErr()) {
+        throw errors.PLACEMENT_UNSUPPORTED({ message: placement.error.message });
+      }
 
       if (input.dryRun) {
         // The stored version is returned so the caller can use it as its
@@ -191,6 +203,7 @@ export const manifestRouter = {
         manifest: resolved.value,
         environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
         only: input.only,
+        actorUserId: context.session?.user.id ?? null,
         log: context.log,
       });
     },
@@ -249,6 +262,22 @@ export const manifestRouter = {
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });
 
+      const stored = await loadManifest({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (stored.isErr()) {
+        throw matchError(stored.error, { ProjectNotFoundError: () => errors.NOT_FOUND() });
+      }
+      const placement = await refuseUnrunnablePlacement({
+        previous: stored.value.manifest,
+        next: input.manifest,
+        organizationId: context.activeOrganizationId,
+      });
+      if (placement.isErr()) {
+        throw errors.PLACEMENT_UNSUPPORTED({ message: placement.error.message });
+      }
+
       const saved = await saveManifest(
         {
           projectId: input.projectId,
@@ -275,6 +304,7 @@ export const manifestRouter = {
         // would diff staging's desired state onto production's resources.
         environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
         sourceUploads: input.sourceUploads,
+        actorUserId: context.session?.user.id ?? null,
         log: context.log,
       });
       return { version: saved.value.version, ...applied };

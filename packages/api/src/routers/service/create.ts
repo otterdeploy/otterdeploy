@@ -14,7 +14,11 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
-import { resolvePlacementSeed, UnknownPlacementServerError } from "../../lib/placement-seed";
+import {
+  type PlacementNeedsSwarmError,
+  resolveRunPlacementSeed,
+  type UnknownPlacementServerError,
+} from "../../lib/placement-seed";
 import {
   resolveNewResourceEnvironment,
   type ResourceEnvironmentNotFoundError,
@@ -75,6 +79,7 @@ export async function createService(
     | MissingServiceBuildBindingError
     | ResolveError
     | UnknownPlacementServerError
+    | PlacementNeedsSwarmError
     | ResourceEnvironmentNotFoundError
   >
 > {
@@ -106,7 +111,7 @@ export async function createService(
   // degrades to "schedule anywhere", which is right for a rollout and wrong
   // for a form the operator just submitted: silently ignoring their choice is
   // how a volume ends up on the wrong disk. See lib/placement-seed.ts.
-  const placement = await resolvePlacementSeed({
+  const placement = await resolveRunPlacementSeed({
     serverId: input.placementServerId,
     organizationId: input.organizationId,
   });

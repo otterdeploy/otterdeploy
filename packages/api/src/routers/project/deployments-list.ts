@@ -12,19 +12,16 @@ import type {
   ResourceId,
 } from "@otterdeploy/shared/id";
 
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
-import { and, desc, eq, isNull } from "drizzle-orm";
 
-import type { DeploymentRow } from "./deployments";
+import type { DeploymentActor, DeploymentRow, ListedDeployment } from "./deployments";
 import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-derive";
 
 import { loadPreviewScope } from "../../lib/environment/load";
 import { runtimeServiceName } from "../../lib/environment/scoping";
 import { backfillCommitMeta } from "./deployment-commit-backfill";
-import { resolveListingScope } from "./deployments";
+import { listDeploymentsByResource, resolveListingScope } from "./deployments";
 import { deriveDeploymentStatus, FAILED_TASK_COUNT_STATES } from "./deployments-derive";
 import {
   latestRowSignals,
@@ -68,6 +65,9 @@ export interface DeploymentWithStats {
   gitCommitAuthor: string | null;
   gitCommitAuthorAvatar: string | null;
   sourceSha: string | null;
+  /** Who asked for it (clicked Deploy, applied the manifest). Null when
+   *  nobody did by hand. Distinct from the commit author. */
+  triggeredBy: DeploymentActor | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -78,27 +78,6 @@ export interface DeploymentWithStats {
   /** The configured restart cap (RestartPolicy MaxAttempts, incl. the
    *  platform default). Null = unlimited ("any"/"unless-stopped"). */
   restartMaxAttempts: number | null;
-}
-
-/** All deployments for a resource, newest first. Status is the value
- *  stored in the row. Derived live by `listResourceDeployments`. */
-async function listDeploymentsByResource(
-  resourceId: ResourceId,
-  // Base rows by default; a preview id scopes to that PR's deployments (the
-  // preview panel's history view).
-  previewId: PreviewId | null = null,
-): Promise<DeploymentRow[]> {
-  const rows = await db
-    .select()
-    .from(deployment)
-    .where(
-      and(
-        eq(deployment.resourceId, resourceId),
-        previewId ? eq(deployment.previewId, previewId) : isNull(deployment.previewId),
-      ),
-    )
-    .orderBy(desc(deployment.createdAt));
-  return rows;
 }
 
 // Resolve the swarm service name backing a resource. Postgres uses the
@@ -173,7 +152,7 @@ function resolveRestartMaxAttempts(found: ResolvedResource): number | null {
 }
 
 function toDeploymentWithStats(
-  row: DeploymentRow,
+  row: ListedDeployment,
   projectId: ProjectId,
   /** Null for every row but the latest. */
   latest: LatestRowSignals | null,
@@ -220,6 +199,7 @@ function toDeploymentWithStats(
     gitCommitAuthor: row.gitCommitAuthor,
     gitCommitAuthorAvatar: row.gitCommitAuthorAvatar,
     sourceSha: row.sourceSha,
+    triggeredBy: row.triggeredBy,
     completedAt: row.completedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

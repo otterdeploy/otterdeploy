@@ -15,7 +15,11 @@
  *   5. Database updates (publicEnabled + extraEnv)
  *   6. Service deletes
  *   7. Database deletes
- *   8. Enqueue builds for git-sourced service creates/updates
+ *   8. Build git services created earlier that never started a build
+ *
+ * A git service's build is enqueued by phase 3/4 the moment it is created or
+ * updated, never deferred to the end: a later phase that aborts the apply
+ * would otherwise leave it created and never built.
  *
  * The per-phase logic lives in ./manifest-apply-phases; the handlers it calls
  * live in the ./manifest-apply-{services,databases,refs,git} siblings.
@@ -29,12 +33,7 @@ import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { Manifest } from "../../stack/manifest";
-import type {
-  ApplyContext,
-  GitBuild,
-  PhaseContribution,
-  StartedRollout,
-} from "./manifest-apply-phases";
+import type { ApplyContext, PhaseContribution, StartedRollout } from "./manifest-apply-phases";
 
 import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
 import { diffManifest, manifestSchema } from "../../stack/manifest";
@@ -48,7 +47,11 @@ import {
   runGitBuilds,
   runServiceDeletes,
 } from "./manifest-apply-phases";
-import { runServiceCreates, runServiceUpdates } from "./manifest-apply-phases-services";
+import {
+  runServiceCreates,
+  runServiceUpdates,
+  unbuiltGitServices,
+} from "./manifest-apply-phases-services";
 import { loadRefTable, makeEnvRefResolver, withStagedServices } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
 import { loadCurrentState } from "./manifest-state";
@@ -86,6 +89,8 @@ export interface ApplyInput {
   /** Services whose source the caller uploads right after this apply. See
    *  the applyChange contract; only upload-sourced services are honoured. */
   sourceUploads?: ReadonlyArray<string>;
+  /** Who asked for this apply; see ApplyContext.actorUserId. */
+  actorUserId?: string | null;
   log: ApplyContext["log"];
 }
 
@@ -112,6 +117,7 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const { projectId, organizationId, manifest, environmentId, only, sourceUploads, log } = input;
+  const actorUserId = input.actorUserId ?? null;
   // Load state inside the queue slot. A snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
   // Resolve to a concrete scope before diffing. A project with no environment
@@ -134,6 +140,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     manifest,
     current,
     sourceUploads: new Set(sourceUploads),
+    actorUserId,
     log,
   };
   // Plan with the same ref resolver the router's diff endpoint uses, so what
@@ -149,16 +156,14 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // previewed is what executes: without it apply would compute deletes the
   // preview never showed.
   const appliedSnapshot = await loadAppliedSnapshot({ projectId, organizationId });
-  const byKind = groupChanges(
-    diffManifest(manifest, current, {
-      resolveEnvValue: makeEnvRefResolver(planRefTable),
-      applied: appliedSnapshot,
-    }),
-  );
+  const planned = diffManifest(manifest, current, {
+    resolveEnvValue: makeEnvRefResolver(planRefTable),
+    applied: appliedSnapshot,
+  });
+  const byKind = groupChanges(planned);
 
   let appliedCount = 0;
   const skipped: ApplyResult["skipped"] = [];
-  const gitBuilds: GitBuild[] = [];
   const rollouts: StartedRollout[] = [];
 
   // Cherry-pick. Split each planned list into "run now" and "leave staged"
@@ -213,7 +218,6 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     appliedCount += c.applied;
     for (const e of c.skipped)
       skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
-    gitBuilds.push(...c.gitBuilds);
     rollouts.push(...(c.rollouts ?? []));
   };
 
@@ -245,9 +249,14 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   fold(await runServiceDeletes(ctx, standaloneDeletes));
   fold(await runDatabaseDeletes(ctx, plan.databaseDeletes));
 
-  // 8. Enqueue builds for the git-sourced services collected above. A failure
-  // means the resource exists but won't build, so it joins skipped[].
-  for (const e of await runGitBuilds(ctx, gitBuilds)) {
+  // 8. A git service with no change of its own that was created and never
+  // built (an earlier apply was cut short before its build) builds now, if
+  // this apply covers it. A failure joins skipped[].
+  const unchanged = planned
+    .filter((c) => c.kind === "no-op" && c.resource === "service")
+    .map((c) => c.name)
+    .filter((name) => selected === null || selected.has(`service:${name}`));
+  for (const e of await runGitBuilds(ctx, await unbuiltGitServices(ctx, unchanged))) {
     skipped.push({ resource: e.resource, name: e.resourceName, reason: e.reason });
   }
 

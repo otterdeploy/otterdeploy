@@ -5,7 +5,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { projectIdField, resourceIdField } from "../project/contract/shared";
+import { environmentIdField, projectIdField, resourceIdField } from "../project/contract/shared";
 
 const tag = "compose";
 const basePath = "/projects/{projectId}/compose";
@@ -125,6 +125,9 @@ export const composeContract = {
     .input(
       z.object({
         projectId: projectIdField,
+        /** Environment to create the stack in. Omitted = the project's main
+         *  environment. Must be one of this project's. */
+        environmentId: environmentIdField.optional(),
         /** Optional, derived from the file's `name:` / first service / repo. */
         name: z.string().max(63).optional(),
         /** `inline` = paste the file; `git` = build it from the project repo. */

@@ -5,6 +5,7 @@
  */
 import type { ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type {
+  EnvironmentId,
   GitRepoId,
   OrganizationId,
   ProjectId,
@@ -18,8 +19,11 @@ import { Result } from "better-result";
 
 import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
-import { resolvePlacementSeed } from "../../lib/placement-seed";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
+import { scopeSuffix } from "../../lib/environment/scoping";
+import { resolveRunPlacementSeed } from "../../lib/placement-seed";
 import { getProjectInOrg } from "../project/queries";
+import { resolveNewResourceEnvironment } from "../project/queries/new-resource-environment";
 import { isUniqueViolation } from "../project/views";
 import { enqueueComposeBuild } from "./build-trigger";
 import { composeCreateVariables, createInlineCompose } from "./create-inline";
@@ -30,6 +34,8 @@ export type ComposeProject = NonNullable<Awaited<ReturnType<typeof getProjectInO
 
 export interface ComposeCreateInput {
   projectId: ProjectId;
+  /** Environment the stack is created in. Omitted = the project's main one. */
+  environmentId?: EnvironmentId;
   name?: string;
   source: "inline" | "git";
   composeContent?: string;
@@ -44,6 +50,19 @@ export interface ComposeCreateInput {
   /** Server every child of this stack is seeded onto. See the contract. */
   placementServerId?: string | null;
   deploy: boolean;
+}
+
+/**
+ * Where a new stack lands: its environment, and the suffix that environment
+ * adds to the stack name. The stack name is global and every child container
+ * and named volume derives from it, so a non-main environment's stack has to
+ * carry the suffix or it would claim production's volumes (or fail on
+ * production's name). Main has no suffix, so its stacks keep the names they
+ * have. The same rule the manifest apply follows (manifest-reconcile.ts).
+ */
+export interface ComposeCreateTarget {
+  environmentId: EnvironmentId | null;
+  stackSuffix: string;
 }
 
 export interface ExposedSeed {
@@ -78,6 +97,7 @@ async function createGitCompose(
   input: ComposeCreateInput,
   organizationId: OrganizationId,
   project: ComposeProject,
+  target: ComposeCreateTarget,
   exposed: ExposedSeed[],
   placementServerId: ServerId | null,
 ): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
@@ -121,7 +141,7 @@ async function createGitCompose(
 
   // Name from the user, else the repo name.
   const name = input.name?.trim() || repoName;
-  const stackName = stackNameFor(project.slug, name);
+  const stackName = stackNameFor(project.slug, `${name}${target.stackSuffix}`);
   const branch = input.gitRef?.trim() || "main";
   const headRes = await Result.tryPromise({
     try: () => fetchBranchHead(installationId, owner, repoName, branch),
@@ -138,11 +158,10 @@ async function createGitCompose(
     try: () =>
       createComposeRecord({
         projectId: input.projectId,
-        // Stamp the environment like every other create path. Unstamped rows
-        // are only visible because MAIN additionally owns NULL (a legacy
-        // allowance in inEnvironmentScope): a non-main environment would
-        // never see this stack.
-        environmentId: project.environmentId,
+        // The environment the caller asked for (main when omitted), like every
+        // other create path. This used to be the project's main environment
+        // whatever was asked for.
+        environmentId: target.environmentId,
         name,
         source: "git",
         composeContent: null,
@@ -204,11 +223,20 @@ export async function createComposeResource(args: {
   // Validated before anything is written: at deploy an unresolvable pin
   // degrades to "schedule anywhere", which would silently ignore the machine
   // the operator picked in the install form. See lib/placement-seed.ts.
-  const placement = await resolvePlacementSeed({
+  const placement = await resolveRunPlacementSeed({
     serverId: input.placementServerId,
     organizationId,
   });
   if (placement.isErr()) return Result.err(invalid(placement.error.message));
+
+  const environment = await resolveNewResourceEnvironment(input.projectId, input.environmentId);
+  if (environment.isErr()) return Result.err(invalid(environment.error.message));
+  const target: ComposeCreateTarget = {
+    environmentId: environment.value,
+    stackSuffix: scopeSuffix(
+      await resolveRuntimeScope({ projectId: input.projectId, environmentId: environment.value }),
+    ),
+  };
 
   const exposed: ExposedSeed[] = input.exposed.map((e) => ({
     service: e.service,
@@ -217,6 +245,6 @@ export async function createComposeResource(args: {
   }));
 
   return input.source === "git"
-    ? createGitCompose(input, organizationId, project, exposed, placement.value)
-    : createInlineCompose(input, project, exposed, placement.value, log);
+    ? createGitCompose(input, organizationId, project, target, exposed, placement.value)
+    : createInlineCompose(input, project, target, exposed, placement.value, log);
 }

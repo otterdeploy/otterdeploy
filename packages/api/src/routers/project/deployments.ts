@@ -20,6 +20,7 @@ import type { DeploymentId, PreviewId, ResourceId } from "@otterdeploy/shared/id
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
+import { user } from "@otterdeploy/db/schema/auth";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
 import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
@@ -54,10 +55,18 @@ export interface DeploymentRow {
   gitCommitAuthor: string | null;
   gitCommitAuthorAvatar: string | null;
   sourceSha: string | null;
+  /** Who asked for this deployment, when someone did. Not the commit author. */
+  triggeredByUserId: string | null;
   errorMessage: string | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Who asked for a deployment, as its history names them. */
+export interface DeploymentActor {
+  name: string;
+  image: string | null;
 }
 
 interface InsertInput {
@@ -87,6 +96,49 @@ interface InsertInput {
     commitAuthor?: string | null;
     commitAuthorAvatar?: string | null;
   };
+}
+
+/**
+ * What a build of this service is, for its deployment history: its first
+ * (`create`), or a later one (`redeploy`). Any deployment already recorded,
+ * whatever became of it, makes this one not the first.
+ */
+export async function gitBuildReason(resourceId: ResourceId): Promise<"create" | "redeploy"> {
+  const [prior] = await db
+    .select({ id: deployment.id })
+    .from(deployment)
+    .where(and(eq(deployment.resourceId, resourceId), isNull(deployment.previewId)))
+    .limit(1)
+    .$withCache(false);
+  return prior ? "redeploy" : "create";
+}
+
+export type ListedDeployment = DeploymentRow & { triggeredBy: DeploymentActor | null };
+
+/** All deployments for a resource, newest first, with who asked for each.
+ *  Status is the value stored in the row. Derived live by
+ *  `listResourceDeployments`. */
+export async function listDeploymentsByResource(
+  resourceId: ResourceId,
+  // Base rows by default; a preview id scopes to that PR's deployments (the
+  // preview panel's history view).
+  previewId: PreviewId | null = null,
+): Promise<ListedDeployment[]> {
+  const rows = await db
+    .select({ row: deployment, actorName: user.name, actorImage: user.image })
+    .from(deployment)
+    .leftJoin(user, eq(user.id, deployment.triggeredByUserId))
+    .where(
+      and(
+        eq(deployment.resourceId, resourceId),
+        previewId ? eq(deployment.previewId, previewId) : isNull(deployment.previewId),
+      ),
+    )
+    .orderBy(desc(deployment.createdAt));
+  return rows.map(({ row, actorName, actorImage }) => ({
+    ...row,
+    triggeredBy: actorName === null ? null : { name: actorName, image: actorImage ?? null },
+  }));
 }
 
 export async function insertDeployment(input: InsertInput): Promise<DeploymentRow> {

@@ -6,9 +6,9 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { serviceResource } from "@otterdeploy/db/schema/project";
+import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull, like, notExists } from "drizzle-orm";
 
 import type { RolloutTiming } from "../service/handlers";
 import type {
@@ -20,6 +20,7 @@ import type {
 
 import { declaredEnvOf, type Change, type ServiceManifest } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
+import { runGitBuilds } from "./manifest-apply-phases";
 import { type RefTable, resolveEnv } from "./manifest-apply-refs";
 import {
   createServiceFromManifest,
@@ -31,7 +32,6 @@ import { lookupServiceId } from "./manifest-apply-support";
 
 interface ServiceCreateOutcome {
   created: Result<ServiceApplied, ManifestApplySkipError>;
-  builds: GitBuild[];
   localSkipped: ManifestApplySkipError[];
   name: string;
 }
@@ -59,9 +59,14 @@ async function createOneService(
     env: resolved.values,
     log: ctx.log,
   });
-  const builds: GitBuild[] = [];
+  // The build is enqueued the moment the row exists, not at the end of the
+  // apply: every later phase (other services, stacks, databases, deletes) can
+  // abort the apply, and a build deferred past one never started, leaving a
+  // created service on its placeholder image with nothing to build it.
   if (created.isOk() && spec.source === "git") {
-    builds.push({ resourceId: created.value.resourceId, name: change.name });
+    localSkipped.push(
+      ...(await runGitBuilds(ctx, [{ resourceId: created.value.resourceId, name: change.name }])),
+    );
   }
   // Seed manifest-declared public domains onto the freshly-created service
   // (create-time only). Failures are non-fatal skips. The service itself is
@@ -78,7 +83,7 @@ async function createOneService(
       localSkipped.push(s);
     }
   }
-  return { created, builds, localSkipped, name: change.name };
+  return { created, localSkipped, name: change.name };
 }
 
 export async function runServiceCreates(
@@ -91,22 +96,19 @@ export async function runServiceCreates(
   );
   let applied = 0;
   const skipped: ManifestApplySkipError[] = [];
-  const gitBuilds: GitBuild[] = [];
   const rollouts: StartedRollout[] = [];
   for (const o of outcomes) {
     if (!o) continue;
     skipped.push(...o.localSkipped);
     if (o.created.isOk()) applied += 1;
     else skipped.push(o.created.error);
-    gitBuilds.push(...o.builds);
     rollouts.push(...startedRollout(o.name, o.created));
   }
-  return { applied, skipped, gitBuilds, rollouts };
+  return { applied, skipped, rollouts };
 }
 
 interface ServiceUpdateOutcome {
   updated: Result<ServiceApplied, ManifestApplySkipError>;
-  builds: GitBuild[];
   localSkipped: ManifestApplySkipError[];
   name: string;
 }
@@ -145,7 +147,9 @@ async function updateOneService(
     rollout: resolveRolloutTiming(ctx, change.name, spec.source, builds.length > 0),
     log: ctx.log,
   });
-  return { updated, builds, localSkipped: resolved.skipped, name: change.name };
+  // Enqueued here, with the update, for the same reason as a create's.
+  const buildSkipped = await runGitBuilds(ctx, builds);
+  return { updated, localSkipped: [...resolved.skipped, ...buildSkipped], name: change.name };
 }
 
 /** The rollout a create/update started, if it started one. */
@@ -195,15 +199,66 @@ export async function runServiceUpdates(
   );
   let applied = 0;
   const skipped: ManifestApplySkipError[] = [];
-  const gitBuilds: GitBuild[] = [];
   const rollouts: StartedRollout[] = [];
   for (const o of outcomes) {
     if (!o) continue;
     skipped.push(...o.localSkipped);
     if (o.updated.isOk()) applied += 1;
     else skipped.push(o.updated.error);
-    gitBuilds.push(...o.builds);
     rollouts.push(...startedRollout(o.name, o.updated));
   }
-  return { applied, skipped, gitBuilds, rollouts };
+  return { applied, skipped, rollouts };
+}
+
+/**
+ * A git service whose first build never started: bound to a repo, still on
+ * its placeholder image, and no deployment of any kind ever recorded.
+ *
+ * Read fresh: the apply that created it may have finished a moment ago.
+ */
+async function neverBuilt(resourceId: ResourceId): Promise<boolean> {
+  const [row] = await db
+    .select({ id: serviceResource.resourceId })
+    .from(serviceResource)
+    .where(
+      and(
+        eq(serviceResource.resourceId, resourceId),
+        like(serviceResource.image, "pending:%"),
+        isNotNull(serviceResource.gitRepoId),
+        notExists(
+          db
+            .select({ id: deployment.id })
+            .from(deployment)
+            .where(eq(deployment.resourceId, resourceId)),
+        ),
+      ),
+    )
+    .limit(1)
+    .$withCache(false);
+  return row !== undefined;
+}
+
+/**
+ * Git services this apply has no change for that were created and never
+ * built, so the apply builds them.
+ *
+ * The create promised a build. If the apply that created one was cut short
+ * before its build was enqueued (a crash, a restart), the service exists,
+ * matches the manifest, and diffs as a no-op on every later apply: nothing
+ * would ever build it again short of a manual Deploy. A service whose build
+ * did start and failed has a deployment, and is left to the operator.
+ */
+export async function unbuiltGitServices(
+  ctx: ApplyContext,
+  noOpServiceNames: readonly string[],
+): Promise<GitBuild[]> {
+  const found = await Promise.all(
+    noOpServiceNames.map(async (name): Promise<GitBuild | null> => {
+      if (ctx.manifest.services[name]?.source !== "git") return null;
+      const resourceId = await lookupServiceId(ctx.projectId, name, ctx.scope);
+      if (!resourceId || !(await neverBuilt(resourceId))) return null;
+      return { resourceId, name };
+    }),
+  );
+  return found.filter((b): b is GitBuild => b !== null);
 }

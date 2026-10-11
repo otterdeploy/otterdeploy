@@ -7,6 +7,7 @@
 import { matchError } from "better-result";
 
 import { requirePermission } from "../..";
+import { gitBuildReason } from "../project/deployments";
 import { enqueueGitBuild } from "../project/manifest-apply";
 import { setServiceBuildServer } from "./build-server";
 import { loadResource } from "./context";
@@ -38,6 +39,12 @@ export const serviceRuntimeRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         resourceId: input.resourceId,
+        // Deploy on a service that has run before is a redeploy, and its
+        // history should say so rather than read as the first deploy again.
+        reason: await gitBuildReason(input.resourceId),
+        // Who clicked Deploy. The deployment's commit author is who wrote the
+        // code, which is not the same person (and is often a bot).
+        triggeredByUserId: context.session?.user.id ?? null,
         noCache: input.noCache ?? false,
         log: context.log,
       });
@@ -136,6 +143,7 @@ export const serviceRuntimeRouter = {
           // behind instead of asking the operator to confirm in the abstract.
           // A server that is not the caller's reads as one that does not exist.
           UnknownPlacementServerError: () => errors.NOT_FOUND(),
+          PlacementNeedsSwarmError: (e) => errors.PLACEMENT_UNSUPPORTED({ message: e.message }),
           PlacementVolumeLossError: (e) =>
             errors.PLACEMENT_VOLUME_LOSS({ message: e.message, data: { mounts: e.mounts } }),
           RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),

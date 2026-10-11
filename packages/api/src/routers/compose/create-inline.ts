@@ -15,6 +15,7 @@ import type {
   ComposeCreateFailure,
   ComposeCreateInput,
   ComposeCreateOutput,
+  ComposeCreateTarget,
   ComposeProject,
   ExposedSeed,
 } from "./create";
@@ -80,6 +81,7 @@ export function composeCreateVariables(input: ComposeCreateInput): StackVariable
 export async function createInlineCompose(
   input: ComposeCreateInput,
   project: ComposeProject,
+  target: ComposeCreateTarget,
   exposed: ExposedSeed[],
   placementServerId: ServerId | null,
   log: RequestLogger,
@@ -87,17 +89,14 @@ export async function createInlineCompose(
   const resolved = resolveInlineInput(input);
   if (resolved.isErr()) return Result.err(resolved.error);
   const { files, composeContent, composePath, parsed, services, name } = resolved.value;
-  const stackName = stackNameFor(project.slug, name);
+  const stackName = stackNameFor(project.slug, `${name}${target.stackSuffix}`);
 
   const created = await Result.tryPromise({
     try: () =>
       createComposeRecord({
         projectId: input.projectId,
-        // Stamp the environment like every other create path. Unstamped rows
-        // are only visible because MAIN additionally owns NULL (a legacy
-        // allowance in inEnvironmentScope): a non-main environment would
-        // never see this stack.
-        environmentId: project.environmentId,
+        // The environment the caller asked for; see create.ts.
+        environmentId: target.environmentId,
         name,
         source: "inline",
         composeContent,

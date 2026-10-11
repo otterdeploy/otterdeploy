@@ -28,7 +28,11 @@ import type { RequestLogger } from "evlog";
 
 import { Result, TaggedError } from "better-result";
 
-import { resolvePlacementSeed, type UnknownPlacementServerError } from "../../lib/placement-seed";
+import {
+  type PlacementNeedsSwarmError,
+  resolveRunPlacementSeed,
+  type UnknownPlacementServerError,
+} from "../../lib/placement-seed";
 import { setResourcePlacement } from "../service/queries";
 import { ProjectNotFoundError } from "./errors";
 import { restartDatabaseResource } from "./postgres";
@@ -83,6 +87,7 @@ export async function setDatabasePlacement(
     | DatabaseResourceNotFoundError
     | DatabaseMoveDataLossError
     | UnknownPlacementServerError
+    | PlacementNeedsSwarmError
   >
 > {
   // The project must be the caller's: the record lookup below is scoped to the
@@ -100,7 +105,10 @@ export async function setDatabasePlacement(
 
   // The target must be a server of the caller's own organization; an id that
   // is not a server, is another organization's, or does not exist fail alike.
-  const target = await resolvePlacementSeed({
+  // And one the runtime can start the engine on: plain Docker runs it on the
+  // control plane whatever the pin says, so a worker pin would be a record of
+  // a placement that never happens.
+  const target = await resolveRunPlacementSeed({
     serverId: input.serverId,
     organizationId: input.organizationId,
   });

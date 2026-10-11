@@ -62,7 +62,7 @@ async function gitService(): Promise<ResourceId> {
 }
 
 function build(resourceId: ResourceId, noCache = false) {
-  return enqueueGitBuild({ projectId, organizationId, resourceId, noCache, log });
+  return enqueueGitBuild({ projectId, organizationId, resourceId, reason: "create", noCache, log });
 }
 
 async function rowsOf(resourceId: ResourceId) {
