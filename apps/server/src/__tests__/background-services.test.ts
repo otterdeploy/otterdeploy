@@ -41,6 +41,7 @@ await stub("@otterdeploy/api/system-health", [
   "startHostHealthMonitor",
   "startLocalHealthSampler",
   "startOrphanResourceGc",
+  "startServiceDownWatch",
 ]);
 await mock.module("@otterdeploy/jobs/reconcile", () => ({
   reconcileInterruptedDeployments: mock(async () => undefined),
@@ -65,5 +66,15 @@ describe("certificate state probe", () => {
     expect(starts.get("startCertStateProbe")).toBe(before + 1);
     stop();
     expect(stops.get("startCertStateProbe")).toBe(before + 1);
+  });
+});
+
+describe("service down watch", () => {
+  test("starts at boot and stops with the rest", () => {
+    const before = starts.get("startServiceDownWatch") ?? 0;
+    const stop = startBackgroundServices();
+    expect(starts.get("startServiceDownWatch")).toBe(before + 1);
+    stop();
+    expect(stops.get("startServiceDownWatch")).toBe(before + 1);
   });
 });
