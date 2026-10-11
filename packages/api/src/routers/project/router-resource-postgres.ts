@@ -13,6 +13,7 @@ import {
 } from "./handlers";
 import { postgresDraftCredentialsHandler } from "./router-resource-postgres-draft";
 import { postgresSetPlacementHandler } from "./router-resource-postgres-placement";
+import { postgresRotatePasswordHandler } from "./router-resource-postgres-rotate";
 
 export const postgresResourceRouter = {
   // Streaming create. Pre-flight validation (project lookup + name
@@ -113,6 +114,8 @@ export const postgresResourceRouter = {
   }),
 
   setPlacement: postgresSetPlacementHandler,
+
+  rotatePassword: postgresRotatePasswordHandler,
 
   restart: requirePermission({
     database: ["update"],

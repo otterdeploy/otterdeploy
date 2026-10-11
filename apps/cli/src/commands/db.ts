@@ -18,6 +18,7 @@ import {
   table,
   warn,
 } from "../lib/ui";
+import { rotatePasswordCmd } from "./db-rotate";
 
 // API contract: ttlMinutes int, min 5, max 10_080 (7 days), default 60.
 const MIN_TTL_MINUTES = 5;
@@ -230,5 +231,6 @@ export const dbCommand = defineCommand({
   subCommands: {
     url: urlCmd,
     creds: credsCommand,
+    "rotate-password": rotatePasswordCmd,
   },
 });

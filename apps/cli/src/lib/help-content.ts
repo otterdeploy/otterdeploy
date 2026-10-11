@@ -156,6 +156,13 @@ export const EXAMPLES: Record<string, Example[]> = {
     { note: "issue a short-lived credential instead", run: "db url postgres --ephemeral" },
   ],
   "db creds list": [{ note: "list issued credentials", run: "db creds list postgres" }],
+  "db rotate-password": [
+    {
+      note: "rotate the password and redeploy every service that uses it",
+      run: "db rotate-password postgres",
+    },
+    { note: "skip the prompt (CI)", run: "db rotate-password postgres --yes" },
+  ],
 
   "backups run": [
     { note: "back up a database now", run: "backups run postgres" },
