@@ -28,7 +28,6 @@ import {
   mapComposeResource,
   mapDatabaseResource,
   mapServiceResource,
-  sanitizeProjectSlug,
   type ProjectResource,
 } from "./views";
 
@@ -109,7 +108,11 @@ export async function previewResourcePublicHost(
   const resolved = resolvePublicDomain(
     {
       resourceSlug: sanitizeSlug(input.name),
-      projectSlug: sanitizeProjectSlug(project.slug),
+      // The same label `exposeService` / `generateServiceDomain` mint with
+      // (sanitizeSlug caps it at 32), so a long project slug previews the
+      // host the service actually gets, and the manifest seed recognises the
+      // staged host as the generated one.
+      projectSlug: sanitizeSlug(project.slug),
       kind: "service",
     },
     sources,

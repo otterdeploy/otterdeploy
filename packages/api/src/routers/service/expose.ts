@@ -10,7 +10,7 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
-import { reconcile } from "../../caddy";
+import { queueReloadOf, queueRouteReload } from "../../caddy/edge-sync";
 import { promotePrimaryRoute } from "../../caddy/primary-route";
 import {
   listProxyRoutesByResourceId,
@@ -119,15 +119,31 @@ export async function exposeService(
     publicDomain,
   });
 
-  const reconcileResult = await reconcile(log);
-  log.set({
-    expose: {
-      domain: publicDomain,
-      applied: reconcileResult.applied.includes(input.projectId),
-    },
-  });
+  // Queued, not awaited: each route says pending until the
+  // reload settles it, and the panel hears that over the event stream.
+  await queueRouteReload({ resourceId: input.resourceId });
+  log.set({ expose: { domain: publicDomain } });
 
   return getService(input);
+}
+
+/**
+ * The host {@link generateServiceDomain} would mint for this service, without
+ * writing anything. Null when the service cannot be loaded.
+ *
+ * The manifest seed asks this to tell the platform's own address apart from a
+ * domain the operator brought: the new-service wizard stages the generated
+ * host it previewed, and that host has to land as the generated route, not as
+ * a custom domain that happens to carry the same name.
+ */
+export async function previewGeneratedHost(input: ResourceRef): Promise<string | null> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return null;
+  const { project, record } = ctx.value;
+  const { resolved } = await resolveGeneratedDomain(input, record, sanitizeSlug(project.slug), {
+    honorOverride: false,
+  });
+  return resolved.fqdn;
 }
 
 /**
@@ -182,8 +198,8 @@ export async function generateServiceDomain(
   }
 
   const after = await listProxyRoutesByResourceId(input.resourceId);
-  const route = after.find((r) => r.domain === resolved.fqdn);
-  if (!route) return Result.err(new DomainConflictError({ domain: resolved.fqdn }));
+  const written = after.find((r) => r.domain === resolved.fqdn);
+  if (!written) return Result.err(new DomainConflictError({ domain: resolved.fqdn }));
 
   await setPublicExposure({
     resourceId: input.resourceId,
@@ -192,7 +208,8 @@ export async function generateServiceDomain(
     enabled: true,
     publicDomain: (await settlePrimaryRoute(input.resourceId, after)) ?? resolved.fqdn,
   });
-  await reconcile(log);
+  // Queued, not awaited.
+  const route = await queueReloadOf(written);
 
   log.set({ domain: { action: "generate", domain: resolved.fqdn, source: resolved.source } });
   return Result.ok(toDomainView(route, serverIp));
@@ -214,7 +231,8 @@ export async function unexposeService(
     enabled: false,
     publicDomain: null,
   });
-  await reconcile(log);
+  // Queued, not awaited.
+  await queueRouteReload({ resourceId: input.resourceId });
   log.set({ unexpose: { service: ctx.value.record.service.serviceName } });
 
   return getService(input);

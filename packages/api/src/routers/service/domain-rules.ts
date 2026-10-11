@@ -44,6 +44,9 @@ export interface ServiceDomainView {
   certState: "unknown" | "obtaining" | "valid" | "failed";
   certError: string | null;
   certCheckedAt: string | null;
+  /** Whether the edge runs this host's latest change: see edge-state.ts. */
+  edgeState: "synced" | "pending" | "failed";
+  edgeError: string | null;
   usesAcme: boolean;
   protected: boolean;
   ownershipVerified: boolean;
@@ -80,6 +83,8 @@ export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null):
     certState: route.certState,
     certError: route.certError,
     certCheckedAt: route.certCheckedAt ? route.certCheckedAt.toISOString() : null,
+    edgeState: route.edgeState,
+    edgeError: route.edgeError,
     usesAcme: route.usesAcme,
     protected: route.protected,
     ownershipVerified: route.source === "generated" || route.domainVerifiedAt !== null,
