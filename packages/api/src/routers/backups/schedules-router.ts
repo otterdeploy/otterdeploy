@@ -32,6 +32,7 @@ async function presentScheduleWithDetails(
     schedule,
     destinationNames,
     missingSources: resolution.missing,
+    sourceNames: resolution.labels,
   });
 }
 

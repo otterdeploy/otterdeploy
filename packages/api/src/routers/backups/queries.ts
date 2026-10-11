@@ -16,6 +16,7 @@ import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schem
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
 
+import { partitionSources } from "../../backups/schedule-db";
 import { listStackDatabaseResources } from "../../backups/stack";
 
 type BackupKind = "database" | "volume";
@@ -121,6 +122,8 @@ export interface ScheduleRow {
   /** Source refs that no longer resolve to a live database resource. The
    *  schedule is orphaned. Empty when every source is healthy. */
   missingSources: string[];
+  /** A readable name for each of `schedule.sources`, in the same order. */
+  sourceNames: string[];
 }
 
 export async function listSchedulesByOrg(organizationId: OrganizationId): Promise<ScheduleRow[]> {
@@ -151,19 +154,23 @@ export async function listSchedulesByOrg(organizationId: OrganizationId): Promis
   ]);
 
   const nameById = new Map(dests.map((d) => [d.id, d.name]));
-  // Every ref (id or name) that currently points at a live database resource.
-  const liveRefs = new Set<string>();
-  for (const r of [...dbResources, ...stackResources]) {
-    liveRefs.add(r.id);
-    liveRefs.add(r.name);
-  }
-  return schedules.map((schedule) => ({
-    schedule,
-    destinationNames: schedule.destinationIds
-      .map((id) => nameById.get(id))
-      .filter((n): n is string => Boolean(n)),
-    missingSources: schedule.sources.filter((s) => !liveRefs.has(s)),
-  }));
+  // The same matcher the scheduler and "run now" use, so the list can never
+  // disagree with what a run would resolve.
+  const candidates = [
+    ...dbResources.map((r) => ({ id: r.id, name: r.name, kind: "database" as const })),
+    ...stackResources.map((r) => ({ id: r.id, name: r.name, kind: "stack" as const })),
+  ];
+  return schedules.map((schedule) => {
+    const sources = partitionSources(schedule.sources, candidates);
+    return {
+      schedule,
+      destinationNames: schedule.destinationIds
+        .map((id) => nameById.get(id))
+        .filter((n): n is string => Boolean(n)),
+      missingSources: sources.missing,
+      sourceNames: sources.labels,
+    };
+  });
 }
 
 /** Managed databases in the org, in the picker's shape. The stack half comes

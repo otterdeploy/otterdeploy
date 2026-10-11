@@ -131,9 +131,10 @@ export async function runDueBackupSchedules(now = new Date()): Promise<void> {
 }
 
 async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
-  // A null nextRunAt means the schedule was just created (or its cron
-  // edited). Only arm its fire time, don't backfill a run, and leave the
-  // last-run fields reporting the last pass that ran. Otherwise it's due.
+  // A null nextRunAt is a schedule written before create and cron edits
+  // armed it themselves (schedule-crud.ts). Only arm its fire time, don't
+  // backfill a run, and leave the last-run fields reporting the last pass
+  // that ran. Otherwise it's due.
   if (schedule.nextRunAt == null) {
     await setScheduleNextRun(schedule.id, nextFireTime(schedule.cron, now));
     return;

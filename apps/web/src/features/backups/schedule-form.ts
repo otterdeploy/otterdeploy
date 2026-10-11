@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import type { Destination } from "./data/destinations";
 import type { Schedule } from "./data/schedules";
 
-import { schedulesCollection } from "./data/schedules";
+import { pickedSourceNames, schedulesCollection } from "./data/schedules";
 
 export type CronPreset = "hourly" | "daily" | "weekly" | "monthly" | "custom";
 
@@ -199,7 +199,7 @@ function saveSchedule(
   if (initial) {
     return schedulesCollection.update(initial.id, (draft) => {
       draft.name = value.name.trim();
-      draft.sources = sources;
+      Object.assign(draft, { sources, sourceNames: pickedSourceNames(sources) });
       draft.cron = cron;
       draft.destinationIds = value.destinationIds.map((id) => idSchema.backupDestination.parse(id));
       draft.keepLast = value.keepLast;
@@ -255,6 +255,7 @@ function saveSchedule(
       .filter((n): n is string => Boolean(n)),
     // Freshly created. The server resolves real source health on refetch.
     missingSources: [],
+    sourceNames: pickedSourceNames(sources),
   });
 }
 
