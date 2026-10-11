@@ -142,3 +142,9 @@ export const projectCollection = persistence
 export function projectIdBySlug(slug: string): string | undefined {
   return projectCollection.toArray.find((p) => p.slug === slug)?.id;
 }
+
+/** The reverse: a project's slug from its id, via the already-loaded
+ *  collection. Undefined when the row is not loaded. */
+export function projectSlugById(id: string): string | undefined {
+  return projectCollection.toArray.find((p) => p.id === id)?.slug;
+}

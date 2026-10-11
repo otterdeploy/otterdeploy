@@ -22,6 +22,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { DEPENDENCIES_COLLECTION_KEY } from "@/features/projects/data/dependencies";
+import { projectSlugById } from "@/features/projects/data/project";
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { SERVICE_TASKS_COLLECTION_KEY } from "@/features/resources/data/service-tasks";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -31,9 +32,9 @@ type ProjectId = Id<typeof ID_PREFIX.project>;
 /**
  * A manifest as the save endpoint accepts it: the project slug is a plain
  * string (the schema brands it server-side on parse). Every read `Manifest`
- * is assignable to this, and it lets the empty seed carry the deliberate
- * falsy `""` slug (which mutators replace via `current.project || slug`)
- * without asserting a brand it doesn't have.
+ * is assignable to this, and it lets the empty seed carry a falsy `""` slug,
+ * which `stageManifestChange` fills in, without asserting a brand it doesn't
+ * have.
  */
 type ManifestDraft = Omit<Manifest, "project"> & { project: string };
 
@@ -41,7 +42,8 @@ type ManifestDraft = Omit<Manifest, "project"> & { project: string };
 type ManifestMutator = (current: ManifestDraft) => ManifestDraft;
 
 /** Seed an empty manifest so a mutator never has to special-case the
- *  first-ever change on a fresh project. */
+ *  first-ever change on a fresh project. Its `project` is filled in by
+ *  `stageManifestChange`, which knows the slug. */
 const emptyManifest = (): ManifestDraft => ({
   version: 1,
   project: "",
@@ -85,6 +87,32 @@ export async function invalidateManifestConsumers(projectId: ProjectId) {
   ]);
 }
 
+/** The slug a manifest must name: from the loaded project list, or the
+ *  server when the list does not have the project yet. */
+async function projectSlugOf(projectId: ProjectId): Promise<string> {
+  return projectSlugById(projectId) ?? (await orpc.project.get.call({ id: projectId })).slug;
+}
+
+/**
+ * Read the saved manifest, apply `mutate`, and save it back under the
+ * version that was read.
+ *
+ * The first change on a project seeds an empty manifest, which does not know
+ * its project. The server requires the slug there, so it is filled in here
+ * once rather than by each staging surface.
+ */
+export async function stageManifestChange(projectId: ProjectId, mutate: ManifestMutator) {
+  const current = await orpc.project.manifest.get.call({ id: projectId });
+  const next = mutate(current.manifest ?? emptyManifest());
+  const manifest = { ...next, project: next.project || (await projectSlugOf(projectId)) };
+  await orpc.project.manifest.save.call({
+    projectId,
+    manifest,
+    expectedVersion: current.version,
+  });
+  return { version: current.version + 1, manifest };
+}
+
 interface UseStageManifestChangeOptions {
   /**
    * Toast on success. Default `null`: the staging bar is the feedback
@@ -100,16 +128,7 @@ export function useStageManifestChange(
   const { successToast = null } = options;
 
   return useMutation({
-    mutationFn: async (mutate: ManifestMutator) => {
-      const current = await orpc.project.manifest.get.call({ id: projectId });
-      const next = mutate(current.manifest ?? emptyManifest());
-      await orpc.project.manifest.save.call({
-        projectId,
-        manifest: next,
-        expectedVersion: current.version,
-      });
-      return { version: current.version + 1, manifest: next };
-    },
+    mutationFn: (mutate: ManifestMutator) => stageManifestChange(projectId, mutate),
     onSuccess: async () => {
       if (successToast) toast.success(successToast);
       await invalidateManifestConsumers(projectId);
