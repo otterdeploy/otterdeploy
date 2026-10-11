@@ -16,13 +16,14 @@ import { and, eq, sql } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 import * as z from "zod";
 
+import type { ManifestMergeError } from "../../stack/manifest";
+
+import { manifestSchema, resolveEnvironment, type Manifest } from "../../stack/manifest";
 import {
-  manifestSchema,
-  resolveEnvironment,
-  type Manifest,
-  type ManifestMergeError,
-} from "../../stack/manifest";
-import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
+  ManifestProjectMismatchError,
+  ManifestVersionConflictError,
+  ProjectNotFoundError,
+} from "./errors";
 import { manifestAfterDiscard, type SkippedResource } from "./manifest-applied-snapshot";
 import { publishManifestChanged } from "./project-event-bus";
 
@@ -152,48 +153,16 @@ export async function loadAppliedSnapshot(scope: ProjectScope): Promise<Manifest
   return parsed.success ? parsed.data : null;
 }
 
-/**
- * What a save would REMOVE, relative to the manifest already stored.
- *
- * `manifest.save` replaces the whole document, so a payload that merely omits
- * a resource deletes it. That is a defensible design for a declarative
- * document, but it means the difference between "update one field" and "wipe
- * the project" is invisible at the call site: the correct read-modify-write
- * pattern has to be inferred, and only the `expectedVersion` check stands
- * between a malformed payload and a project with no services (od-mizn).
- *
- * PURE, so the dangerous part is the part that is testable.
- */
-export interface ManifestRemoval {
-  resource: "service" | "database" | "compose";
-  name: string;
-}
-
-export function manifestRemovals(current: Manifest | null, next: Manifest): ManifestRemoval[] {
-  if (!current) return [];
-  const sections = [
-    ["service", current.services, next.services],
-    ["database", current.databases, next.databases],
-    ["compose", current.composes, next.composes],
-  ] as const;
-
-  const removals: ManifestRemoval[] = [];
-  for (const [resource, before, after] of sections) {
-    for (const name of Object.keys(before ?? {})) {
-      if (!(name in (after ?? {}))) removals.push({ resource, name });
-    }
-  }
-  // Stable order: a diff the operator reads twice should not reshuffle.
-  return removals.sort(
-    (a, b) => a.resource.localeCompare(b.resource) || a.name.localeCompare(b.name),
-  );
-}
-
 /** Optimistic-locked write. Bump only when expectedVersion matches. */
 export async function saveManifest(
   scope: ProjectScope,
   input: { manifest: Manifest; expectedVersion: number },
-): Promise<Result<{ version: number }, ProjectNotFoundError | ManifestVersionConflictError>> {
+): Promise<
+  Result<
+    { version: number },
+    ProjectNotFoundError | ManifestVersionConflictError | ManifestProjectMismatchError
+  >
+> {
   const [updatedRow] = await db
     .update(project)
     .set({
@@ -205,6 +174,9 @@ export async function saveManifest(
         eq(project.id, scope.projectId),
         eq(project.organizationId, scope.organizationId),
         eq(project.manifestVersion, input.expectedVersion),
+        // The manifest names its own project, and the CLI resolves its target
+        // from that name. Part of the same write so a mismatch never lands.
+        eq(project.slug, input.manifest.project),
       ),
     )
     .returning({ version: project.manifestVersion });
@@ -215,7 +187,7 @@ export async function saveManifest(
   }
 
   const [current] = await db
-    .select({ version: project.manifestVersion })
+    .select({ version: project.manifestVersion, slug: project.slug })
     .from(project)
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
     .limit(1)
@@ -224,7 +196,14 @@ export async function saveManifest(
   if (!current) {
     return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   }
-  return Result.err(new ManifestVersionConflictError({ currentVersion: current.version }));
+  // A stale version first: after a rename the client's copy may name the old
+  // slug, and re-reading (what a conflict asks for) is what fixes that.
+  if (current.version !== input.expectedVersion) {
+    return Result.err(new ManifestVersionConflictError({ currentVersion: current.version }));
+  }
+  return Result.err(
+    new ManifestProjectMismatchError({ expected: current.slug, received: input.manifest.project }),
+  );
 }
 
 /**

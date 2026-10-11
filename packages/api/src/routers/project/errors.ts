@@ -252,6 +252,26 @@ export class ManifestVersionConflictError extends TaggedError("ManifestVersionCo
 }
 
 /**
+ * The manifest's `project` names a different project than the one it is being
+ * saved to. The CLI resolves its target FROM that field, so a manifest stored
+ * under the wrong name would point the next `deploy` from a pulled copy at
+ * another project and replace its manifest wholesale.
+ */
+export class ManifestProjectMismatchError extends TaggedError("ManifestProjectMismatchError")<{
+  message: string;
+  expected: string;
+  received: string;
+}>() {
+  constructor(args: { expected: string; received: string }) {
+    super({
+      expected: args.expected,
+      received: args.received,
+      message: `this manifest names project "${args.received}" but is being saved to "${args.expected}". Set its \`project\` to "${args.expected}"`,
+    });
+  }
+}
+
+/**
  * Per-resource skip during apply. Not a "fail the whole apply" error.
  * The reconciler keeps going and surfaces these in the `skipped[]`
  * result so the operator can see which resources didn't reconcile and

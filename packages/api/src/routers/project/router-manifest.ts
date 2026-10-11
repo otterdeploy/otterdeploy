@@ -2,52 +2,25 @@ import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
 import { environmentIdOrReject } from "../../lib/environment/resolve-slug-reject";
-import { parseCompose, summarizeCompose } from "../../stack/compose";
-import { diffManifest, resolveEnvironment, type Change, type Manifest } from "../../stack/manifest";
+import { diffManifest, resolveEnvironment } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { getProject } from "./handlers";
 import {
   discardManifest,
   loadAppliedSnapshot,
   loadManifest,
-  manifestRemovals,
   resolvedManifest,
   saveManifest,
 } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { refuseUnrunnablePlacement } from "./manifest-apply-placement";
 import { loadRefTable, makeEnvRefResolver, withStagedServices } from "./manifest-apply-refs";
+import { enrichComposeCreates } from "./manifest-compose-enrich";
+import { manifestRemovals } from "./manifest-removals";
 import { renameResource } from "./manifest-rename-apply";
 import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
-
-/**
- * Attach a parsed service summary to each compose `create` change so the graph
- * can render the staged stack as a ghost group node WITH its service cards,
- * not an empty "No services parsed yet" box. Parsing lives here (the handler),
- * not in the pure `diffManifest`, so the diff stays YAML-free and testable.
- * Git stacks have no inline file to parse; their cards appear after the build.
- */
-function enrichComposeCreates(changes: Change[], manifest: Manifest): Change[] {
-  return changes.map((c) => {
-    if (c.resource !== "compose" || c.kind !== "create") return c;
-    const spec = manifest.composes[c.name];
-    if (!spec || spec.source !== "inline") return c;
-    const parsed = parseCompose(spec.content);
-    if (parsed.isErr()) return c;
-    return {
-      ...c,
-      details: {
-        ...c.details,
-        services: summarizeCompose(parsed.value),
-        // Carry the template brand so the pending ghost group renders the
-        // stack's logo immediately, before the first deploy persists it.
-        ...(spec.logoBrand ? { logoBrand: spec.logoBrand } : {}),
-      },
-    };
-  });
-}
 
 export const manifestRouter = {
   get: orgScopedProcedure.project.manifest.get.handler(async ({ input, context, errors }) => {
@@ -102,6 +75,8 @@ export const manifestRouter = {
         throw matchError(outcome.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ManifestVersionConflictError: () => errors.CONFLICT(),
+          ManifestProjectMismatchError: (error) =>
+            errors.PROJECT_MISMATCH({ message: error.message }),
         });
       }
       return { ...outcome.value, removed, dryRun: false };
@@ -298,6 +273,8 @@ export const manifestRouter = {
         throw matchError(saved.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ManifestVersionConflictError: () => errors.CONFLICT(),
+          ManifestProjectMismatchError: (error) =>
+            errors.PROJECT_MISMATCH({ message: error.message }),
         });
       }
 

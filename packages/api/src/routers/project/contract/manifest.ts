@@ -249,6 +249,17 @@ const conflict = {
   },
 };
 
+/** The manifest's `project` names a different project than the one it is
+ *  being saved to. Refused, never silently corrected: the CLI resolves its
+ *  target from that field, so rewriting it would hide which project the file
+ *  really points at. */
+const projectMismatch = {
+  PROJECT_MISMATCH: {
+    status: 400,
+    message: "This manifest names a different project" as const,
+  },
+} as const;
+
 /**
  * Apply found no saved manifest to reconcile. It used to answer SUCCESS with
  * `appliedCount: 0` and nothing skipped, which a caller cannot tell apart from
@@ -280,7 +291,7 @@ export const manifestContractSlice = {
     .output(manifestGetOutput),
   save: oc
     .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
-    .errors({ ...projectNotFoundErrors, ...conflict, ...placementUnsupported })
+    .errors({ ...projectNotFoundErrors, ...conflict, ...placementUnsupported, ...projectMismatch })
     .meta({ path: `${basePath}/{projectId}/manifest`, tag, method: "PUT" })
     .input(manifestSaveInput)
     .output(manifestSaveOutput),
@@ -303,6 +314,7 @@ export const manifestContractSlice = {
       ...unknownEnvironment,
       ...placementUnsupported,
       ...invalidOverride,
+      ...projectMismatch,
     })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)
