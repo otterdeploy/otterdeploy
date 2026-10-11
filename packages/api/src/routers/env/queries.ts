@@ -77,10 +77,26 @@ async function listResourcesInEnvironment(
     .where(eq(resource.environmentId, environmentId));
 }
 
+/** True when some project names this environment as its main one
+ *  (`project.environment_id`, a soft pointer with no FK). */
+async function isMainEnvironmentOfAProject(environmentId: EnvironmentId): Promise<boolean> {
+  const [row] = await db
+    .select({ id: project.id })
+    .from(project)
+    .where(eq(project.environmentId, environmentId))
+    .limit(1);
+  return row !== undefined;
+}
+
 /**
- * Atomic env delete that first null-outs any project pointing at this env
- * via `project.environmentId` (soft pointer, no DB FK). Without this, the
- * project row would carry a dangling id after delete.
+ * Atomic env delete.
+ *
+ * A project's MAIN environment is refused outright. `project.environment_id`
+ * is the pointer every scoped read resolves through, and with it gone the
+ * project reports zero resources everywhere while its containers keep
+ * running; nothing in the product sets a main pointer back. Deleting the
+ * project is what removes its main environment (the `environment.project_id`
+ * FK cascades), and that path does not come through here.
  *
  * Resource rows carry the same soft pointer, and they are the dangerous one: a
  * resource left with a dangling `environment_id` matches NO scope query. It is
@@ -123,10 +139,17 @@ export async function deleteEnvRecord(input: {
    *  non-empty environment is refused rather than orphaning its rows. */
   cascade?: boolean;
 }): Promise<
-  { ok: true; id: EnvironmentId } | { ok: false; reason: "not-found" | "has-resources" }
+  { ok: true; id: EnvironmentId } | { ok: false; reason: "not-found" | "has-resources" | "is-main" }
 > {
   const owned = await getEnvInOrg(input);
   if (!owned) return { ok: false, reason: "not-found" };
+
+  // Before the emptiness check: a main environment that still owns resources
+  // must not answer "confirm the cascade", because the cascade would only be
+  // refused here next.
+  if (await isMainEnvironmentOfAProject(input.environmentId)) {
+    return { ok: false, reason: "is-main" };
+  }
 
   const ownedResources = await listResourcesInEnvironment(input.environmentId);
   if (ownedResources.length > 0 && !input.cascade) {
@@ -134,11 +157,6 @@ export async function deleteEnvRecord(input: {
   }
 
   const result = await db.transaction(async (tx) => {
-    await tx
-      .update(project)
-      .set({ environmentId: null })
-      .where(eq(project.environmentId, input.environmentId));
-
     // Ordered before the environment delete so no row is ever left pointing at
     // an id that has stopped existing, even if the transaction is inspected
     // mid-flight by another connection.

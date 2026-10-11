@@ -146,6 +146,13 @@ export const envContract = {
         status: 409,
         message: "Environment still owns resources. Confirm to delete them with it" as const,
       },
+      // Also 409, but not CONFLICT: that code tells the client to retry with
+      // `cascade`, and no retry succeeds here. The project's main environment
+      // goes when the project does.
+      IS_MAIN: {
+        status: 409,
+        message: "This is the project's main environment. Delete the project instead" as const,
+      },
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
     .input(deleteEnvInput)
