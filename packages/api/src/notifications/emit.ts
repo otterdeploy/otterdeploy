@@ -27,6 +27,9 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
  *     `deploy.failed` subscribers: a broken push is a failed deploy to the
  *     operator (packages/jobs/src/delivery/subscribed-events.ts).
  *   - health.degraded / health.recovered (src/metrics/health-detector.ts)
+ *   - service.down / service.up (src/system-health/down-watch.ts), the
+ *     desired-vs-actual pass: a resource whose deployment reads `running`
+ *     with no container behind it
  *   - host.pressure    (src/metrics/sampler.ts)
  *   - cert.renewed     (src/edge-logs/cert-promote.ts)
  *   - ssh.rotated, audit.anomaly, edge.probe
