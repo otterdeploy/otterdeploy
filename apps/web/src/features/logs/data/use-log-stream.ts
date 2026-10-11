@@ -30,6 +30,8 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
+import { liveSocket } from "@/shared/server/orpc";
+
 export type LogStreamStatus = "connecting" | "live" | "ended" | "error";
 
 interface StreamSnapshot<TLine> {
@@ -283,13 +285,20 @@ export function useLogStream<TRaw, TLine>(
           // A live tail that ends cleanly is a disconnect, not a conclusion.
         } catch (err) {
           if (ctrl.signal.aborted) return;
-          // Announce the failure once per outage, not once per retry tick.
-          if (buffer.getSnapshot().status !== "error") {
-            buffer.setStatus("error");
-            const errLine = optsRef.current.onError?.(err, ++seqRef.current);
-            if (errLine != null) buffer.push(errLine, bufferSize);
+          if (liveSocket.released) {
+            // The tab was hidden long enough to release its live socket, which
+            // ended this stream on purpose. Not a failure to show anyone: the
+            // reopen below waits for the tab to be visible, then reattaches.
+            buffer.setStatus("connecting");
+          } else {
+            // Announce the failure once per outage, not once per retry tick.
+            if (buffer.getSnapshot().status !== "error") {
+              buffer.setStatus("error");
+              const errLine = optsRef.current.onError?.(err, ++seqRef.current);
+              if (errLine != null) buffer.push(errLine, bufferSize);
+            }
+            if (cacheCompleted) return;
           }
-          if (cacheCompleted) return;
         }
         initial = false;
         await new Promise<void>((resolve) => setTimeout(resolve, 1_500));

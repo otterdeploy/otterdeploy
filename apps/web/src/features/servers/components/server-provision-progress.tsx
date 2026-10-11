@@ -11,6 +11,27 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { ProvisionStepper } from "./server-provision-stepper";
 
+/**
+ * Drop lines this view already has.
+ *
+ * `server.provisionLogs` replays its whole scrollback to every subscriber, and
+ * the retry plugin's reconnect is a new subscription. A dropped connection, or
+ * a hidden tab's released live socket coming back, used to append the run so
+ * far a second time. A provision line carries its own timestamp, so the pair
+ * identifies it.
+ */
+async function* onlyUnseen<T extends { line: string; ts: string }>(
+  stream: AsyncIterable<T>,
+): AsyncGenerator<T> {
+  const seen = new Set<string>();
+  for await (const raw of stream) {
+    const key = `${raw.ts}\u0000${raw.line}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    yield raw;
+  }
+}
+
 function lineClass(line: string): string {
   if (line.startsWith("✗")) return "text-red-500";
   if (line.startsWith("✓")) return "text-emerald-500";
@@ -29,10 +50,12 @@ export function ProvisionProgress({
     { line: string; ts: string },
     { seq: number; line: string }
   >({
-    open: (signal) =>
-      orpc.server.provisionLogs.call(
-        { id: serverId },
-        { signal, context: { retry: Number.POSITIVE_INFINITY } },
+    open: async (signal) =>
+      onlyUnseen(
+        await orpc.server.provisionLogs.call(
+          { id: serverId },
+          { signal, context: { retry: Number.POSITIVE_INFINITY } },
+        ),
       ),
     map: (raw, seq) => ({ seq, line: raw.line }),
     key: serverId,
