@@ -1,6 +1,6 @@
 /**
  * One inbound trigger endpoint: name + status, what a verified request does,
- * the unique endpoint URL (copyable), the HMAC secret behind an eye-reveal,
+ * the unique endpoint URL and the HMAC secret, both masked with reveal and copy,
  * allowed method + source IPs, and the last invocation time.
  *
  * Delete rides `inboundCollection` (optimistic); pause is a direct call
@@ -8,19 +8,18 @@
  */
 import { useState } from "react";
 
-import { Copy01Icon, Delete01Icon, PencilEdit01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Delete01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { relativeTime } from "@/features/notifications/shared";
+import { SensitiveValue } from "@/shared/components/sensitive-value";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { copyToClipboard } from "@/shared/lib/clipboard";
 import { client } from "@/shared/server/orpc";
 
 import { inboundCollection, invalidateInbound } from "./data/webhooks";
-import { SecretReveal } from "./secret-reveal";
 import { STATUS_META, inboundUrl, type InboundEndpoint } from "./shared";
 
 function actionDescription(e: InboundEndpoint): string {
@@ -38,20 +37,7 @@ export function InboundCard({
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const url = inboundUrl(endpoint.token);
   const { label, dot } = STATUS_META[endpoint.status];
-
-  const copyUrl = () => {
-    void copyToClipboard(url).then((ok) => {
-      if (!ok) {
-        toast.error("Couldn't copy URL");
-        return;
-      }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
 
   const pause = () => {
     setBusy(true);
@@ -117,17 +103,9 @@ export function InboundCard({
           <div className="mb-1.5 text-[10px] tracking-wider text-muted-foreground uppercase">
             Endpoint URL
           </div>
-          <div className="flex items-center gap-1 rounded-md border bg-muted/40 py-1 pr-1 pl-2">
-            <span className="min-w-0 flex-1 truncate font-mono text-[11.5px]">{url}</span>
-            <Button size="sm" variant="ghost" className="h-6 gap-1 px-2" onClick={copyUrl}>
-              <HugeiconsIcon
-                icon={copied ? Tick02Icon : Copy01Icon}
-                strokeWidth={2}
-                className="size-3.5"
-              />
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </div>
+          {/* The token in the path is what names this endpoint to a sender:
+              masked like the secret, copied whole. */}
+          <SensitiveValue label="endpoint URL" prefix={inboundUrl("")} value={endpoint.token} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
@@ -135,9 +113,9 @@ export function InboundCard({
             <div className="mb-1.5 text-[10px] tracking-wider text-muted-foreground uppercase">
               HMAC secret
             </div>
-            <SecretReveal
+            <SensitiveValue
               label={t("webhooks.hmacSecret")}
-              fetchSecret={() =>
+              fetchValue={() =>
                 client.webhooks.inbound.reveal({ id: endpoint.id }).then((r) => r.secret)
               }
             />
