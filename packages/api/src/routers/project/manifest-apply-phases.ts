@@ -68,7 +68,6 @@ export interface StartedRollout {
 export interface PhaseContribution {
   applied: number;
   skipped: ManifestApplySkipError[];
-  gitBuilds: GitBuild[];
   rollouts?: StartedRollout[];
 }
 
@@ -84,7 +83,7 @@ function tallyResults(
     if (r.isOk()) applied += 1;
     else skipped.push(r.error);
   }
-  return { applied, skipped, gitBuilds: [] };
+  return { applied, skipped };
 }
 
 export async function runDatabaseCreates(
@@ -199,7 +198,7 @@ export async function runServiceDeletes(
         }),
       );
   }
-  return { applied, skipped, gitBuilds: [] };
+  return { applied, skipped };
 }
 
 // ── 7. Database deletes ────────────────────────────────────────────────
@@ -235,10 +234,14 @@ export async function runDatabaseDeletes(
         }),
       );
   }
-  return { applied, skipped, gitBuilds: [] };
+  return { applied, skipped };
 }
 
-// ── Enqueue builds for git-sourced service creates/updates ─────────────
+// ── Enqueue builds for git-sourced services ─────────────────────────────
+// Called by the service phases the moment a create/update lands (never
+// deferred to the end of the apply, where anything that aborted the apply in
+// between stranded a created service with no build), and once more at the end
+// for a service whose first build never started (see unbuiltGitServices).
 export async function runGitBuilds(
   ctx: ApplyContext,
   gitBuilds: GitBuild[],
