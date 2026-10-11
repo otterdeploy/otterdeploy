@@ -28,7 +28,7 @@ import { cn } from "@/shared/lib/utils";
 import { AUTO_WRITE, useFormContext } from "../form-context";
 import { SectionHeader, builderCardClass, builderCardActiveClass } from "../form-primitives";
 import { I } from "../icons";
-import { imageBasename, knownImagePort } from "../image-defaults";
+import { defaultImagePort, imageBasename } from "../image-defaults";
 import { ImageTagBrowser } from "./image-tags";
 
 interface RegistryOption {
@@ -74,10 +74,9 @@ function applyImageDefaults(form: WizardForm, image: string): void {
   if (form.getFieldMeta("ports")?.isDirty === true) return;
   const ports = form.getFieldValue("ports");
   if (ports.length !== 1) return;
-  // Unknown image → 0 rather than a stale guess carried over from the last
-  // one. An empty port asks the operator; a wrong one (the old hardcoded
-  // 3000) breaks publishing silently.
-  const port = knownImagePort(image) ?? 0;
+  // Recomputed from the current image, never carried over from the last one:
+  // its conventional port when known, else 80, written where it shows.
+  const port = defaultImagePort(image);
   if (ports[0].port !== port) {
     form.setFieldValue("ports", [{ ...ports[0], port }], AUTO_WRITE);
   }

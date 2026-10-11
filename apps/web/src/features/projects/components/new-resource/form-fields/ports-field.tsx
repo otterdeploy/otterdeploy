@@ -60,10 +60,12 @@ export function PortsField({ hostPlaceholder }: { hostPlaceholder?: string }) {
           <Input
             className="font-mono"
             type="number"
-            // 0 is the "not filled in yet" sentinel. Render as empty, not a
-            // literal 0 the operator has to delete.
+            // 0 is the "cleared" sentinel. Render as empty, not a literal 0
+            // the operator has to delete. No numeric placeholder: an empty
+            // field that reads "80" looks filled in, and a public row needs a
+            // real port (schemas/networking.ts) to continue.
             value={p.port === 0 ? "" : p.port}
-            placeholder="80"
+            aria-label="Container port"
             onChange={(e) => {
               const raw = e.target.value === "" ? 0 : +e.target.value;
               const next = ports.map((x, j) => (j === i ? { ...x, port: raw } : x));

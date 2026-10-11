@@ -4,18 +4,23 @@
  * Two honest derivations, nothing speculative:
  *   - `imageBasename` → the service-name seed ("nginx", not "docker"): the
  *     last path segment of the reference, tag/digest stripped, slug-safe.
- *   - `knownImagePort` → the conventional listen port for a short list of
- *     official images whose EXPOSE is common knowledge. Anything not in the
- *     table stays empty, a wrong guess (the old hardcoded 3000) breaks
- *     publishing silently, an empty field asks the operator.
+ *   - `defaultImagePort` → the conventional listen port for a short list of
+ *     official images whose EXPOSE is common knowledge, else 80 (HTTP's own
+ *     port). The value is written INTO the field, where the operator sees
+ *     and can change it, and the review shows it. An empty field with an
+ *     "80" placeholder looked filled in and then failed validation.
  */
 
 import type { Port } from "./form-fields/ports-field";
 
-/** Pristine ports row for the docker flow: no invented port. Public stays
- *  the default-on it is elsewhere; the schema requires a real port before a
- *  public row can continue. */
-export const DOCKER_PORT_DEFAULTS: Port[] = [{ port: 0, protocol: "http", public: true, host: "" }];
+/** A web image's port when the table below doesn't know the image. */
+const HTTP_PORT = 80;
+
+/** Pristine ports row for the docker flow: HTTP on 80, public, the default-on
+ *  it is elsewhere. Step Image replaces the port once it knows the image. */
+export const DOCKER_PORT_DEFAULTS: Port[] = [
+  { port: HTTP_PORT, protocol: "http", public: true, host: "" },
+];
 
 /** "ghcr.io/owner/app:1.2@sha256:…" → "app". Empty string when nothing
  *  name-like can be extracted. */
@@ -56,6 +61,8 @@ const KNOWN_IMAGE_PORTS: Record<string, number> = {
   meilisearch: 7700,
 };
 
-export function knownImagePort(image: string): number | null {
-  return KNOWN_IMAGE_PORTS[imageBasename(image)] ?? null;
+/** The port the docker flow fills in for `image`: its conventional one when
+ *  known, else 80. */
+export function defaultImagePort(image: string): number {
+  return KNOWN_IMAGE_PORTS[imageBasename(image)] ?? HTTP_PORT;
 }
