@@ -6,13 +6,11 @@ import { redisCache } from "./cache";
 import { withQueryDeadlines } from "./query-deadline";
 import { relations } from "./relations";
 
-// Own the underlying pool explicitly. Bun's SQL driver defaults to an
-// uncapped-feeling pool with no idle reaping, so under `bun --hot` every
-// reload re-evaluates this module, builds a fresh pool, and orphans the
-// previous one's sockets. They pile up until Postgres hits
-// `max_connections` and starts returning `53300 too many clients`. Capping
-// `max` and reaping idle/aged connections keeps a single process bounded
-// and lets any leaked pool drain itself.
+// Own the underlying pool explicitly and cap it at `max` connections, so one
+// process holds a bounded share of Postgres' `max_connections`. Under
+// `bun --hot` every reload re-evaluates this module and builds a fresh pool;
+// the `import.meta.hot.dispose` hook at the bottom closes the old one, so
+// reloads do not pile up orphaned sockets.
 /**
  * How long to wait for a new connection to be established (TCP + auth) before
  * the query that needed it fails. Bun's default is 30s; with the procedure
@@ -39,11 +37,21 @@ export const DB_CONNECT_TIMEOUT_SECONDS = 5;
  */
 export const DB_STATEMENT_TIMEOUT_MS = 300_000;
 
+/**
+ * Bun.SQL's connection timers are disabled on purpose (od-8r7r). Both
+ * `idleTimeout` and `maxLifetime` fire while a statement is still running on
+ * the connection and fail it ("Idle timeout reached", "Max lifetime timeout
+ * reached"), so with the old 20 s / 30 min values any statement over 20 s
+ * failed, and any statement in flight when its connection turned 30 minutes
+ * old failed too. Statements are bounded by `statement_timeout` and the
+ * request deadline instead; packages/api's db-long-statement.postgres.test.ts
+ * pins both the driver behaviour and this pool.
+ */
 const client = new SQL({
   url: env.DATABASE_URL,
   max: 10,
-  idleTimeout: 20,
-  maxLifetime: 60 * 30,
+  idleTimeout: 0,
+  maxLifetime: 0,
   connectionTimeout: DB_CONNECT_TIMEOUT_SECONDS,
   connection: { statement_timeout: DB_STATEMENT_TIMEOUT_MS },
 });
