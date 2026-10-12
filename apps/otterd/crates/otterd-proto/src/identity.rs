@@ -179,7 +179,24 @@ pub struct CrossSigned {
     pub by_new: SignedEnvelope,
 }
 
-/// Control-plane signing-key transition: nodes accept both keys
+/// The control plane's acceptance of a node key rotation
+/// (`otterd/key-rotation-ack/v1`). The node activates the new key epoch only
+/// after it holds this, so neither side is left trusting keys the other lost.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct KeyRotationAck {
+    pub install_id: InstallId,
+    pub node_id: NodeId,
+    pub node_epoch: U53,
+    /// The accepted (new) key epoch.
+    pub key_epoch: U53,
+    /// The accepted (new) identity key.
+    pub identity_key_id: KeyId,
+    pub accepted_at_unix_ms: UnixMs,
+}
+
+/// Control-plane signing-key transition, carried as [`CrossSigned`] by the
+/// outgoing and the incoming key over the same payload: nodes accept both keys
 /// until `old_valid_until`, and acknowledge the transition epoch.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

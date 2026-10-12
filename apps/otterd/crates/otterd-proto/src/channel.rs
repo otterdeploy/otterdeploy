@@ -22,7 +22,7 @@ use crate::capability::CapabilityError;
 use crate::command::OpOutcome;
 use crate::discovery::DiscoveryMessage;
 use crate::envelope::SignedEnvelope;
-use crate::identity::HostFacts;
+use crate::identity::{CrossSigned, HostFacts};
 use crate::ids::{BatchId, BootId, Incarnation, InstallId, KeyId, NodeId, Nonce, OpId, SessionId};
 use crate::lifecycle::{LeaseRequest, SlotReport};
 use crate::metrics::{BatchDisposition, SampleBatch};
@@ -262,6 +262,30 @@ pub enum ControlFrame {
         document: SignedEnvelope,
     },
 
+    // ---- keys (feature `key-rotation`) ----
+    /// node → CP: a node key rotation, signed by the outgoing and incoming
+    /// identity keys. Re-sent unchanged until acknowledged.
+    KeyRotation {
+        statement: CrossSigned,
+    },
+    /// CP → node: signed [`crate::identity::KeyRotationAck`]. Only then does
+    /// the node switch to the new key epoch.
+    KeyRotationAck {
+        ack: SignedEnvelope,
+    },
+    /// CP → node: a [`crate::identity::CpKeyTransition`] signed by the outgoing
+    /// and the incoming control-plane key.
+    CpKeyTransition {
+        transition: CrossSigned,
+    },
+    /// node → CP: the transition is journalled; the node now trusts the
+    /// incoming key and keeps the outgoing one until its end of validity.
+    #[serde(rename_all = "camelCase")]
+    CpKeyTransitionAck {
+        key_id: KeyId,
+        epoch: U53,
+    },
+
     // ---- liveness and time ----
     #[serde(rename_all = "camelCase")]
     Ping {
@@ -323,6 +347,10 @@ impl ControlFrame {
             Self::TelemetryAck { .. } => "telemetryAck",
             Self::Discovery { .. } => "discovery",
             Self::Authority { .. } => "authority",
+            Self::KeyRotation { .. } => "keyRotation",
+            Self::KeyRotationAck { .. } => "keyRotationAck",
+            Self::CpKeyTransition { .. } => "cpKeyTransition",
+            Self::CpKeyTransitionAck { .. } => "cpKeyTransitionAck",
             Self::Ping { .. } => "ping",
             Self::Pong { .. } => "pong",
             Self::GoAway { .. } => "goAway",

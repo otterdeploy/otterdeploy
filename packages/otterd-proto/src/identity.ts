@@ -94,6 +94,17 @@ export const keyRotation = z.strictObject({
 
 export const crossSigned = z.strictObject({ byOld: signedEnvelope, byNew: signedEnvelope });
 
+/** Control-plane acceptance of a node key rotation (`otterd/key-rotation-ack/v1`). */
+export const keyRotationAck = z.strictObject({
+  installId: wireId,
+  nodeId: wireId,
+  nodeEpoch: u53,
+  keyEpoch: u53,
+  identityKeyId: keyId,
+  acceptedAtUnixMs: u53,
+});
+
+/** Carried as `crossSigned` by the outgoing and the incoming key. */
 export const cpKeyTransition = z.strictObject({
   installId: wireId,
   fromKeyId: keyId,

@@ -34,8 +34,8 @@ so the operator sees which side must upgrade. That is the upgrade-order gate
 of the release order. Separate counters version the journal format, the ServiceSpec
 schema, the health evaluator IR and the metric schema. Optional behaviours are
 `features` (`bulk`, `realtime-metrics`, `probe-executor`, `discovery-relay`,
-`platform-bootstrap`), used only when both sides list them; nothing that
-affects safety hides behind a feature.
+`platform-bootstrap`, `key-rotation`), used only when both sides list them;
+nothing that affects safety hides behind a feature.
 
 ### Signed envelopes (`envelope.rs`)
 
@@ -71,6 +71,7 @@ holds envelopes both languages reproduce byte for byte.
 | `otterd/membership/v1` | CP | `Membership` |
 | `otterd/peer-answer/v1` | target node | `PeerAnswer` |
 | `otterd/anchor/v1` | enrollment / recovery key | off-node anchor records (daemon core) |
+| `otterd/key-rotation-ack/v1` | CP | `KeyRotationAck` |
 
 ## Channels (`channel.rs`, `bulk.rs`)
 
@@ -124,6 +125,18 @@ hash for the capability, which is the only correct way to build a request.
 | `telemetry` / `telemetryAck {batchId, disposition, credit}` | node → CP / CP → node | `SampleBatch`, credit-limited. `deferred` = keep buffering and retry; `refused` = drop and count. |
 | `discovery {from, to, message}` | relayed by the CP | A `DiscoveryMessage` when the peer path is down. The CP can carry but never answer a challenge. |
 | `authority {document}` | CP → node | A signed serving set, membership revision or authority revocation. |
+
+### Keys (feature `key-rotation`)
+
+Without the feature, keys change only by re-enrollment. The verb set is
+unchanged: rotation is a channel exchange, not a command.
+
+| Frame | Direction | Meaning |
+|---|---|---|
+| `keyRotation {statement}` | node → CP | `CrossSigned` `KeyRotation`: the outgoing key signs, the incoming key signs the same bytes. The node has written the new epoch's keys before sending, and re-sends the same statement until it is acknowledged. |
+| `keyRotationAck {ack}` | CP → node | CP-signed `KeyRotationAck {installId, nodeId, nodeEpoch, keyEpoch, identityKeyId, acceptedAtUnixMs}` naming exactly the new key. The node journals `keysRotated`, switches to the new epoch and reconnects with it. |
+| `cpKeyTransition {transition}` | CP → node | `CpKeyTransition` as `CrossSigned` by the outgoing and the incoming CP key. The outgoing key must be valid when it arrives; the incoming key's epoch must exceed every trusted epoch. |
+| `cpKeyTransitionAck {keyId, epoch}` | node → CP | The node journalled `cpKeysChanged`: it trusts the incoming key, and the outgoing key only until `oldValidUntilUnixMs`. |
 
 ### Bulk channel
 

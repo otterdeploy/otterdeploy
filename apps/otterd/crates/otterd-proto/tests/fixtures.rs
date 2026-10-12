@@ -30,7 +30,7 @@ use otterd_proto::health::{
 };
 use otterd_proto::identity::{
     AuthorityRevocation, CpKeyTransition, CrossSigned, EnrollCertificate, EnrollRequest,
-    KeyRotation, NodeRole,
+    KeyRotation, KeyRotationAck, NodeRole,
 };
 use otterd_proto::journal::Entry;
 use otterd_proto::lifecycle::{LeaseRenewal, SlotGrant, SlotReport, StopCertificate};
@@ -209,6 +209,30 @@ fn health_check() -> Value {
         "readyHoldMs": 10000, "degradedAfterMs": 2000, "healthAction": "none",
         "outcomePolicyRevision": 1
     })
+}
+
+fn key_rotation() -> Value {
+    json!({"installId": "inst_1", "nodeId": "node_1", "nodeEpoch": 3,
+        "fromKeyEpoch": 1, "newKeys": {"keyEpoch": 2, "identity": public(6),
+        "cacheEncryption": public(7), "wireguard": public(8)}, "reason": "scheduled"})
+}
+
+fn key_rotation_statement() -> Value {
+    json!({
+        "byOld": sign(NODE, SignContext::KeyRotation, &key_rotation()),
+        "byNew": sign(6, SignContext::KeyRotation, &key_rotation())})
+}
+
+fn key_rotation_ack() -> Value {
+    json!({"installId": "inst_1", "nodeId": "node_1", "nodeEpoch": 3, "keyEpoch": 2,
+        "identityKeyId": public(6).key_id().to_string(), "acceptedAtUnixMs": 1_791_000_000_000_u64})
+}
+
+fn cp_key_transition() -> Value {
+    json!({
+        "installId": "inst_1", "fromKeyId": public(CP).key_id().to_string(),
+        "to": {"key": public(9), "epoch": 2, "notAfterUnixMs": 1_822_536_000_000_u64},
+        "oldValidUntilUnixMs": 1_791_604_800_000_u64})
 }
 
 fn sample_batch() -> Value {
@@ -466,6 +490,12 @@ fn schemas() {
                "kind": "challenge", "challenge": {"receiverId": "node_2",
                "receiverBoot": "4c1d1b7e-1d8a-4f0b-9d3e-000000000002", "ownerId": "node_1", "nonce": NONCE_B}}}),
         json!({"type": "authority", "document": sign(CP, SignContext::ServingSet, &json!({"x": 1}))}),
+        json!({"type": "keyRotation", "statement": key_rotation_statement()}),
+        json!({"type": "keyRotationAck", "ack": sign(CP, SignContext::KeyRotationAck, &key_rotation_ack())}),
+        json!({"type": "cpKeyTransition", "transition": {
+               "byOld": sign(CP, SignContext::CpKeyTransition, &cp_key_transition()),
+               "byNew": sign(9, SignContext::CpKeyTransition, &cp_key_transition())}}),
+        json!({"type": "cpKeyTransitionAck", "keyId": public(9).key_id().to_string(), "epoch": 2}),
         json!({"type": "ping", "seq": 3, "nodeMonoMs": 123_456}),
         json!({"type": "pong", "seq": 3, "nodeMonoMs": 123_456, "cpUnixMs": 1_791_000_000_000_u64}),
         json!({"type": "goAway", "code": "maintenance", "message": "control plane restarting",
@@ -563,23 +593,10 @@ fn schemas() {
                    "prefix": "inst_1/", "region": "nbg1"},
         "issuedAtUnixMs": 1_791_000_000_000_u64, "reason": "fenced"})],
     );
-    let rotation = json!({"installId": "inst_1", "nodeId": "node_1", "nodeEpoch": 3,
-        "fromKeyEpoch": 1, "newKeys": {"keyEpoch": 2, "identity": public(6),
-        "cacheEncryption": public(7), "wireguard": public(8)}, "reason": "scheduled"});
-    schema_file::<KeyRotation>("KeyRotation", vec![rotation.clone()]);
-    schema_file::<CrossSigned>(
-        "CrossSigned",
-        vec![json!({
-        "byOld": sign(NODE, SignContext::KeyRotation, &rotation),
-        "byNew": sign(6, SignContext::KeyRotation, &rotation)})],
-    );
-    schema_file::<CpKeyTransition>(
-        "CpKeyTransition",
-        vec![json!({
-        "installId": "inst_1", "fromKeyId": public(CP).key_id().to_string(),
-        "to": {"key": public(9), "epoch": 2, "notAfterUnixMs": 1_822_536_000_000_u64},
-        "oldValidUntilUnixMs": 1_791_604_800_000_u64})],
-    );
+    schema_file::<KeyRotation>("KeyRotation", vec![key_rotation()]);
+    schema_file::<CrossSigned>("CrossSigned", vec![key_rotation_statement()]);
+    schema_file::<KeyRotationAck>("KeyRotationAck", vec![key_rotation_ack()]);
+    schema_file::<CpKeyTransition>("CpKeyTransition", vec![cp_key_transition()]);
     schema_file::<AuthorityRevocation>(
         "AuthorityRevocation",
         vec![json!({
