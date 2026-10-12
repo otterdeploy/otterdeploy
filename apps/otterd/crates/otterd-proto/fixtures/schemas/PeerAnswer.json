@@ -1,0 +1,11 @@
+{
+  "cases": [
+    {
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "lastObservedCpTerm": 2,
+      "nodeId": "node_1",
+      "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "schema": "PeerAnswer"
+}

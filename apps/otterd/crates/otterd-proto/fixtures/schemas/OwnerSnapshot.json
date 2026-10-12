@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "endpoints": [
+        {
+          "address": "10.240.1.5",
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "generation": 7,
+          "grantId": "grant_7",
+          "ports": [
+            {
+              "port": 8080,
+              "protocol": "tcp"
+            }
+          ],
+          "readinessRevision": 3,
+          "scopeId": "scope_prod",
+          "slot": {
+            "index": 1,
+            "resourceId": "res_web"
+          }
+        }
+      ],
+      "fullSetDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "membershipEpoch": 9,
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "placementRevision": 44,
+      "publisherIncarnation": 5,
+      "seq": 1201
+    },
+    {
+      "endpoints": [],
+      "fullSetDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "membershipEpoch": 9,
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "placementRevision": 45,
+      "publisherIncarnation": 5,
+      "seq": 1202
+    }
+  ],
+  "schema": "OwnerSnapshot"
+}

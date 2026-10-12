@@ -53,6 +53,7 @@ otterdeploy/
 │   ├── server/      # Backend API
 │   ├── builder/     # BullMQ build worker, git-sourced services
 │   ├── cli/         # End-user CLI (`otterdeploy`)
+│   ├── otterd/      # Rust workspace: the per-node daemon (not yet wired into installs)
 │   ├── www/         # Marketing site + docs (otterdeploy.com): Cloudflare Workers
 │   └── get/         # get.otterdeploy.com install edge (CF Worker + R2)
 ├── packages/
@@ -60,6 +61,7 @@ otterdeploy/
 │   ├── auth/        # Authentication (better-auth)
 │   ├── db/          # Database schema
 │   ├── email/       # Email (Resend) client & templates
+│   ├── otterd-proto/ # zod mirror of the otterd wire contract (parity-tested against apps/otterd fixtures)
 │   └── jobs/        # Job queue (BullMQ), workers, triggers, registry
 ```
 

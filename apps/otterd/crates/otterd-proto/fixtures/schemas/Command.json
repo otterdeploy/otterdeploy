@@ -1,0 +1,606 @@
+{
+  "cases": [
+    {
+      "grant": {
+        "authorityTerm": 2,
+        "dataClaims": [
+          {
+            "access": "rw",
+            "claimEpoch": 1,
+            "dataIdentity": "vol:inst_1:6f1c"
+          }
+        ],
+        "disconnectAction": "continue-existing",
+        "exclusive": true,
+        "generation": 4,
+        "grantId": "grant_1",
+        "incarnation": "inc_0123456789abcdef0123456789abcdef",
+        "nodeEpoch": 3,
+        "probeOnly": false,
+        "restart": {
+          "condition": "on-failure",
+          "delayMs": 5000,
+          "maxAttempts": 3,
+          "windowMs": 60000
+        },
+        "slot": {
+          "index": 0,
+          "resourceId": "res_pg"
+        }
+      },
+      "spec": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "mounted",
+          "disconnectAction": "continue-existing",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          }
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 1
+        },
+        "resourceId": "res_pg",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      },
+      "verb": "workload.apply"
+    },
+    {
+      "grantId": "grant_1",
+      "reason": "operator",
+      "verb": "workload.restart"
+    },
+    {
+      "grantId": "grant_1",
+      "reason": "rollout",
+      "stopGraceMs": 10000,
+      "verb": "workload.stop"
+    },
+    {
+      "grantId": "grant_1",
+      "verb": "workload.remove"
+    },
+    {
+      "resourceId": "res_pg",
+      "verb": "workload.inspect"
+    },
+    {
+      "follow": true,
+      "resourceId": "res_web",
+      "stream": {
+        "deadlineUnixMs": 1791000060000,
+        "direction": "out",
+        "maxBytes": 1048576,
+        "streamId": 1
+      },
+      "tail": 200,
+      "verb": "workload.logs"
+    },
+    {
+      "grant": {
+        "authorityTerm": 2,
+        "dataClaims": [
+          {
+            "access": "rw",
+            "claimEpoch": 1,
+            "dataIdentity": "vol:inst_1:6f1c"
+          }
+        ],
+        "disconnectAction": "continue-existing",
+        "exclusive": true,
+        "generation": 4,
+        "grantId": "grant_1",
+        "incarnation": "inc_0123456789abcdef0123456789abcdef",
+        "nodeEpoch": 3,
+        "probeOnly": false,
+        "restart": {
+          "condition": "on-failure",
+          "delayMs": 5000,
+          "maxAttempts": 3,
+          "windowMs": 60000
+        },
+        "slot": {
+          "index": 0,
+          "resourceId": "res_pg"
+        }
+      },
+      "runId": "run_1",
+      "spec": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "job",
+          "disconnectAction": "stop",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          }
+        },
+        "mode": {
+          "completions": 1,
+          "kind": "job",
+          "maxConcurrent": 1
+        },
+        "resourceId": "res_job",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "args": [
+              "true"
+            ],
+            "image": {
+              "reference": "alpine:3"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 10000
+          },
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      },
+      "verb": "job.run"
+    },
+    {
+      "opId": "op_apply_1",
+      "verb": "op.status"
+    },
+    {
+      "verb": "node.details"
+    },
+    {
+      "verb": "node.health"
+    },
+    {
+      "verb": "node.units"
+    },
+    {
+      "targets": [
+        "images",
+        "build-cache"
+      ],
+      "verb": "node.reclaim"
+    },
+    {
+      "release": {
+        "context": "otterd/release-manifest/v1",
+        "keyId": "34750f98bd59fcfc946da45aaabe933b",
+        "payload": "eyJ2ZXJzaW9uIjoiMC4yLjAifQ==",
+        "signature": "BeyjcjA0M+jijWlzGDEHTYZthtdjCd4Cefn+JSeZeB4eVlRTvR7qk1YcNBb/mkEQrrEnXvRZnRAz0CsUJUY7DA=="
+      },
+      "verb": "node.upgrade"
+    },
+    {
+      "reason": "retired",
+      "verb": "node.decommission"
+    },
+    {
+      "certificate": {
+        "context": "otterd/enroll/v1",
+        "keyId": "34750f98bd59fcfc946da45aaabe933b",
+        "payload": "eyJ4IjoxfQ==",
+        "signature": "LAe3UbQv5hzm9oZPx5OmaITFBJRzcV2EHduZtilHhYK7DWwGGeeRITVchnupApOzgw2BuXQuT43CMgcgbq/0Ag=="
+      },
+      "verb": "node.reenroll"
+    },
+    {
+      "evidence": {
+        "adapter": "hetzner",
+        "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+        "evidenceId": "ev_1",
+        "method": "provider-power-off",
+        "nodeEpoch": 3,
+        "observedAtUnixMs": 1791000000000,
+        "providerActionId": "act_9"
+      },
+      "verb": "node.retireByBarrier"
+    },
+    {
+      "cacheMs": 60000,
+      "includeDetails": false,
+      "verb": "metrics.sample"
+    },
+    {
+      "sinceCursor": "c-42",
+      "stream": {
+        "deadlineUnixMs": 1791000060000,
+        "direction": "out",
+        "maxBytes": 1048576,
+        "streamId": 2
+      },
+      "verb": "events.subscribe"
+    },
+    {
+      "checks": [
+        {
+          "attemptTimeoutMs": 5000,
+          "degradedAfterMs": 2000,
+          "failureThreshold": 3,
+          "healthAction": "none",
+          "id": "chk_web",
+          "installId": "inst_1",
+          "intervalMs": 60000,
+          "orgId": "org_1",
+          "outcomePolicyRevision": 1,
+          "probe": {
+            "assertions": [
+              {
+                "kind": "status-range",
+                "max": 299,
+                "min": 200
+              },
+              {
+                "kind": "header-contains",
+                "name": "content-type",
+                "value": "json"
+              },
+              {
+                "kind": "body-contains",
+                "value": "ok"
+              },
+              {
+                "kind": "json-equals",
+                "pointer": "/status",
+                "value": "pass"
+              }
+            ],
+            "followRedirects": false,
+            "kind": "http",
+            "maxRedirects": 0,
+            "method": "GET",
+            "tlsVerify": true,
+            "url": "http://10.240.0.5:8080/healthz"
+          },
+          "readyHoldMs": 10000,
+          "resourceId": "res_web",
+          "retries": 1,
+          "retryBackoffMs": 1000,
+          "revision": 2,
+          "role": "readiness",
+          "roundBudgetMs": 15000,
+          "startPeriodMs": 10000,
+          "subjectId": "res_web",
+          "successThreshold": 1,
+          "vantage": "serving-path"
+        }
+      ],
+      "revision": 5,
+      "verb": "health.configure"
+    },
+    {
+      "all": true,
+      "managedOnly": false,
+      "verb": "container.list"
+    },
+    {
+      "container": "abc123",
+      "verb": "container.inspect"
+    },
+    {
+      "container": "abc123",
+      "follow": false,
+      "stream": {
+        "deadlineUnixMs": 1791000060000,
+        "direction": "out",
+        "maxBytes": 1048576,
+        "streamId": 3
+      },
+      "verb": "container.logs"
+    },
+    {
+      "argv": [
+        "sh"
+      ],
+      "container": "abc123",
+      "stream": {
+        "direction": "duplex",
+        "maxBytes": 1048576,
+        "streamId": 4,
+        "tty": {
+          "cols": 120,
+          "rows": 40
+        }
+      },
+      "verb": "container.exec"
+    },
+    {
+      "reference": "postgres:17",
+      "registryAuthRef": "reg_1",
+      "verb": "image.pull"
+    },
+    {
+      "reference": "registry.local/acme/web:1",
+      "verb": "image.push"
+    },
+    {
+      "reference": "postgres:17",
+      "verb": "image.inspect"
+    },
+    {
+      "verb": "image.list"
+    },
+    {
+      "reference": "postgres:16",
+      "verb": "image.remove"
+    },
+    {
+      "verb": "image.prune"
+    },
+    {
+      "verb": "network.list"
+    },
+    {
+      "name": "otterd-scope_prod",
+      "verb": "network.inspect"
+    },
+    {
+      "internal": false,
+      "name": "otterd-scope_prod",
+      "scopeId": "scope_prod",
+      "subnet": "10.240.1.0/27",
+      "verb": "network.ensure"
+    },
+    {
+      "aliases": [
+        "db"
+      ],
+      "container": "abc123",
+      "network": "otterd-scope_prod",
+      "verb": "network.connect"
+    },
+    {
+      "container": "abc123",
+      "network": "otterd-scope_prod",
+      "verb": "network.disconnect"
+    },
+    {
+      "name": "old-net",
+      "verb": "network.remove"
+    },
+    {
+      "verb": "volume.list"
+    },
+    {
+      "name": "pgdata",
+      "verb": "volume.inspect"
+    },
+    {
+      "dataIdentity": "vol:inst_1:6f1c",
+      "name": "pgdata",
+      "verb": "volume.create"
+    },
+    {
+      "name": "pgdata",
+      "verb": "volume.remove"
+    },
+    {
+      "path": "/",
+      "verb": "volume.fs",
+      "volume": "pgdata"
+    },
+    {
+      "path": "/",
+      "stream": {
+        "deadlineUnixMs": 1791000060000,
+        "direction": "out",
+        "maxBytes": 1048576,
+        "streamId": 5
+      },
+      "verb": "volume.export",
+      "volume": "pgdata"
+    },
+    {
+      "path": "/",
+      "stream": {
+        "direction": "in",
+        "maxBytes": 1048576,
+        "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "streamId": 6
+      },
+      "verb": "volume.import",
+      "volume": "pgdata"
+    },
+    {
+      "snapshot": "pgdata@1",
+      "verb": "volume.snapshot",
+      "volume": "pgdata"
+    },
+    {
+      "dataIdentity": "vol:inst_1:7a2d",
+      "source": "pgdata@1",
+      "target": "pgdata-branch",
+      "verb": "volume.clone"
+    },
+    {
+      "pool": "otterd",
+      "verb": "pool.stats"
+    },
+    {
+      "pool": "otterd",
+      "verb": "pool.trim"
+    },
+    {
+      "addBytes": 10737418240,
+      "pool": "otterd",
+      "verb": "pool.grow"
+    },
+    {
+      "backupId": "bk_1",
+      "repositoryRef": "repo_1",
+      "resourceId": "res_pg",
+      "verb": "backup.run"
+    },
+    {
+      "backupId": "bk_2",
+      "repositoryRef": "repo_1",
+      "resourceId": "res_pg",
+      "snapshot": "snap_1",
+      "verb": "backup.restore"
+    },
+    {
+      "backupId": "bk_1",
+      "verb": "backup.status"
+    },
+    {
+      "attemptId": "att_0123456789abcdef0123456789abcdef",
+      "port": 5432,
+      "stream": {
+        "direction": "duplex",
+        "maxBytes": 1048576,
+        "streamId": 7
+      },
+      "verb": "db.connect"
+    },
+    {
+      "stream": {
+        "direction": "duplex",
+        "maxBytes": 67108864,
+        "streamId": 8,
+        "tty": {
+          "cols": 80,
+          "rows": 24
+        }
+      },
+      "verb": "host.shell"
+    },
+    {
+      "generation": 12,
+      "policy": {
+        "body": "{\"a\":1}",
+        "digest": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862",
+        "schema": "otterd.firewall-policy/1"
+      },
+      "verb": "firewall.apply"
+    },
+    {
+      "argv": [
+        "decisions",
+        "list",
+        "-o",
+        "json"
+      ],
+      "verb": "firewall.cscli"
+    },
+    {
+      "generation": 3,
+      "routes": {
+        "body": "{\"a\":1}",
+        "digest": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862",
+        "schema": "otterd.routes/1"
+      },
+      "verb": "proxy.apply"
+    },
+    {
+      "verb": "proxy.status"
+    },
+    {
+      "manifest": {
+        "context": "otterd/platform-boot-manifest/v1",
+        "keyId": "b62e867fa2f33afe62d5d6b1642e1621",
+        "payload": "eyJ4IjoxfQ==",
+        "signature": "IU/e4ZF7UU+RYp19uxMaO8FK21ShDvdcT3eNZPTpERkdgm1xFwDny97okrrjtNKle3wOvXav4lxPVeHPRwQdAg=="
+      },
+      "verb": "platform.update"
+    }
+  ],
+  "schema": "Command"
+}

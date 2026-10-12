@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "fromKeyEpoch": 1,
+      "installId": "inst_1",
+      "newKeys": {
+        "cacheEncryption": "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=",
+        "identity": "iodf/x6zhFFXes1a/uQFRWVo3XyJ4JCGOgVXvHr0nxc=",
+        "keyEpoch": 2,
+        "wireguard": "E5j2LG0aRXxRumpLXz29L2n8qTIWIY3ImX5Ba9F9k8o="
+      },
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "reason": "scheduled"
+    }
+  ],
+  "schema": "KeyRotation"
+}

@@ -1,0 +1,11 @@
+{
+  "cases": [
+    {
+      "belowTerm": 2,
+      "installId": "inst_1",
+      "issuedAtUnixMs": 1791000000000,
+      "reason": "restore from backup"
+    }
+  ],
+  "schema": "AuthorityRevocation"
+}

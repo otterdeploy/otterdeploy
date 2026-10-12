@@ -1,0 +1,23 @@
+{
+  "name": "@otterdeploy/otterd-proto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "bun test ./src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-result": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

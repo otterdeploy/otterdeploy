@@ -1,0 +1,322 @@
+{
+  "cases": [
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "assertions": [
+          {
+            "kind": "status-range",
+            "max": 299,
+            "min": 200
+          },
+          {
+            "kind": "header-contains",
+            "name": "content-type",
+            "value": "json"
+          },
+          {
+            "kind": "body-contains",
+            "value": "ok"
+          },
+          {
+            "kind": "json-equals",
+            "pointer": "/status",
+            "value": "pass"
+          }
+        ],
+        "followRedirects": false,
+        "kind": "http",
+        "maxRedirects": 0,
+        "method": "GET",
+        "tlsVerify": true,
+        "url": "http://10.240.0.5:8080/healthz"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "readiness",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "serving-path"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "command": {
+          "argv": [
+            "pg_isready"
+          ],
+          "kind": "argv"
+        },
+        "kind": "exec",
+        "user": "postgres"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "command": {
+          "kind": "shell",
+          "script": "test -f /ready"
+        },
+        "kind": "exec"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "host": "10.240.0.5",
+        "kind": "tcp",
+        "port": 5432
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "host": "10.240.0.6",
+        "kind": "grpc",
+        "port": 9090,
+        "service": "app.Health",
+        "tls": false
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "expect": {
+          "contains": "93.184.215.14",
+          "kind": "answer"
+        },
+        "kind": "dns",
+        "name": "example.com",
+        "recordType": "A",
+        "server": "1.1.1.1"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "expect": {
+          "kind": "nxdomain"
+        },
+        "kind": "dns",
+        "name": "gone.example.com",
+        "recordType": "A"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "expect": {
+          "kind": "servfail"
+        },
+        "kind": "dns",
+        "name": "broken.example.com",
+        "recordType": "AAAA"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "caBundleRef": "sec_ca",
+        "host": "10.240.0.7",
+        "kind": "tls",
+        "minDaysValid": 14,
+        "port": 443,
+        "serverName": "app.example.com",
+        "tlsVerify": true
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    },
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "host": "example.com",
+        "kind": "icmp"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "uptime",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "outside"
+    }
+  ],
+  "schema": "HealthCheck"
+}

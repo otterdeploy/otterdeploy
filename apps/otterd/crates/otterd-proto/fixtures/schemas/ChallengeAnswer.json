@@ -1,0 +1,13 @@
+{
+  "cases": [
+    {
+      "nonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "ownerEpoch": 3,
+      "receiverBoot": "4c1d1b7e-1d8a-4f0b-9d3e-000000000002",
+      "receiverId": "node_2",
+      "seq": 1201,
+      "snapshotDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    }
+  ],
+  "schema": "ChallengeAnswer"
+}

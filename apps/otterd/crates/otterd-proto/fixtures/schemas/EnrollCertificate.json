@@ -1,0 +1,42 @@
+{
+  "cases": [
+    {
+      "anchor": {
+        "bucket": "otter-anchor",
+        "endpoint": "https://nbg1.your-objectstorage.com",
+        "prefix": "inst_1/",
+        "region": "nbg1"
+      },
+      "authorityTerm": 2,
+      "controlUrl": "wss://cp.example.com/api/otterd/connect",
+      "cpKeys": [
+        {
+          "epoch": 1,
+          "key": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+        }
+      ],
+      "host": {
+        "machineId": "4f0c3c8e1b2a4d5e8f9a0b1c2d3e4f50",
+        "productUuid": "e3b0c442-98fc-1c14-9afb-f4c8996fb924",
+        "provider": {
+          "createdAt": "2026-10-11T22:50:00Z",
+          "provider": "hetzner",
+          "serverId": "51234567"
+        }
+      },
+      "identityKeyId": "6a3803d5f059902a1c6dafbc9ba47292",
+      "installId": "inst_1",
+      "issuedAtUnixMs": 1791000000000,
+      "keyEpoch": 1,
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "reason": "fenced",
+      "recoveryKey": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY/k2NsFGFKyHN9E=",
+      "roles": [
+        "worker",
+        "edge"
+      ]
+    }
+  ],
+  "schema": "EnrollCertificate"
+}

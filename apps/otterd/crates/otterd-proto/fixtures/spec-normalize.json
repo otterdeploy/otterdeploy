@@ -1,0 +1,2081 @@
+{
+  "cases": [
+    {
+      "input": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 1
+        },
+        "resourceId": "res_pg",
+        "rollback": {},
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {}
+      },
+      "issues": [],
+      "name": "mounted database",
+      "normalized": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "mounted",
+          "disconnectAction": "continue-existing",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          }
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 1
+        },
+        "resourceId": "res_pg",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {},
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "parallelism": 1
+        }
+      },
+      "issues": [],
+      "name": "mount-free web",
+      "normalized": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {
+          "basis": "mount-free",
+          "disconnectAction": "stop",
+          "exclusive": false,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "reschedule"
+          }
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {},
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "bind",
+              "readOnly": true,
+              "source": "/srv/static",
+              "target": "/static"
+            }
+          ],
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "parallelism": 1
+        }
+      },
+      "issues": [],
+      "name": "read-only bind still counts as mounted",
+      "normalized": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {
+          "basis": "mounted",
+          "disconnectAction": "continue-existing",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          }
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "bind",
+              "readOnly": true,
+              "source": "/srv/static",
+              "target": "/static"
+            }
+          ],
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 1
+        },
+        "resourceId": "res_pg",
+        "rollback": {},
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "order": "start-first"
+        }
+      },
+      "issues": [
+        {
+          "code": "EXCLUSIVE_REQUIRES_STOP_FIRST",
+          "path": "/update/order",
+          "severity": "error"
+        }
+      ],
+      "name": "explicit start-first on exclusive",
+      "normalized": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "mounted",
+          "disconnectAction": "continue-existing",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          },
+          "overrides": [
+            "update-order"
+          ]
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 1
+        },
+        "resourceId": "res_pg",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 2
+        },
+        "resourceId": "res_pg",
+        "rollback": {},
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {}
+      },
+      "issues": [
+        {
+          "code": "SHARED_WRITABLE_MOUNT",
+          "path": "/mode",
+          "severity": "error"
+        }
+      ],
+      "name": "replicas sharing a writable volume",
+      "normalized": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "mounted",
+          "disconnectAction": "continue-existing",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          }
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 2
+        },
+        "resourceId": "res_pg",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {
+          "failoverDelayMs": 10000
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {},
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "parallelism": 1
+        }
+      },
+      "issues": [
+        {
+          "code": "FAILOVER_DELAY_BELOW_MINIMUM",
+          "path": "/lifecycle/failover/delayMs",
+          "severity": "error"
+        }
+      ],
+      "name": "failover delay below minimum",
+      "normalized": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {
+          "basis": "mount-free",
+          "disconnectAction": "stop",
+          "exclusive": false,
+          "failover": {
+            "delayMs": 10000,
+            "policy": "reschedule"
+          },
+          "overrides": [
+            "failover-delay"
+          ]
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "mode": "dnsrr",
+          "ports": [
+            {
+              "protocol": "udp",
+              "publish": "host",
+              "publishedPort": 53,
+              "targetPort": 53
+            }
+          ]
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {},
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "parallelism": 1
+        }
+      },
+      "issues": [
+        {
+          "code": "DNSRR_CLIENT_LIMITATIONS",
+          "path": "/endpoint/mode",
+          "severity": "warning"
+        }
+      ],
+      "name": "host port forces stop-first, dnsrr warns",
+      "normalized": {
+        "endpoint": {
+          "mode": "dnsrr",
+          "ports": [
+            {
+              "protocol": "udp",
+              "publish": "host",
+              "publishedPort": 53,
+              "targetPort": 53
+            }
+          ]
+        },
+        "lifecycle": {
+          "basis": "mount-free",
+          "disconnectAction": "stop",
+          "exclusive": false,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "reschedule"
+          }
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "concurrencyGroup": "cron:nightly"
+        },
+        "mode": {
+          "completions": 1,
+          "kind": "job",
+          "maxConcurrent": 1
+        },
+        "resourceId": "res_job",
+        "rollback": {},
+        "task": {
+          "container": {
+            "image": {
+              "reference": "alpine:3"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "tmpfs",
+              "target": "/tmp",
+              "tmpfsSizeBytes": 67108864
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {}
+      },
+      "issues": [],
+      "name": "job with tmpfs",
+      "normalized": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "job",
+          "concurrencyGroup": "cron:nightly",
+          "disconnectAction": "stop",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          }
+        },
+        "mode": {
+          "completions": 1,
+          "kind": "job",
+          "maxConcurrent": 1
+        },
+        "resourceId": "res_job",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "image": {
+              "reference": "alpine:3"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "tmpfs",
+              "target": "/tmp",
+              "tmpfsSizeBytes": 67108864
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "concurrencyGroup": "cron:nightly",
+          "exclusive": false
+        },
+        "mode": {
+          "completions": 1,
+          "kind": "job",
+          "maxConcurrent": 1
+        },
+        "resourceId": "res_job",
+        "rollback": {},
+        "task": {
+          "container": {
+            "image": {
+              "reference": "alpine:3"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "tmpfs",
+              "target": "/tmp",
+              "tmpfsSizeBytes": 67108864
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {}
+      },
+      "issues": [
+        {
+          "code": "JOB_REQUIRES_EXCLUSIVE",
+          "path": "/lifecycle/exclusive",
+          "severity": "error"
+        }
+      ],
+      "name": "job made overlap-tolerant",
+      "normalized": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "job",
+          "concurrencyGroup": "cron:nightly",
+          "disconnectAction": "stop",
+          "exclusive": false,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          },
+          "overrides": [
+            "exclusive"
+          ]
+        },
+        "mode": {
+          "completions": 1,
+          "kind": "job",
+          "maxConcurrent": 1
+        },
+        "resourceId": "res_job",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "image": {
+              "reference": "alpine:3"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "tmpfs",
+              "target": "/tmp",
+              "tmpfsSizeBytes": 67108864
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "mode": "dnsrr",
+          "ports": [
+            {
+              "protocol": "udp",
+              "publish": "host",
+              "publishedPort": 53,
+              "targetPort": 53
+            }
+          ]
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {},
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "order": "start-first"
+        }
+      },
+      "issues": [
+        {
+          "code": "HOST_PORT_REQUIRES_STOP_FIRST",
+          "path": "/update/order",
+          "severity": "error"
+        },
+        {
+          "code": "DNSRR_CLIENT_LIMITATIONS",
+          "path": "/endpoint/mode",
+          "severity": "warning"
+        }
+      ],
+      "name": "explicit start-first with a host port",
+      "normalized": {
+        "endpoint": {
+          "mode": "dnsrr",
+          "ports": [
+            {
+              "protocol": "udp",
+              "publish": "host",
+              "publishedPort": 53,
+              "targetPort": 53
+            }
+          ]
+        },
+        "lifecycle": {
+          "basis": "mount-free",
+          "disconnectAction": "stop",
+          "exclusive": false,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "reschedule"
+          },
+          "overrides": [
+            "update-order"
+          ]
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {},
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {},
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "digest": "sha256:XYZ",
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "volume",
+              "target": "/a"
+            },
+            {
+              "kind": "tmpfs",
+              "source": "x",
+              "target": "/a"
+            }
+          ],
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "limits": {},
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "parallelism": 1
+        }
+      },
+      "issues": [
+        {
+          "code": "SHARED_WRITABLE_MOUNT",
+          "path": "/mode",
+          "severity": "error"
+        },
+        {
+          "code": "MOUNT_SOURCE_REQUIRED",
+          "path": "/task/mounts/0/source",
+          "severity": "error"
+        },
+        {
+          "code": "TMPFS_HAS_SOURCE",
+          "path": "/task/mounts/1/source",
+          "severity": "error"
+        },
+        {
+          "code": "DUPLICATE_MOUNT_TARGET",
+          "path": "/task/mounts/1/target",
+          "severity": "error"
+        },
+        {
+          "code": "IMAGE_DIGEST_INVALID",
+          "path": "/task/container/image/digest",
+          "severity": "error"
+        }
+      ],
+      "name": "mount and digest errors",
+      "normalized": {
+        "endpoint": {
+          "aliases": [
+            "web"
+          ],
+          "mode": "vip",
+          "ports": [
+            {
+              "protocol": "tcp",
+              "publish": "internal",
+              "targetPort": 8080
+            }
+          ],
+          "scopes": [
+            "scope_prod"
+          ]
+        },
+        "lifecycle": {
+          "basis": "mounted",
+          "disconnectAction": "continue-existing",
+          "exclusive": true,
+          "failover": {
+            "delayMs": 60000,
+            "policy": "stay"
+          }
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 3
+        },
+        "resourceId": "res_web",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "args": [
+              "--port",
+              "8080"
+            ],
+            "checks": [
+              {
+                "id": "chk_web",
+                "revision": 2
+              }
+            ],
+            "command": [
+              "/app/web"
+            ],
+            "image": {
+              "digest": "sha256:XYZ",
+              "reference": "ghcr.io/acme/web:1"
+            },
+            "imageHealthcheck": "inherit",
+            "labels": {
+              "tier": "web"
+            },
+            "stopGraceMs": 10000
+          },
+          "mounts": [
+            {
+              "kind": "volume",
+              "target": "/a"
+            },
+            {
+              "kind": "tmpfs",
+              "source": "x",
+              "target": "/a"
+            }
+          ],
+          "placement": {
+            "architectures": [
+              "amd64"
+            ],
+            "constraints": [
+              {
+                "key": "node.labels.zone",
+                "op": "eq",
+                "value": "a"
+              }
+            ],
+            "maxReplicasPerNode": 2,
+            "preferences": [
+              {
+                "label": "zone"
+              }
+            ]
+          },
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {},
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 10000,
+          "failureAction": "rollback",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "stop-first",
+          "parallelism": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "disconnectAction": "stop",
+          "exclusive": false,
+          "failoverDelayMs": 120000,
+          "failoverPolicy": "reschedule"
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 1
+        },
+        "resourceId": "res_pg",
+        "rollback": {},
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {}
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "maxFailureRatioPermille": 1500,
+          "order": "start-first"
+        }
+      },
+      "issues": [
+        {
+          "code": "FAILURE_RATIO_OUT_OF_RANGE",
+          "path": "/update/maxFailureRatioPermille",
+          "severity": "error"
+        },
+        {
+          "code": "RESCHEDULE_LEAVES_DATA_BEHIND",
+          "path": "/lifecycle/failover/policy",
+          "severity": "warning"
+        }
+      ],
+      "name": "explicit overrides",
+      "normalized": {
+        "endpoint": {
+          "mode": "vip"
+        },
+        "lifecycle": {
+          "basis": "mounted",
+          "disconnectAction": "stop",
+          "exclusive": false,
+          "failover": {
+            "delayMs": 120000,
+            "policy": "reschedule"
+          },
+          "overrides": [
+            "failover-policy",
+            "failover-delay",
+            "exclusive",
+            "disconnect-action"
+          ]
+        },
+        "mode": {
+          "kind": "replicated",
+          "replicas": 1
+        },
+        "resourceId": "res_pg",
+        "rollback": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 0,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        },
+        "schema": 1,
+        "task": {
+          "container": {
+            "env": [
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": {
+                  "kind": "secret",
+                  "secretRef": "sec_pg"
+                }
+              }
+            ],
+            "image": {
+              "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "reference": "postgres:17"
+            },
+            "imageHealthcheck": "inherit",
+            "stopGraceMs": 30000
+          },
+          "mounts": [
+            {
+              "dataIdentity": "vol:inst_1:6f1c",
+              "kind": "volume",
+              "source": "pgdata",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "placement": {},
+          "resources": {
+            "defaulted": [
+              "cpu",
+              "memory"
+            ],
+            "limits": {
+              "memoryBytes": 1073741824
+            },
+            "reservations": {
+              "memoryBytes": 67108864,
+              "nanoCpus": 50000000
+            }
+          },
+          "restart": {
+            "condition": "any",
+            "delayMs": 5000,
+            "windowMs": 0
+          }
+        },
+        "update": {
+          "delayMs": 0,
+          "failureAction": "pause",
+          "maxFailureRatioPermille": 1500,
+          "monitorMs": 5000,
+          "order": "start-first",
+          "parallelism": 1
+        }
+      }
+    }
+  ]
+}

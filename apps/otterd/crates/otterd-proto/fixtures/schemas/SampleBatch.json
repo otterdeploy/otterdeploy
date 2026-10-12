@@ -1,0 +1,145 @@
+{
+  "cases": [
+    {
+      "batchId": "batch_00000000000000000000000000000001",
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "live": true,
+      "markers": [
+        {
+          "atUnixMs": 1790999000000,
+          "kind": "boot",
+          "seq": 1
+        }
+      ],
+      "metrics": [
+        {
+          "clockUncertaintyMs": 20,
+          "identity": {
+            "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+            "dimensionSet": "host",
+            "installId": "inst_1",
+            "nodeEpoch": 3,
+            "nodeId": "node_1",
+            "sampleSeq": 42,
+            "schemaVersion": 1,
+            "subjectId": "node_1"
+          },
+          "intervalMs": 60000,
+          "observedAtUnixMs": 1791000000000,
+          "ttlMs": 180000,
+          "values": [
+            {
+              "name": "host.cpu.used_pct",
+              "value": 12.5
+            },
+            {
+              "name": "host.load.1",
+              "value": 0.42
+            },
+            {
+              "name": "host.mem.used_bytes",
+              "value": 2147483648.0
+            },
+            {
+              "name": "host.swap.used_bytes",
+              "value": null
+            }
+          ]
+        }
+      ],
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "probes": [
+        {
+          "attempts": [
+            {
+              "cause": "target_timeout",
+              "elapsedMs": 5000,
+              "outcome": "target-failure",
+              "phase": "connect"
+            },
+            {
+              "cause": "ok",
+              "elapsedMs": 12,
+              "latencyUs": 11800,
+              "outcome": "success",
+              "phase": "response"
+            }
+          ],
+          "cause": "ok",
+          "clockUncertaintyMs": 20,
+          "elapsedMonotonicMs": 6012,
+          "failureDomain": "target",
+          "finalOutcome": "success",
+          "identity": {
+            "attemptId": "att_0123456789abcdef0123456789abcdef",
+            "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+            "checkId": "chk_web",
+            "checkRevision": 2,
+            "generation": 7,
+            "installId": "inst_1",
+            "nodeEpoch": 3,
+            "observerNodeId": "node_1",
+            "orgId": "org_1",
+            "sampleSeq": 41,
+            "subjectId": "res_web",
+            "vantage": "serving-path"
+          },
+          "latency": {
+            "connectUs": 900,
+            "firstByteUs": 10500,
+            "resolveUs": 200,
+            "totalUs": 11800
+          },
+          "observedAtUnixMs": 1791000000000,
+          "outcomePolicyRevision": 1,
+          "phase": "response",
+          "qualification": {
+            "state": "qualified"
+          },
+          "scheduledRound": 1200,
+          "ttlMs": 135000
+        },
+        {
+          "attempts": [],
+          "cause": "probe_capacity",
+          "clockUncertaintyMs": 20,
+          "elapsedMonotonicMs": 0,
+          "failureDomain": "executor",
+          "finalOutcome": "unknown",
+          "identity": {
+            "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000009",
+            "checkId": "chk_tls",
+            "checkRevision": 1,
+            "installId": "inst_1",
+            "nodeEpoch": 1,
+            "observerNodeId": "node_mon",
+            "orgId": "org_1",
+            "sampleSeq": 7,
+            "subjectId": "res_web",
+            "vantage": "outside"
+          },
+          "latency": {},
+          "observedAtUnixMs": 1791000000000,
+          "outcomePolicyRevision": 1,
+          "phase": "schedule",
+          "qualification": {
+            "cause": "probe_capacity",
+            "state": "unqualified"
+          },
+          "scheduledRound": 3,
+          "ttlMs": 135000
+        }
+      ],
+      "signals": [
+        {
+          "active": true,
+          "detail": "table-deleted",
+          "kind": "firewall-drift",
+          "sinceUnixMs": 1791000000000
+        }
+      ]
+    }
+  ],
+  "schema": "SampleBatch"
+}

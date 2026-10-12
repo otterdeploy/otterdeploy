@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "facts": {
+        "arch": "arm64",
+        "cpuCores": 2,
+        "hostname": "w1",
+        "kernel": "6.1.0-25-arm64",
+        "memoryBytes": 4096000000,
+        "osId": "debian",
+        "osVersion": "12"
+      },
+      "host": {
+        "machineId": "4f0c3c8e1b2a4d5e8f9a0b1c2d3e4f50",
+        "productUuid": "e3b0c442-98fc-1c14-9afb-f4c8996fb924",
+        "provider": {
+          "createdAt": "2026-10-11T22:50:00Z",
+          "provider": "hetzner",
+          "serverId": "51234567"
+        }
+      },
+      "keys": {
+        "cacheEncryption": "ypOsFwUYcHHWe4PH/w7+gQjo7EUwV113JoeTM9vavnw=",
+        "identity": "gTl3Dqh9F19Wo1Rmw0x+zMuNipG07jeiXfYPW4/Js5Q=",
+        "keyEpoch": 1,
+        "wireguard": "bnoc3Smwt4/ROvTFWY/v9O8qlxZuPKby5Pv8zYBQW/E="
+      },
+      "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "otterdVersion": "0.1.0",
+      "requestedRoles": [
+        "worker"
+      ],
+      "token": "enr_abc"
+    }
+  ],
+  "schema": "EnrollRequest"
+}

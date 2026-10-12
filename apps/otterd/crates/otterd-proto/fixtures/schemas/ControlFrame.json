@@ -1,0 +1,412 @@
+{
+  "cases": [
+    {
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "channel": "control",
+      "facts": {
+        "arch": "amd64",
+        "cpuCores": 4,
+        "dockerVersion": "29.9.0",
+        "hostname": "w1",
+        "kernel": "6.8.0-138-generic",
+        "memoryBytes": 8323002368,
+        "osId": "ubuntu",
+        "osVersion": "24.04"
+      },
+      "features": [
+        "bulk",
+        "probe-executor"
+      ],
+      "identityKeyId": "6a3803d5f059902a1c6dafbc9ba47292",
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "installId": "inst_1",
+      "journalFormat": 1,
+      "keyEpoch": 1,
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "nodeNonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "otterdVersion": "0.1.0",
+      "protocol": {
+        "max": 1,
+        "min": 1
+      },
+      "type": "hello"
+    },
+    {
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "channel": "bulk",
+      "controlSessionId": "sess_1",
+      "features": [],
+      "identityKeyId": "6a3803d5f059902a1c6dafbc9ba47292",
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "installId": "inst_1",
+      "journalFormat": 1,
+      "keyEpoch": 1,
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "nodeNonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "otterdVersion": "0.1.0",
+      "protocol": {
+        "max": 1,
+        "min": 1
+      },
+      "type": "hello"
+    },
+    {
+      "authorityTerm": 2,
+      "cpNonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "cpUnixMs": 1791000000000,
+      "features": [
+        "bulk"
+      ],
+      "hubProof": {
+        "context": "otterd/session/v1",
+        "keyId": "34750f98bd59fcfc946da45aaabe933b",
+        "payload": "eyJib290SWQiOiI0YzFkMWI3ZS0xZDhhLTRmMGItOWQzZS0wMDAwMDAwMDAwMDEiLCJjaGFubmVsIjoiY29udHJvbCIsImNwTm9uY2UiOiJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwiaW5jYXJuYXRpb24iOiJpbmNfMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJpbnN0YWxsSWQiOiJpbnN0XzEiLCJub2RlRXBvY2giOjMsIm5vZGVJZCI6Im5vZGVfMSIsIm5vZGVOb25jZSI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJwcm90b2NvbCI6MSwicm9sZSI6Imh1YiIsInNlc3Npb25JZCI6InNlc3NfMSJ9",
+        "signature": "ESRqMQ5Cz1zgVmwHacrvlh4O3ORBIrEJ56h+BJPAf+qzn/Adnos20S+5ZHp4T0om+/qXfWW+0lLMUSswfwg+AA=="
+      },
+      "limits": {
+        "bulkQueueBytes": 2097152,
+        "controlReserveBytes": 262144,
+        "maxActiveCommands": 16,
+        "maxFrameBytes": 65536,
+        "maxStreams": 16,
+        "streamWindowBytes": 262144,
+        "telemetryCredit": 4000
+      },
+      "protocol": 1,
+      "sessionId": "sess_1",
+      "type": "welcome"
+    },
+    {
+      "code": "unsupported-protocol",
+      "message": "node must upgrade",
+      "supported": {
+        "max": 3,
+        "min": 2
+      },
+      "type": "reject"
+    },
+    {
+      "nodeProof": {
+        "context": "otterd/session/v1",
+        "keyId": "6a3803d5f059902a1c6dafbc9ba47292",
+        "payload": "eyJib290SWQiOiI0YzFkMWI3ZS0xZDhhLTRmMGItOWQzZS0wMDAwMDAwMDAwMDEiLCJjaGFubmVsIjoiY29udHJvbCIsImNwTm9uY2UiOiJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwiaW5jYXJuYXRpb24iOiJpbmNfMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJpbnN0YWxsSWQiOiJpbnN0XzEiLCJub2RlRXBvY2giOjMsIm5vZGVJZCI6Im5vZGVfMSIsIm5vZGVOb25jZSI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJwcm90b2NvbCI6MSwicm9sZSI6Im5vZGUiLCJzZXNzaW9uSWQiOiJzZXNzXzEifQ==",
+        "signature": "qxcGEP8dApv+ox6jY4+cXYu0agxJFh6wpZhlPVtU5x3SJETolLYwsFmSOnYt9+lE1B2+rkXBJN40I0RyjXtACg=="
+      },
+      "sessionId": "sess_1",
+      "type": "authenticate"
+    },
+    {
+      "sessionId": "sess_1",
+      "type": "ready"
+    },
+    {
+      "capability": {
+        "context": "otterd/capability/v1",
+        "keyId": "34750f98bd59fcfc946da45aaabe933b",
+        "payload": "eyJhdWQiOiJub2RlXzEiLCJhdXRob3JpdHlUZXJtIjoyLCJiaW5kaW5nIjp7ImdlbmVyYXRpb24iOjQsImdyYW50SWQiOiJncmFudF8xIiwic2xvdCI6eyJpbmRleCI6MCwicmVzb3VyY2VJZCI6InJlc19wZyJ9fSwiZXhwaXJlc0F0VW5peE1zIjoxNzkxMDAwMDMwMDAwLCJpbnN0YWxsSWQiOiJpbnN0XzEiLCJub2RlRXBvY2giOjMsIm5vbmNlIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsIm5vdEJlZm9yZVVuaXhNcyI6MTc5MTAwMDAwMDAwMCwib3BJZCI6Im9wX2FwcGx5XzEiLCJvcGVyYXRpb25FcG9jaCI6OSwib3JnSWQiOiJvcmdfMSIsInBheWxvYWRIYXNoIjoiYmE3ODE2YmY4ZjAxY2ZlYTQxNDE0MGRlNWRhZTIyMjNiMDAzNjFhMzk2MTc3YTljYjQxMGZmNjFmMjAwMTVhZCIsInBlcm1pc3Npb25zIjpbIm11dGF0ZSJdLCJwcmluY2lwYWwiOnsiaWQiOiJzY2hlZHVsZXIiLCJraW5kIjoic3lzdGVtIn0sInJlc291cmNlSWQiOiJyZXNfcGciLCJzZXNzaW9uSWQiOiJzZXNzXzEiLCJ2ZXJiIjoid29ya2xvYWQuYXBwbHkifQ==",
+        "signature": "2DmIQt/0hxg2vqt0spbY6LEchc6++TvxLd4eMqYil8/i9GqWhY64JQt+t/zn/AI8cz1thxOrQ+ysGOmyguABAQ=="
+      },
+      "id": 7,
+      "payload": "{\"grant\":{\"authorityTerm\":2,\"dataClaims\":[{\"access\":\"rw\",\"claimEpoch\":1,\"dataIdentity\":\"vol:inst_1:6f1c\"}],\"disconnectAction\":\"continue-existing\",\"exclusive\":true,\"generation\":4,\"grantId\":\"grant_1\",\"incarnation\":\"inc_0123456789abcdef0123456789abcdef\",\"nodeEpoch\":3,\"probeOnly\":false,\"restart\":{\"condition\":\"on-failure\",\"delayMs\":5000,\"maxAttempts\":3,\"windowMs\":60000},\"slot\":{\"index\":0,\"resourceId\":\"res_pg\"}},\"spec\":{\"endpoint\":{\"mode\":\"vip\"},\"lifecycle\":{\"basis\":\"mounted\",\"disconnectAction\":\"continue-existing\",\"exclusive\":true,\"failover\":{\"delayMs\":60000,\"policy\":\"stay\"}},\"mode\":{\"kind\":\"replicated\",\"replicas\":1},\"resourceId\":\"res_pg\",\"rollback\":{\"delayMs\":0,\"failureAction\":\"pause\",\"maxFailureRatioPermille\":0,\"monitorMs\":5000,\"order\":\"stop-first\",\"parallelism\":1},\"schema\":1,\"task\":{\"container\":{\"env\":[{\"name\":\"POSTGRES_PASSWORD\",\"value\":{\"kind\":\"secret\",\"secretRef\":\"sec_pg\"}}],\"image\":{\"digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"reference\":\"postgres:17\"},\"imageHealthcheck\":\"inherit\",\"stopGraceMs\":30000},\"mounts\":[{\"dataIdentity\":\"vol:inst_1:6f1c\",\"kind\":\"volume\",\"source\":\"pgdata\",\"target\":\"/var/lib/postgresql/data\"}],\"placement\":{},\"resources\":{\"defaulted\":[\"cpu\",\"memory\"],\"limits\":{\"memoryBytes\":1073741824},\"reservations\":{\"memoryBytes\":67108864,\"nanoCpus\":50000000}},\"restart\":{\"condition\":\"any\",\"delayMs\":5000,\"windowMs\":0}},\"update\":{\"delayMs\":0,\"failureAction\":\"pause\",\"maxFailureRatioPermille\":0,\"monitorMs\":5000,\"order\":\"stop-first\",\"parallelism\":1}},\"verb\":\"workload.apply\"}",
+      "type": "request"
+    },
+    {
+      "id": 7,
+      "reason": "client went away",
+      "type": "cancel"
+    },
+    {
+      "id": 7,
+      "message": "3 of 7 layers",
+      "opId": "op_apply_1",
+      "phase": "pulling",
+      "seq": 1,
+      "type": "progress"
+    },
+    {
+      "duplicate": false,
+      "id": 7,
+      "opId": "op_apply_1",
+      "outcome": {
+        "result": {
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "grantId": "grant_1",
+          "kind": "applied"
+        },
+        "status": "completed"
+      },
+      "type": "response"
+    },
+    {
+      "error": {
+        "code": "busy"
+      },
+      "id": 8,
+      "type": "requestRefused"
+    },
+    {
+      "error": {
+        "code": "capability",
+        "error": {
+          "code": "payload-mismatch"
+        }
+      },
+      "id": 9,
+      "type": "requestRefused"
+    },
+    {
+      "engineReachable": false,
+      "quarantined": true,
+      "seq": 12,
+      "slots": [
+        {
+          "attempts": [
+            {
+              "attemptId": "att_0123456789abcdef0123456789abcdef",
+              "container": "otterd-res_pg-0-att_0123",
+              "mutations": [
+                {
+                  "mutationId": "mut_00000000000000000000000000000001",
+                  "state": "settled",
+                  "verb": "create"
+                },
+                {
+                  "mutationId": "mut_00000000000000000000000000000002",
+                  "state": "submitted",
+                  "verb": "start"
+                }
+              ],
+              "ordinal": 1,
+              "process": {
+                "reason": "engine inspect timed out",
+                "state": "unknown"
+              }
+            }
+          ],
+          "generation": 4,
+          "grantId": "grant_1",
+          "quarantined": true,
+          "revoked": true,
+          "slot": {
+            "index": 0,
+            "resourceId": "res_pg"
+          },
+          "state": "unknown",
+          "unknownHolds": [
+            "hold_00000000000000000000000000000001"
+          ]
+        }
+      ],
+      "type": "slotReports"
+    },
+    {
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "grants": [
+        "grant_1"
+      ],
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "nodeEpoch": 3,
+      "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "type": "leaseRequest"
+    },
+    {
+      "renewal": {
+        "context": "otterd/lease/v1",
+        "keyId": "34750f98bd59fcfc946da45aaabe933b",
+        "payload": "eyJ4IjoxfQ==",
+        "signature": "c81zTxRLsXaLuPpZSSr6qaN74k93cc0iq8bBAvt66LpX009dczxvcG6D5+084QCe7nasdEJOw46EGmXiW650Dw=="
+      },
+      "type": "lease"
+    },
+    {
+      "batchId": "batch_00000000000000000000000000000001",
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "live": true,
+      "markers": [
+        {
+          "atUnixMs": 1790999000000,
+          "kind": "boot",
+          "seq": 1
+        }
+      ],
+      "metrics": [
+        {
+          "clockUncertaintyMs": 20,
+          "identity": {
+            "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+            "dimensionSet": "host",
+            "installId": "inst_1",
+            "nodeEpoch": 3,
+            "nodeId": "node_1",
+            "sampleSeq": 42,
+            "schemaVersion": 1,
+            "subjectId": "node_1"
+          },
+          "intervalMs": 60000,
+          "observedAtUnixMs": 1791000000000,
+          "ttlMs": 180000,
+          "values": [
+            {
+              "name": "host.cpu.used_pct",
+              "value": 12.5
+            },
+            {
+              "name": "host.load.1",
+              "value": 0.42
+            },
+            {
+              "name": "host.mem.used_bytes",
+              "value": 2147483648.0
+            },
+            {
+              "name": "host.swap.used_bytes",
+              "value": null
+            }
+          ]
+        }
+      ],
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "probes": [
+        {
+          "attempts": [
+            {
+              "cause": "target_timeout",
+              "elapsedMs": 5000,
+              "outcome": "target-failure",
+              "phase": "connect"
+            },
+            {
+              "cause": "ok",
+              "elapsedMs": 12,
+              "latencyUs": 11800,
+              "outcome": "success",
+              "phase": "response"
+            }
+          ],
+          "cause": "ok",
+          "clockUncertaintyMs": 20,
+          "elapsedMonotonicMs": 6012,
+          "failureDomain": "target",
+          "finalOutcome": "success",
+          "identity": {
+            "attemptId": "att_0123456789abcdef0123456789abcdef",
+            "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+            "checkId": "chk_web",
+            "checkRevision": 2,
+            "generation": 7,
+            "installId": "inst_1",
+            "nodeEpoch": 3,
+            "observerNodeId": "node_1",
+            "orgId": "org_1",
+            "sampleSeq": 41,
+            "subjectId": "res_web",
+            "vantage": "serving-path"
+          },
+          "latency": {
+            "connectUs": 900,
+            "firstByteUs": 10500,
+            "resolveUs": 200,
+            "totalUs": 11800
+          },
+          "observedAtUnixMs": 1791000000000,
+          "outcomePolicyRevision": 1,
+          "phase": "response",
+          "qualification": {
+            "state": "qualified"
+          },
+          "scheduledRound": 1200,
+          "ttlMs": 135000
+        },
+        {
+          "attempts": [],
+          "cause": "probe_capacity",
+          "clockUncertaintyMs": 20,
+          "elapsedMonotonicMs": 0,
+          "failureDomain": "executor",
+          "finalOutcome": "unknown",
+          "identity": {
+            "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000009",
+            "checkId": "chk_tls",
+            "checkRevision": 1,
+            "installId": "inst_1",
+            "nodeEpoch": 1,
+            "observerNodeId": "node_mon",
+            "orgId": "org_1",
+            "sampleSeq": 7,
+            "subjectId": "res_web",
+            "vantage": "outside"
+          },
+          "latency": {},
+          "observedAtUnixMs": 1791000000000,
+          "outcomePolicyRevision": 1,
+          "phase": "schedule",
+          "qualification": {
+            "cause": "probe_capacity",
+            "state": "unqualified"
+          },
+          "scheduledRound": 3,
+          "ttlMs": 135000
+        }
+      ],
+      "signals": [
+        {
+          "active": true,
+          "detail": "table-deleted",
+          "kind": "firewall-drift",
+          "sinceUnixMs": 1791000000000
+        }
+      ],
+      "type": "telemetry"
+    },
+    {
+      "batchId": "batch_00000000000000000000000000000001",
+      "credit": 4000,
+      "disposition": "accepted",
+      "type": "telemetryAck"
+    },
+    {
+      "from": "node_2",
+      "message": {
+        "challenge": {
+          "nonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "ownerId": "node_1",
+          "receiverBoot": "4c1d1b7e-1d8a-4f0b-9d3e-000000000002",
+          "receiverId": "node_2"
+        },
+        "kind": "challenge"
+      },
+      "to": "node_1",
+      "type": "discovery"
+    },
+    {
+      "document": {
+        "context": "otterd/serving-set/v1",
+        "keyId": "34750f98bd59fcfc946da45aaabe933b",
+        "payload": "eyJ4IjoxfQ==",
+        "signature": "3jV59OuY1pVPjiUCkE0DKDldXZwWoRzRDakOAwoEuW1EfiHTNdn8wrd9ahfmITq+IAEGqpsGkad4cdhMctGvBg=="
+      },
+      "type": "authority"
+    },
+    {
+      "nodeMonoMs": 123456,
+      "seq": 3,
+      "type": "ping"
+    },
+    {
+      "cpUnixMs": 1791000000000,
+      "nodeMonoMs": 123456,
+      "seq": 3,
+      "type": "pong"
+    },
+    {
+      "code": "maintenance",
+      "message": "control plane restarting",
+      "reconnectAfterMs": 5000,
+      "type": "goAway"
+    }
+  ],
+  "schema": "ControlFrame"
+}

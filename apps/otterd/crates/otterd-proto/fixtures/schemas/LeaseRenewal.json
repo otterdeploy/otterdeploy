@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "authorityTerm": 2,
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "durationMs": 20000,
+      "grants": [
+        "grant_1"
+      ],
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "installId": "inst_1",
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "schema": "LeaseRenewal"
+}
