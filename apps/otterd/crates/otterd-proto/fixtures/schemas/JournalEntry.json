@@ -1,0 +1,384 @@
+{
+  "cases": [
+    {
+      "atUnixMs": 1791000000001,
+      "record": {
+        "journalFormat": 1,
+        "otterdVersion": "0.1.0",
+        "type": "format"
+      },
+      "seq": 1
+    },
+    {
+      "atUnixMs": 1791000000002,
+      "record": {
+        "cpKeys": [
+          {
+            "epoch": 1,
+            "key": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+          }
+        ],
+        "host": {
+          "machineId": "4f0c3c8e1b2a4d5e8f9a0b1c2d3e4f50"
+        },
+        "identityKeyId": "6a3803d5f059902a1c6dafbc9ba47292",
+        "installId": "inst_1",
+        "keyEpoch": 1,
+        "nodeEpoch": 3,
+        "nodeId": "node_1",
+        "recoveryKey": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY/k2NsFGFKyHN9E=",
+        "type": "identity"
+      },
+      "seq": 2
+    },
+    {
+      "atUnixMs": 1791000000003,
+      "record": {
+        "identityKeyId": "72456720412037a6b339f884ce6d91bb",
+        "keyEpoch": 2,
+        "type": "keysRotated"
+      },
+      "seq": 3
+    },
+    {
+      "atUnixMs": 1791000000004,
+      "record": {
+        "cpKeys": [
+          {
+            "epoch": 1,
+            "key": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+          },
+          {
+            "epoch": 2,
+            "key": "/RckOFqgx1tk+3jNYC+h2ZH96/drE8WO1wLqyDXp9hg="
+          }
+        ],
+        "type": "cpKeysChanged"
+      },
+      "seq": 4
+    },
+    {
+      "atUnixMs": 1791000000005,
+      "record": {
+        "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+        "incarnation": "inc_0123456789abcdef0123456789abcdef",
+        "type": "processStarted"
+      },
+      "seq": 5
+    },
+    {
+      "atUnixMs": 1791000000006,
+      "record": {
+        "belowTerm": 2,
+        "reason": "restore",
+        "revocationDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "type": "authorityRevoked"
+      },
+      "seq": 6
+    },
+    {
+      "atUnixMs": 1791000000007,
+      "record": {
+        "capabilityDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "opId": "op_apply_1",
+        "operationEpoch": 9,
+        "payloadHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "resourceId": "res_pg",
+        "sessionId": "sess_1",
+        "type": "opClaimed",
+        "verb": "workload.apply"
+      },
+      "seq": 7
+    },
+    {
+      "atUnixMs": 1791000000008,
+      "record": {
+        "grant": {
+          "authorityTerm": 2,
+          "dataClaims": [
+            {
+              "access": "rw",
+              "claimEpoch": 1,
+              "dataIdentity": "vol:inst_1:6f1c"
+            }
+          ],
+          "disconnectAction": "continue-existing",
+          "exclusive": true,
+          "generation": 4,
+          "grantId": "grant_1",
+          "incarnation": "inc_0123456789abcdef0123456789abcdef",
+          "nodeEpoch": 3,
+          "probeOnly": false,
+          "restart": {
+            "condition": "on-failure",
+            "delayMs": 5000,
+            "maxAttempts": 3,
+            "windowMs": 60000
+          },
+          "slot": {
+            "index": 0,
+            "resourceId": "res_pg"
+          }
+        },
+        "opId": "op_apply_1",
+        "specDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "type": "grantAccepted"
+      },
+      "seq": 8
+    },
+    {
+      "atUnixMs": 1791000000009,
+      "record": {
+        "attemptId": "att_0123456789abcdef0123456789abcdef",
+        "grantId": "grant_1",
+        "ordinal": 1,
+        "reason": "initial",
+        "type": "attemptBegun"
+      },
+      "seq": 9
+    },
+    {
+      "atUnixMs": 1791000000010,
+      "record": {
+        "hold": {
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "claimEpoch": 1,
+          "dataIdentity": "vol:inst_1:6f1c",
+          "holdId": "hold_00000000000000000000000000000001",
+          "slot": {
+            "index": 0,
+            "resourceId": "res_pg"
+          },
+          "sourcePath": "/var/lib/docker/volumes/pgdata/_data",
+          "stagingPath": "/run/otterd/stage/hold_00000000000000000000000000000001"
+        },
+        "type": "holdIntent"
+      },
+      "seq": 10
+    },
+    {
+      "atUnixMs": 1791000000011,
+      "record": {
+        "backing": {
+          "dev": 2049,
+          "ino": 131073,
+          "mntId": 29
+        },
+        "holdId": "hold_00000000000000000000000000000001",
+        "stagingMntId": 412,
+        "type": "holdStaged"
+      },
+      "seq": 11
+    },
+    {
+      "atUnixMs": 1791000000012,
+      "record": {
+        "mutation": {
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "class": "tenant",
+          "container": "abc123",
+          "grantId": "grant_1",
+          "mutationId": "mut_00000000000000000000000000000002",
+          "objectName": "otterd-res_pg-0-att_0123",
+          "payloadHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "slot": {
+            "index": 0,
+            "resourceId": "res_pg"
+          },
+          "verb": "start"
+        },
+        "type": "mutationIntent"
+      },
+      "seq": 12
+    },
+    {
+      "atUnixMs": 1791000000013,
+      "record": {
+        "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+        "engineIncarnation": "29.9.0/pid:812",
+        "incarnation": "inc_0123456789abcdef0123456789abcdef",
+        "mutationId": "mut_00000000000000000000000000000002",
+        "type": "mutationSubmitted"
+      },
+      "seq": 13
+    },
+    {
+      "atUnixMs": 1791000000014,
+      "record": {
+        "mutationId": "mut_00000000000000000000000000000002",
+        "outcome": {
+          "kind": "started"
+        },
+        "type": "mutationSettled"
+      },
+      "seq": 14
+    },
+    {
+      "atUnixMs": 1791000000015,
+      "record": {
+        "mutationId": "mut_00000000000000000000000000000001",
+        "outcome": {
+          "kind": "refused",
+          "message": "name in use",
+          "status": 409
+        },
+        "type": "mutationSettled"
+      },
+      "seq": 15
+    },
+    {
+      "atUnixMs": 1791000000016,
+      "record": {
+        "mutationId": "mut_00000000000000000000000000000003",
+        "retirement": {
+          "evidence": {
+            "adapter": "hetzner",
+            "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+            "evidenceId": "ev_1",
+            "method": "provider-power-off",
+            "nodeEpoch": 3,
+            "observedAtUnixMs": 1791000000000,
+            "providerActionId": "act_9"
+          },
+          "kind": "external-barrier"
+        },
+        "type": "mutationRetired"
+      },
+      "seq": 16
+    },
+    {
+      "atUnixMs": 1791000000017,
+      "record": {
+        "mutationId": "mut_00000000000000000000000000000004",
+        "retirement": {
+          "kind": "host-reboot",
+          "observedBootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000002",
+          "profile": "docker-28-restart-no",
+          "submittedBootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001"
+        },
+        "type": "mutationRetired"
+      },
+      "seq": 17
+    },
+    {
+      "atUnixMs": 1791000000018,
+      "record": {
+        "mutationId": "mut_00000000000000000000000000000005",
+        "retirement": {
+          "kind": "not-submitted"
+        },
+        "type": "mutationRetired"
+      },
+      "seq": 18
+    },
+    {
+      "atUnixMs": 1791000000019,
+      "record": {
+        "grantId": "grant_1",
+        "reason": "rollout",
+        "type": "grantRevoked"
+      },
+      "seq": 19
+    },
+    {
+      "atUnixMs": 1791000000020,
+      "record": {
+        "certificate": {
+          "context": "otterd/stop-certificate/v1",
+          "keyId": "6a3803d5f059902a1c6dafbc9ba47292",
+          "payload": "eyJhdHRlbXB0SWRzIjpbImF0dF8wMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZiJdLCJib290SWQiOiI0YzFkMWI3ZS0xZDhhLTRmMGItOWQzZS0wMDAwMDAwMDAwMDEiLCJjZ3JvdXBzRW1wdHkiOnRydWUsImNvbnRhaW5lcnMiOlt7ImNvbnRhaW5lciI6Im90dGVyZC1yZXNfcGctMC1hdHRfMDEyMyIsInByb2Nlc3MiOnsiZXhpdENvZGUiOjAsInN0YXRlIjoiZXhpdGVkIn19XSwiZ3JhbnRJZCI6ImdyYW50XzEiLCJpbnN0YWxsSWQiOiJpbnN0XzEiLCJpc3N1ZWRBdFVuaXhNcyI6MTc5MTAwMDAwMDAwMCwibXV0YXRpb25Db3VudCI6NCwibXV0YXRpb25JbnZlbnRvcnlEaWdlc3QiOiJiYTc4MTZiZjhmMDFjZmVhNDE0MTQwZGU1ZGFlMjIyM2IwMDM2MWEzOTYxNzdhOWNiNDEwZmY2MWYyMDAxNWFkIiwibm9kZUVwb2NoIjozLCJub2RlSWQiOiJub2RlXzEiLCJvcElkIjoib3Bfc3RvcF8xIiwic2xvdCI6eyJpbmRleCI6MCwicmVzb3VyY2VJZCI6InJlc19wZyJ9fQ==",
+          "signature": "GsTDdItEcF06fi1vXz7sgvVGD23ENdDGvvqkpE0P1ppl2Hkb5yLS99sVQGnTKUZb0MsbepY7PxUbu/7tSKSbBA=="
+        },
+        "grantId": "grant_1",
+        "type": "stopCertified"
+      },
+      "seq": 20
+    },
+    {
+      "atUnixMs": 1791000000021,
+      "record": {
+        "opId": "op_apply_1",
+        "outcome": {
+          "reason": "start submitted without a response",
+          "status": "unknown"
+        },
+        "type": "opCompleted"
+      },
+      "seq": 21
+    },
+    {
+      "atUnixMs": 1791000000022,
+      "record": {
+        "grantId": "grant_2",
+        "incarnation": "inc_0123456789abcdef0123456789abcdef",
+        "slot": {
+          "index": 0,
+          "resourceId": "res_pg"
+        },
+        "type": "quarantineCleared"
+      },
+      "seq": 22
+    },
+    {
+      "atUnixMs": 1791000000023,
+      "record": {
+        "holdId": "hold_00000000000000000000000000000001",
+        "reason": "staging mount missing after reboot",
+        "type": "holdUnknown"
+      },
+      "seq": 23
+    },
+    {
+      "atUnixMs": 1791000000024,
+      "record": {
+        "holdId": "hold_00000000000000000000000000000001",
+        "reason": "attempt retired and mounts gone",
+        "type": "holdReleased"
+      },
+      "seq": 24
+    },
+    {
+      "atUnixMs": 1791000000025,
+      "record": {
+        "authorityTerm": 2,
+        "bootstrapEpoch": 1,
+        "manifestDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "manifestRevision": 2,
+        "type": "manifestActivated"
+      },
+      "seq": 25
+    },
+    {
+      "atUnixMs": 1791000000026,
+      "record": {
+        "fromManifestDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "phase": "schema-boundary",
+        "toManifestDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "type": "updatePhaseEntered",
+        "updateId": "upd_00000000000000000000000000000001"
+      },
+      "seq": 26
+    },
+    {
+      "atUnixMs": 1791000000027,
+      "record": {
+        "kind": "operation-epoch",
+        "scope": "res_pg",
+        "type": "highWater",
+        "value": 9
+      },
+      "seq": 27
+    },
+    {
+      "atUnixMs": 1791000000028,
+      "record": {
+        "droppedRecords": 1200,
+        "priorDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "throughSeq": 27,
+        "type": "compacted"
+      },
+      "seq": 28
+    }
+  ],
+  "schema": "JournalEntry"
+}

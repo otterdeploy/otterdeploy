@@ -1,0 +1,156 @@
+{
+  "cases": [
+    {
+      "status": "accepted"
+    },
+    {
+      "result": {
+        "attemptId": "att_0123456789abcdef0123456789abcdef",
+        "grantId": "grant_1",
+        "kind": "applied"
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "certificate": {
+          "context": "otterd/stop-certificate/v1",
+          "keyId": "6a3803d5f059902a1c6dafbc9ba47292",
+          "payload": "eyJhdHRlbXB0SWRzIjpbImF0dF8wMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZiJdLCJib290SWQiOiI0YzFkMWI3ZS0xZDhhLTRmMGItOWQzZS0wMDAwMDAwMDAwMDEiLCJjZ3JvdXBzRW1wdHkiOnRydWUsImNvbnRhaW5lcnMiOlt7ImNvbnRhaW5lciI6Im90dGVyZC1yZXNfcGctMC1hdHRfMDEyMyIsInByb2Nlc3MiOnsiZXhpdENvZGUiOjAsInN0YXRlIjoiZXhpdGVkIn19XSwiZ3JhbnRJZCI6ImdyYW50XzEiLCJpbnN0YWxsSWQiOiJpbnN0XzEiLCJpc3N1ZWRBdFVuaXhNcyI6MTc5MTAwMDAwMDAwMCwibXV0YXRpb25Db3VudCI6NCwibXV0YXRpb25JbnZlbnRvcnlEaWdlc3QiOiJiYTc4MTZiZjhmMDFjZmVhNDE0MTQwZGU1ZGFlMjIyM2IwMDM2MWEzOTYxNzdhOWNiNDEwZmY2MWYyMDAxNWFkIiwibm9kZUVwb2NoIjozLCJub2RlSWQiOiJub2RlXzEiLCJvcElkIjoib3Bfc3RvcF8xIiwic2xvdCI6eyJpbmRleCI6MCwicmVzb3VyY2VJZCI6InJlc19wZyJ9fQ==",
+          "signature": "GsTDdItEcF06fi1vXz7sgvVGD23ENdDGvvqkpE0P1ppl2Hkb5yLS99sVQGnTKUZb0MsbepY7PxUbu/7tSKSbBA=="
+        },
+        "kind": "stopped"
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "grantId": "grant_1",
+        "kind": "stop-unresolved",
+        "reasons": [
+          "start mutation mut_00000000000000000000000000000002 is submitted"
+        ]
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "kind": "slots",
+        "slots": [
+          {
+            "attempts": [
+              {
+                "attemptId": "att_0123456789abcdef0123456789abcdef",
+                "container": "otterd-res_pg-0-att_0123",
+                "mutations": [
+                  {
+                    "mutationId": "mut_00000000000000000000000000000001",
+                    "state": "settled",
+                    "verb": "create"
+                  },
+                  {
+                    "mutationId": "mut_00000000000000000000000000000002",
+                    "state": "submitted",
+                    "verb": "start"
+                  }
+                ],
+                "ordinal": 1,
+                "process": {
+                  "reason": "engine inspect timed out",
+                  "state": "unknown"
+                }
+              }
+            ],
+            "generation": 4,
+            "grantId": "grant_1",
+            "quarantined": true,
+            "revoked": true,
+            "slot": {
+              "index": 0,
+              "resourceId": "res_pg"
+            },
+            "state": "unknown",
+            "unknownHolds": [
+              "hold_00000000000000000000000000000001"
+            ]
+          }
+        ]
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "kind": "operation",
+        "record": {
+          "claimedAtUnixMs": 1791000000000,
+          "opId": "op_apply_1",
+          "outcome": {
+            "status": "accepted"
+          },
+          "payloadHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "verb": "workload.apply"
+        }
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "kind": "stream-opened",
+        "streamId": 4
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "kind": "retired",
+        "mutationCount": 3
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "kind": "done"
+      },
+      "status": "completed"
+    },
+    {
+      "result": {
+        "body": {
+          "hostname": "w1"
+        },
+        "kind": "document",
+        "schema": "otterd.node-details/1"
+      },
+      "status": "completed"
+    },
+    {
+      "code": "image-unavailable",
+      "message": "digest not present",
+      "sideEffects": "none",
+      "status": "failed"
+    },
+    {
+      "reason": "engine response lost",
+      "status": "unknown"
+    },
+    {
+      "recordedPayloadHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "status": "conflict"
+    },
+    {
+      "error": {
+        "code": "expired"
+      },
+      "status": "rejected"
+    },
+    {
+      "error": {
+        "code": "stale-node-epoch",
+        "current": 3,
+        "got": 2
+      },
+      "status": "rejected"
+    }
+  ],
+  "schema": "OpOutcome"
+}

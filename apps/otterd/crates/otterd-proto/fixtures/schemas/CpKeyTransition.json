@@ -1,0 +1,15 @@
+{
+  "cases": [
+    {
+      "fromKeyId": "34750f98bd59fcfc946da45aaabe933b",
+      "installId": "inst_1",
+      "oldValidUntilUnixMs": 1791604800000,
+      "to": {
+        "epoch": 2,
+        "key": "/RckOFqgx1tk+3jNYC+h2ZH96/drE8WO1wLqyDXp9hg=",
+        "notAfterUnixMs": 1822536000000
+      }
+    }
+  ],
+  "schema": "CpKeyTransition"
+}

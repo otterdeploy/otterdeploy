@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "channel": "control",
+      "cpNonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "installId": "inst_1",
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "nodeNonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "protocol": 1,
+      "role": "hub",
+      "sessionId": "sess_1"
+    },
+    {
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "channel": "bulk",
+      "cpNonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "installId": "inst_1",
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "nodeNonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "protocol": 1,
+      "role": "node",
+      "sessionId": "sess_1"
+    }
+  ],
+  "schema": "SessionProof"
+}

@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "answer": {
+        "context": "otterd/challenge-answer/v1",
+        "keyId": "6a3803d5f059902a1c6dafbc9ba47292",
+        "payload": "eyJ4IjoxfQ==",
+        "signature": "QvcGZtBDW6GpnuZ+H9EJimj6J+4zQicLdXC5lyPG4Vy8rHK9tqaaRJm0NeQKtjzvZsyNRVYYyy5YGOlEHxqQBg=="
+      },
+      "kind": "answer"
+    },
+    {
+      "chunk": {
+        "count": 1,
+        "data": "YWJj",
+        "index": 0,
+        "ownerId": "node_1",
+        "seq": 1201,
+        "snapshotDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "totalBytes": 3
+      },
+      "kind": "chunk"
+    },
+    {
+      "entries": [
+        {
+          "fullSetDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "ownerEpoch": 3,
+          "ownerId": "node_1",
+          "seq": 1201
+        }
+      ],
+      "kind": "digests"
+    },
+    {
+      "kind": "pull-full-set",
+      "ownerId": "node_1"
+    },
+    {
+      "challenge": {
+        "challengerId": "node_2",
+        "nonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "targetId": "node_1"
+      },
+      "kind": "peer-challenge"
+    },
+    {
+      "answer": {
+        "context": "otterd/peer-answer/v1",
+        "keyId": "6a3803d5f059902a1c6dafbc9ba47292",
+        "payload": "eyJ4IjoxfQ==",
+        "signature": "JK1SPEKSFzP9ZPDmw0T75Wr848qzuWjx9zupe+O8iqQU/FpndTlDSHC1h1uom6/jUCVBOLaSkp0ka1+96/CQBg=="
+      },
+      "kind": "peer-answer"
+    }
+  ],
+  "schema": "DiscoveryMessage"
+}

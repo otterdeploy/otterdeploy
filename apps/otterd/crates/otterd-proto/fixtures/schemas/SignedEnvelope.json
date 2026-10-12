@@ -1,0 +1,11 @@
+{
+  "cases": [
+    {
+      "context": "otterd/capability/v1",
+      "keyId": "34750f98bd59fcfc946da45aaabe933b",
+      "payload": "eyJhdWQiOiJub2RlXzEiLCJhdXRob3JpdHlUZXJtIjoyLCJiaW5kaW5nIjp7ImdlbmVyYXRpb24iOjQsImdyYW50SWQiOiJncmFudF8xIiwic2xvdCI6eyJpbmRleCI6MCwicmVzb3VyY2VJZCI6InJlc19wZyJ9fSwiZXhwaXJlc0F0VW5peE1zIjoxNzkxMDAwMDMwMDAwLCJpbnN0YWxsSWQiOiJpbnN0XzEiLCJub2RlRXBvY2giOjMsIm5vbmNlIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsIm5vdEJlZm9yZVVuaXhNcyI6MTc5MTAwMDAwMDAwMCwib3BJZCI6Im9wX2FwcGx5XzEiLCJvcGVyYXRpb25FcG9jaCI6OSwib3JnSWQiOiJvcmdfMSIsInBheWxvYWRIYXNoIjoiYmE3ODE2YmY4ZjAxY2ZlYTQxNDE0MGRlNWRhZTIyMjNiMDAzNjFhMzk2MTc3YTljYjQxMGZmNjFmMjAwMTVhZCIsInBlcm1pc3Npb25zIjpbIm11dGF0ZSJdLCJwcmluY2lwYWwiOnsiaWQiOiJzY2hlZHVsZXIiLCJraW5kIjoic3lzdGVtIn0sInJlc291cmNlSWQiOiJyZXNfcGciLCJzZXNzaW9uSWQiOiJzZXNzXzEiLCJ2ZXJiIjoid29ya2xvYWQuYXBwbHkifQ==",
+      "signature": "2DmIQt/0hxg2vqt0spbY6LEchc6++TvxLd4eMqYil8/i9GqWhY64JQt+t/zn/AI8cz1thxOrQ+ysGOmyguABAQ=="
+    }
+  ],
+  "schema": "SignedEnvelope"
+}

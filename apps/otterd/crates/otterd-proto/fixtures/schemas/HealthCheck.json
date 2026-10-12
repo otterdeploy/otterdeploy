@@ -1,0 +1,42 @@
+{
+  "cases": [
+    {
+      "attemptTimeoutMs": 5000,
+      "degradedAfterMs": 2000,
+      "failureThreshold": 3,
+      "healthAction": "none",
+      "id": "chk_web",
+      "installId": "inst_1",
+      "intervalMs": 60000,
+      "orgId": "org_1",
+      "outcomePolicyRevision": 1,
+      "probe": {
+        "assertions": [
+          {
+            "op": "eq",
+            "target": "status",
+            "value": "200"
+          }
+        ],
+        "followRedirects": false,
+        "kind": "http",
+        "maxRedirects": 0,
+        "method": "GET",
+        "tlsVerify": true,
+        "url": "http://10.240.0.5:8080/healthz"
+      },
+      "readyHoldMs": 10000,
+      "resourceId": "res_web",
+      "retries": 1,
+      "retryBackoffMs": 1000,
+      "revision": 2,
+      "role": "readiness",
+      "roundBudgetMs": 15000,
+      "startPeriodMs": 10000,
+      "subjectId": "res_web",
+      "successThreshold": 1,
+      "vantage": "serving-path"
+    }
+  ],
+  "schema": "HealthCheck"
+}

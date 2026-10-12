@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "authorityTerm": 2,
+      "installId": "inst_1",
+      "members": [
+        {
+          "identityKeyId": "6a3803d5f059902a1c6dafbc9ba47292",
+          "meshAddress": "10.250.0.1",
+          "nodeEpoch": 3,
+          "nodeId": "node_1",
+          "status": "active"
+        }
+      ],
+      "membershipEpoch": 9,
+      "tombstones": [
+        {
+          "nodeId": "node_old",
+          "throughEpoch": 4
+        }
+      ]
+    }
+  ],
+  "schema": "Membership"
+}

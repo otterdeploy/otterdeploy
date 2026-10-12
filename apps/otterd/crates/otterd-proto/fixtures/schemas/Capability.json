@@ -1,0 +1,59 @@
+{
+  "cases": [
+    {
+      "aud": "node_1",
+      "authorityTerm": 2,
+      "binding": {
+        "generation": 4,
+        "grantId": "grant_1",
+        "slot": {
+          "index": 0,
+          "resourceId": "res_pg"
+        }
+      },
+      "expiresAtUnixMs": 1791000030000,
+      "installId": "inst_1",
+      "nodeEpoch": 3,
+      "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "notBeforeUnixMs": 1791000000000,
+      "opId": "op_apply_1",
+      "operationEpoch": 9,
+      "orgId": "org_1",
+      "payloadHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "permissions": [
+        "mutate"
+      ],
+      "principal": {
+        "id": "scheduler",
+        "kind": "system"
+      },
+      "resourceId": "res_pg",
+      "sessionId": "sess_1",
+      "verb": "workload.apply"
+    },
+    {
+      "aud": "node_1",
+      "authorityTerm": 2,
+      "expiresAtUnixMs": 1791000060000,
+      "installId": "inst_1",
+      "maxBytes": 67108864,
+      "nodeEpoch": 3,
+      "nonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "notBeforeUnixMs": 1791000000000,
+      "opId": "op_shell_1",
+      "operationEpoch": 1,
+      "payloadHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "permissions": [
+        "interactive",
+        "install-admin"
+      ],
+      "principal": {
+        "id": "user_1",
+        "kind": "install-admin"
+      },
+      "sessionId": "sess_1",
+      "verb": "host.shell"
+    }
+  ],
+  "schema": "Capability"
+}

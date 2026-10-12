@@ -1,0 +1,130 @@
+{
+  "dataHeaders": [
+    {
+      "hex": "0100000000000001",
+      "pipe": "stdin",
+      "streamId": 1
+    },
+    {
+      "hex": "0101000001020304",
+      "pipe": "stdout",
+      "streamId": 16909060
+    },
+    {
+      "hex": "01020000ffffffff",
+      "pipe": "stderr",
+      "streamId": 4294967295
+    }
+  ],
+  "negotiation": [
+    {
+      "cp": {
+        "max": 5,
+        "min": 2
+      },
+      "node": {
+        "max": 3,
+        "min": 1
+      },
+      "result": {
+        "ok": 3
+      }
+    },
+    {
+      "cp": {
+        "max": 1,
+        "min": 1
+      },
+      "node": {
+        "max": 1,
+        "min": 1
+      },
+      "result": {
+        "ok": 1
+      }
+    },
+    {
+      "cp": {
+        "max": 3,
+        "min": 2
+      },
+      "node": {
+        "max": 1,
+        "min": 1
+      },
+      "result": {
+        "error": "node-too-old"
+      }
+    },
+    {
+      "cp": {
+        "max": 3,
+        "min": 2
+      },
+      "node": {
+        "max": 5,
+        "min": 4
+      },
+      "result": {
+        "error": "control-plane-too-old"
+      }
+    },
+    {
+      "cp": {
+        "max": 1,
+        "min": 1
+      },
+      "node": {
+        "max": 2,
+        "min": 3
+      },
+      "result": {
+        "error": "malformed"
+      }
+    }
+  ],
+  "signatures": [
+    {
+      "context": "otterd/capability/v1",
+      "envelope": {
+        "context": "otterd/capability/v1",
+        "keyId": "34750f98bd59fcfc946da45aaabe933b",
+        "payload": "eyJoZWxsbyI6Im90dGVyZCJ9",
+        "signature": "uvgIL3/b9/frOqoJ4nXSFS66Zx5CT2nm5HUu+ZcWTfzxZ2UheImzVwLxiyTjAIwYMFnHnoTBZ6qIBO4LGRnkAA=="
+      },
+      "keyId": "34750f98bd59fcfc946da45aaabe933b",
+      "payloadDigest": "498f5e2b6de5355d627fb6297857edb8180ad229173e956afd6e270a7be483df",
+      "payloadUtf8": "{\"hello\":\"otterd\"}",
+      "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+      "seedHex": "0101010101010101010101010101010101010101010101010101010101010101"
+    },
+    {
+      "context": "otterd/session/v1",
+      "envelope": {
+        "context": "otterd/session/v1",
+        "keyId": "6a3803d5f059902a1c6dafbc9ba47292",
+        "payload": "eyJoZWxsbyI6Im90dGVyZCJ9",
+        "signature": "EtBOizBeZmYvHsnvahjd2cZOWNuBb6A+CbEkzZzfTvbig2BE9OQPx+2Q8wJlzoex8ac7Ne6Aqx/FTLyCOwk3Cw=="
+      },
+      "keyId": "6a3803d5f059902a1c6dafbc9ba47292",
+      "payloadDigest": "498f5e2b6de5355d627fb6297857edb8180ad229173e956afd6e270a7be483df",
+      "payloadUtf8": "{\"hello\":\"otterd\"}",
+      "publicKey": "gTl3Dqh9F19Wo1Rmw0x+zMuNipG07jeiXfYPW4/Js5Q=",
+      "seedHex": "0202020202020202020202020202020202020202020202020202020202020202"
+    },
+    {
+      "context": "otterd/authority-revoke/v1",
+      "envelope": {
+        "context": "otterd/authority-revoke/v1",
+        "keyId": "b62e867fa2f33afe62d5d6b1642e1621",
+        "payload": "eyJoZWxsbyI6Im90dGVyZCJ9",
+        "signature": "A/xIGXcFPXFfwMwd60LUrAmBIHxqgRH7ai2BZZ/qKTKGGMlyWPyxOEtFAgmbTEQyk5j0QXwy1zVqkv+WBh1jDA=="
+      },
+      "keyId": "b62e867fa2f33afe62d5d6b1642e1621",
+      "payloadDigest": "498f5e2b6de5355d627fb6297857edb8180ad229173e956afd6e270a7be483df",
+      "payloadUtf8": "{\"hello\":\"otterd\"}",
+      "publicKey": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY/k2NsFGFKyHN9E=",
+      "seedHex": "0303030303030303030303030303030303030303030303030303030303030303"
+    }
+  ]
+}

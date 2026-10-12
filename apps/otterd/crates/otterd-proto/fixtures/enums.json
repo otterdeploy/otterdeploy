@@ -1,0 +1,600 @@
+{
+  "Cause": [
+    "ok",
+    "target_timeout",
+    "connection_refused",
+    "target_unreachable",
+    "assertion_failed",
+    "tls_invalid",
+    "cert_expiring",
+    "target_dns_failure",
+    "check_exit",
+    "check_timeout",
+    "probe_capacity",
+    "executor_failure",
+    "local_resolver_failure",
+    "permission_missing",
+    "unsupported_configuration",
+    "missing_shell",
+    "vantage_missing"
+  ],
+  "Feature": [
+    "bulk",
+    "realtime-metrics",
+    "probe-executor",
+    "discovery-relay",
+    "platform-bootstrap"
+  ],
+  "MetricName": [
+    "host.cpu.used_pct",
+    "host.cpu.user_pct",
+    "host.cpu.system_pct",
+    "host.cpu.iowait_pct",
+    "host.cpu.steal_pct",
+    "host.load.1",
+    "host.load.5",
+    "host.load.15",
+    "host.mem.used_bytes",
+    "host.mem.total_bytes",
+    "host.mem.cached_bytes",
+    "host.mem.arc_bytes",
+    "host.swap.used_bytes",
+    "host.swap.total_bytes",
+    "fs.used_bytes",
+    "fs.total_bytes",
+    "disk.read_bytes_per_sec",
+    "disk.write_bytes_per_sec",
+    "disk.util_pct",
+    "net.rx_bytes_per_sec",
+    "net.tx_bytes_per_sec",
+    "container.cpu_pct",
+    "container.mem_bytes",
+    "container.mem_limit_bytes",
+    "container.net.rx_bytes_per_sec",
+    "container.net.tx_bytes_per_sec",
+    "container.healthy",
+    "systemd.unit_active",
+    "zfs.pool_online",
+    "zfs.pool_used_bytes"
+  ],
+  "NodeRole": [
+    "worker",
+    "edge",
+    "build",
+    "registry",
+    "monitor",
+    "platform"
+  ],
+  "Outcome": [
+    "success",
+    "target-failure",
+    "unknown",
+    "configuration-error"
+  ],
+  "Permission": [
+    "read",
+    "mutate",
+    "stream-out",
+    "stream-in",
+    "interactive",
+    "install-admin",
+    "platform"
+  ],
+  "SignContext": [
+    "otterd/session/v1",
+    "otterd/capability/v1",
+    "otterd/lease/v1",
+    "otterd/enroll-request/v1",
+    "otterd/enroll/v1",
+    "otterd/key-rotation/v1",
+    "otterd/cp-key-transition/v1",
+    "otterd/stop-certificate/v1",
+    "otterd/authority-revoke/v1",
+    "otterd/platform-boot-manifest/v1",
+    "otterd/release-manifest/v1",
+    "otterd/owner-snapshot/v1",
+    "otterd/challenge-answer/v1",
+    "otterd/serving-set/v1",
+    "otterd/membership/v1",
+    "otterd/peer-answer/v1",
+    "otterd/anchor/v1"
+  ],
+  "SignalKind": [
+    "firewall-drift",
+    "docker-rules-missing",
+    "mesh-peer-blocked",
+    "vip-receiver-stalled",
+    "dns-responder-down",
+    "engine-unreachable",
+    "watchdog-restart",
+    "boot-quarantine",
+    "probe-capacity"
+  ],
+  "SpecIssueCode": [
+    "SCHEMA_UNSUPPORTED",
+    "EXCLUSIVE_REQUIRES_STOP_FIRST",
+    "HOST_PORT_REQUIRES_STOP_FIRST",
+    "FAILOVER_DELAY_BELOW_MINIMUM",
+    "SHARED_WRITABLE_MOUNT",
+    "JOB_REQUIRES_EXCLUSIVE",
+    "MOUNT_SOURCE_REQUIRED",
+    "TMPFS_HAS_SOURCE",
+    "DUPLICATE_MOUNT_TARGET",
+    "FAILURE_RATIO_OUT_OF_RANGE",
+    "IMAGE_DIGEST_INVALID",
+    "RESCHEDULE_LEAVES_DATA_BEHIND",
+    "DNSRR_CLIENT_LIMITATIONS"
+  ],
+  "Verb": [
+    "workload.apply",
+    "workload.restart",
+    "workload.stop",
+    "workload.remove",
+    "workload.inspect",
+    "workload.logs",
+    "job.run",
+    "op.status",
+    "node.details",
+    "node.health",
+    "node.units",
+    "node.reclaim",
+    "node.upgrade",
+    "node.decommission",
+    "node.reenroll",
+    "node.retireByBarrier",
+    "metrics.sample",
+    "events.subscribe",
+    "health.configure",
+    "container.list",
+    "container.inspect",
+    "container.logs",
+    "container.exec",
+    "image.pull",
+    "image.push",
+    "image.inspect",
+    "image.list",
+    "image.remove",
+    "image.prune",
+    "network.list",
+    "network.inspect",
+    "network.ensure",
+    "network.connect",
+    "network.disconnect",
+    "network.remove",
+    "volume.list",
+    "volume.inspect",
+    "volume.create",
+    "volume.remove",
+    "volume.fs",
+    "volume.export",
+    "volume.import",
+    "volume.snapshot",
+    "volume.clone",
+    "pool.stats",
+    "pool.trim",
+    "pool.grow",
+    "backup.run",
+    "backup.restore",
+    "backup.status",
+    "db.connect",
+    "host.shell",
+    "firewall.apply",
+    "firewall.cscli",
+    "proxy.apply",
+    "proxy.status",
+    "platform.update"
+  ],
+  "VerbRequired": [
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "workload.apply"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "workload.restart"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "workload.stop"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "workload.remove"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "workload.inspect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read",
+        "stream-out"
+      ],
+      "verb": "workload.logs"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "job.run"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "read"
+      ],
+      "verb": "op.status"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "read"
+      ],
+      "verb": "node.details"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "read"
+      ],
+      "verb": "node.health"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "node.units"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate",
+        "install-admin"
+      ],
+      "verb": "node.reclaim"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "platform"
+      ],
+      "verb": "node.upgrade"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "mutate",
+        "install-admin"
+      ],
+      "verb": "node.decommission"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "install-admin"
+      ],
+      "verb": "node.reenroll"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate",
+        "install-admin"
+      ],
+      "verb": "node.retireByBarrier"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "read"
+      ],
+      "verb": "metrics.sample"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read",
+        "stream-out"
+      ],
+      "verb": "events.subscribe"
+    },
+    {
+      "monitor": true,
+      "required": [
+        "mutate"
+      ],
+      "verb": "health.configure"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "container.list"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "container.inspect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read",
+        "stream-out"
+      ],
+      "verb": "container.logs"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "interactive"
+      ],
+      "verb": "container.exec"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "image.pull"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "image.push"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "image.inspect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "image.list"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "image.remove"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "image.prune"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "network.list"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "network.inspect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "network.ensure"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "network.connect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "network.disconnect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "network.remove"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "volume.list"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "volume.inspect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "volume.create"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "volume.remove"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "volume.fs"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read",
+        "stream-out"
+      ],
+      "verb": "volume.export"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate",
+        "stream-in"
+      ],
+      "verb": "volume.import"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "volume.snapshot"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "volume.clone"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "pool.stats"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "pool.trim"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate",
+        "install-admin"
+      ],
+      "verb": "pool.grow"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "backup.run"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "backup.restore"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "backup.status"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "interactive"
+      ],
+      "verb": "db.connect"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "interactive",
+        "install-admin"
+      ],
+      "verb": "host.shell"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "platform"
+      ],
+      "verb": "firewall.apply"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "platform",
+        "install-admin"
+      ],
+      "verb": "firewall.cscli"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "platform"
+      ],
+      "verb": "proxy.apply"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "read"
+      ],
+      "verb": "proxy.status"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "platform",
+        "install-admin"
+      ],
+      "verb": "platform.update"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "cases": [
+    {
+      "authorityTerm": 2,
+      "installId": "inst_1",
+      "newFlowAttempts": [
+        {
+          "address": "10.240.1.5",
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "grantId": "grant_7",
+          "nodeEpoch": 3,
+          "ports": [
+            {
+              "port": 8080,
+              "protocol": "tcp"
+            }
+          ]
+        }
+      ],
+      "operationEpoch": 9,
+      "scopeId": "scope_prod",
+      "servingRevision": 18,
+      "vipId": "vip_web",
+      "withdrawals": [
+        {
+          "attemptId": "att_fedcba9876543210fedcba9876543210",
+          "drainBudgetMs": 30000,
+          "withdrawalRevision": 18
+        }
+      ]
+    }
+  ],
+  "schema": "ServingSet"
+}
