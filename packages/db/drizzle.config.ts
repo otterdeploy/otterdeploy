@@ -1,6 +1,16 @@
 import { env } from "@otterdeploy/env/server";
 import { defineConfig } from "drizzle-kit";
 
+const PARTITIONED_HEALTH_TABLES = [
+  "health_probe_raw",
+  "health_metric_raw",
+  "health_ledger",
+  "health_probe_r10m",
+  "health_probe_r1h",
+  "health_metric_r10m",
+  "health_metric_r1h",
+];
+
 export default defineConfig({
   // Point at the barrel, not the directory: drizzle-kit 1.0-rc loads a
   // directory's files AND any re-exporting index, double-counting every
@@ -22,5 +32,17 @@ export default defineConfig({
   // untouched. ("*" keeps every other table in drizzle-kit's purview.)
   // `analytics_event` (web-analytics event stream) is partitioned the same
   // way and owned by packages/api/src/analytics/partition.ts.
-  tablesFilter: ["*", "!edge_log", "!edge_log_*", "!analytics_event", "!analytics_event_*"],
+  // The partitioned health tables (raw payloads, the correction ledger, the
+  // 10-minute and hourly rollups) are created by the `health_data` migration's
+  // hand-written part and partitioned by packages/api/src/health-data/partitions.ts;
+  // children are named `<parent>_p<epoch seconds>`. The `_p*` patterns keep
+  // `health_ledger_anchor` (drizzle-managed) out of the exclusion.
+  tablesFilter: [
+    "*",
+    "!edge_log",
+    "!edge_log_*",
+    "!analytics_event",
+    "!analytics_event_*",
+    ...PARTITIONED_HEALTH_TABLES.flatMap((t) => [`!${t}`, `!${t}_p*`]),
+  ],
 });
