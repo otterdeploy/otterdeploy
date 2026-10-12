@@ -1,0 +1,46 @@
+name: otterd
+
+on:
+  pull_request:
+    paths:
+      - "apps/otterd/**"
+      - ".github/workflows/otterd.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/otterd/**"
+      - ".github/workflows/otterd.yml"
+
+concurrency:
+  group: otterd-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: fmt, clippy, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/otterd
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the toolchain; rustup installs it on first use.
+      - name: Toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/otterd
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --locked
