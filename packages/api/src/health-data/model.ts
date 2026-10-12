@@ -28,6 +28,8 @@ export const MAX_FUTURE_MS = HOUR;
 
 export const TIER = { base10m: 1, hour: 2, day: 3 } as const;
 type Tier = (typeof TIER)[keyof typeof TIER];
+const TIER_MS: Record<Tier, number> = { 1: 10 * MINUTE, 2: HOUR, 3: DAY };
+export const BASE_BUCKET_MS = TIER_MS[TIER.base10m];
 /** Rollup retention per tier. Metrics stop at the hourly tier. */
 export const TIER_RETENTION_MS: Record<Tier, number> = { 1: 14 * DAY, 2: 90 * DAY, 3: 400 * DAY };
 
@@ -77,10 +79,26 @@ export interface LedgerRecord {
  */
 export const METRIC_WIDTH = 32;
 
+/** Revision of the evaluator that built a bucket. */
+export const EVAL_REV = 1;
 /** DDSketch relative accuracy for latency sketches. */
 export const SKETCH_ALPHA = 0.01;
 
+const RECORD_KINDS: readonly RecordKind[] = Object.values(KIND);
+const PROBE_STATES: readonly ProbeState[] = Object.values(STATE);
+
+/** A stored kind; anything unknown is treated as diagnostic (never evaluated). */
+export function recordKindOf(value: number): RecordKind {
+  return RECORD_KINDS.find((k) => k === value) ?? KIND.diagnostic;
+}
+
+/** A stored state; anything unknown is Unknown. */
+export function probeStateOf(value: number): ProbeState {
+  return PROBE_STATES.find((s) => s === value) ?? STATE.unknown;
+}
+
 export const floorTo = (t: number, width: number): number => Math.floor(t / width) * width;
+export const ceilTo = (t: number, width: number): number => Math.ceil(t / width) * width;
 
 /** Current epoch milliseconds. */
 export const nowMs = (): number => Temporal.Now.instant().epochMilliseconds;
