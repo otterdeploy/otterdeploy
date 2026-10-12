@@ -8,13 +8,13 @@
 //! * every process start, which re-enters boot quarantine;
 //! * operation claims (`opId + payloadHash`) and their outcomes;
 //! * grants, their attempts and their durable revocation;
-//! * every Engine mutation as `NotSubmitted → Submitted → Settled | Retired`
-//!   (MODEL §2.2.1). `Submitted` is written *before* the request is sent and
+//! * every Engine mutation as `NotSubmitted → Submitted → Settled | Retired`;
+//!   `Submitted` is written *before* the request is sent and
 //!   leaves that state only through a definitive Engine response or a validated
 //!   external barrier;
-//! * positive stop certificates (MODEL §2.3 path 1);
-//! * retained mount holds (MODEL §2.6.1);
-//! * the platform boot manifest and update phases (MODEL §2.7);
+//! * positive stop certificates;
+//! * retained mount holds;
+//! * the platform boot manifest and update phases;
 //! * durable high-water marks.
 //!
 //! Losing the journal is recovery, not a restart: there is no reconstruction of

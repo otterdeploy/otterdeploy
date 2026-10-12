@@ -1,4 +1,4 @@
-//! Health checks and probe results (MONITORING §5, §5.1, §5.2).
+//! Health checks and probe results.
 //!
 //! One check definition and one outcome vocabulary for the node executor, the
 //! monitor and the control-plane evaluator. One scheduled round yields one
@@ -8,7 +8,7 @@ use crate::ids::{AttemptId, BootId, CheckId, InstallId, NodeId, OrgId, ResourceI
 use crate::num::{DurationMs, U53, UnixMs};
 use serde::{Deserialize, Serialize};
 
-/// Fixed per-round setup/teardown overhead charged by admission (MONITORING §5.1).
+/// Fixed per-round setup/teardown overhead charged by admission.
 pub const ROUND_OVERHEAD_MS: u64 = 4_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,7 +63,7 @@ pub enum HttpAssertion {
     },
 }
 
-/// What a DNS check expects from the resolver under test (MONITORING §5.2).
+/// What a DNS check expects from the resolver under test.
 /// `nxdomain`/`servfail` succeed only when explicitly expected.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
@@ -143,7 +143,7 @@ pub enum Probe {
     },
 }
 
-/// A versioned check definition (MONITORING §5 `HealthCheck`).
+/// A versioned check definition.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HealthCheck {
@@ -233,7 +233,7 @@ impl HealthCheck {
     }
 }
 
-/// Normalized outcome of an attempt or a round (MONITORING §5.2).
+/// Normalized outcome of an attempt or a round.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Outcome {
@@ -262,7 +262,7 @@ impl Outcome {
     }
 }
 
-/// Bounded cause codes (MONITORING §5.2 table). Never free-form error text.
+/// Bounded cause codes. Never free-form error text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Cause {
@@ -351,7 +351,7 @@ pub enum ProtocolPhase {
     Exec,
 }
 
-/// Identity of one observation (MONITORING §5 `ObservationIdentity`).
+/// Identity of one observation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ObservationIdentity {
@@ -406,7 +406,7 @@ pub enum Qualification {
     Unqualified { cause: Cause },
 }
 
-/// One round's result (MONITORING §5 `ProbeResult`).
+/// One round's result.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProbeResult {
@@ -430,7 +430,7 @@ pub struct ProbeResult {
     pub certificate_expiry_unix_ms: Option<UnixMs>,
 }
 
-/// Fold attempt outcomes into the round's single vote (MONITORING §5.2).
+/// Fold attempt outcomes into the round's single vote.
 ///
 /// `configured` is the number of attempts the check allows (`retries + 1`).
 /// Any success wins. Any configuration error makes the round a configuration

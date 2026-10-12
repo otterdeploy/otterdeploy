@@ -3,7 +3,7 @@
  *
  * Frozen arguments: lifecycle verbs, `op.*`, `node.*`, `metrics.sample`,
  * `health.configure`, and the stream binding. The storage, backup, firewall,
- * proxy and platform-update arguments are provisional and owned by their lanes.
+ * proxy and platform-update arguments are provisional and owned by those components.
  */
 import { z } from "zod";
 
@@ -24,7 +24,7 @@ export const streamBinding = z.strictObject({
 });
 export type StreamBinding = z.infer<typeof streamBinding>;
 
-/** A lane-owned document carried as exact bytes; `digest` = SHA-256(body). */
+/** A document owned by another component, carried as exact bytes; `digest` = SHA-256(body). */
 export const opaqueDocument = z.strictObject({
   schema: z.string(),
   body: z.string(),

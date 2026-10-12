@@ -1,4 +1,4 @@
-//! The bulk channel: streams with credit-based flow control (PLAN §5.1).
+//! The bulk channel: streams with credit-based flow control.
 //!
 //! A second WebSocket, authenticated with the same handshake as the control
 //! channel (`hello.channel = bulk`, `controlSessionId` set), carries every
@@ -162,7 +162,7 @@ pub enum BulkFrame {
         rows: u16,
     },
     /// Abort the stream; a reset generator or WS cancellation closes remote
-    /// followers and sessions (PLAN §5.1).
+    /// followers and sessions.
     #[serde(rename_all = "camelCase")]
     Reset {
         stream_id: u32,

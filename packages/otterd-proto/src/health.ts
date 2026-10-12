@@ -1,4 +1,4 @@
-/** Health checks and probe results (MONITORING §5); mirror of `health.rs`. */
+/** Health checks and probe results; mirror of `health.rs`. */
 import { z } from "zod";
 
 import { u32, u53, u8, u16, wireId } from "./primitives";
@@ -110,7 +110,7 @@ export type CheckIssue =
   | "UPTIME_INTERVAL_OUT_OF_RANGE"
   | "THRESHOLD_ZERO";
 
-/** `a*t + (a−1)*b + o` (MONITORING §5.1). */
+/** `a*t + (a−1)*b + o`. */
 export function minimumRoundBudgetMs(check: HealthCheck): number {
   const attempts = check.retries + 1;
   return (
@@ -231,7 +231,7 @@ export const probeResult = z.object({
 export type ProbeResult = z.infer<typeof probeResult>;
 
 /**
- * One round, one vote (MONITORING §5.2); mirror of `round_outcome`. `configured`
+ * One round, one vote; mirror of `round_outcome`. `configured`
  * is `retries + 1`: a round that ran fewer attempts without a success is Unknown.
  */
 export function roundOutcome(

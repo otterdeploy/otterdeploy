@@ -1,4 +1,4 @@
-//! The journalled Engine boundary (MODEL §2.2.1).
+//! The journalled Engine boundary.
 //!
 //! Every mutation is recorded `NotSubmitted`, then fsynced `Submitted`
 //! **before** the request is sent, then `Settled` only on a definitive terminal
@@ -336,7 +336,7 @@ impl EngineAdapter {
         &self.boot_id
     }
 
-    /// The node's lifecycle/submission lock (MODEL I4). Revocation, retirement
+    /// The node's lifecycle/submission lock. Revocation, retirement
     /// of unsubmitted work and the NotSubmitted→Submitted step all happen under it.
     pub async fn lock(&self) -> tokio::sync::MutexGuard<'_, ()> {
         self.submission_lock.lock().await

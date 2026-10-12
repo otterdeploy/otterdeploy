@@ -1,4 +1,4 @@
-/** Node identity, enrollment and key rotation (PLAN §5.1, §5.2); mirror of `identity.rs`. */
+/** Node identity, enrollment and key rotation; mirror of `identity.rs`. */
 import { z } from "zod";
 
 import { signedEnvelope } from "./envelope";

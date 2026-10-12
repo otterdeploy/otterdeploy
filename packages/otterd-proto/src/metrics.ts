@@ -1,6 +1,6 @@
 /**
  * Metric samples, series markers, node signals and telemetry batches
- * (MONITORING §5, §6, §6.2); mirror of `metrics.rs`. Telemetry is lenient:
+ *; mirror of `metrics.rs`. Telemetry is lenient:
  * a newer node may add fields that this side strips.
  */
 import { z } from "zod";

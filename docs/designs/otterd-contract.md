@@ -3,8 +3,8 @@
 Status: contract version 1, frozen for the otterd build. Source of truth:
 `apps/otterd/crates/otterd-proto` (Rust). Mirror: `packages/otterd-proto`
 (TypeScript, zod). Both are held to the shared fixtures in
-`apps/otterd/crates/otterd-proto/fixtures/`. Decisions this implements:
-`research/otterd-cutover/PLAN.md` §§3–6, `MODEL.md`, `MONITORING.md` §5–§6.
+`apps/otterd/crates/otterd-proto/fixtures/`. The daemon itself is described in
+[`otterd.md`](otterd.md).
 
 otterd is not wired into the installer or the control plane's runtime
 selection yet. Nothing here changes behaviour for current installs.
@@ -15,9 +15,9 @@ selection yet. Nothing here changes behaviour for current installs.
 |---|---|
 | JSON, camelCase keys, kebab-case enum values, verbs as dotted names (`workload.apply`). | One spelling on both sides; a fixture test rejects any snake_case key. |
 | Every integer is a `U53` (`0..=2^53−1`). Epochs, terms, generations, sequence numbers, byte counts, timestamps (`…UnixMs`) and durations (`…Ms`). | The control plane parses JSON as IEEE doubles. Larger values are refused on decode in both languages, never rounded. |
-| Ids are opaque strings, `[A-Za-z0-9._:/@+-]{1,128}`. Node-minted ids carry a prefix (`att_`, `mut_`, `hold_`, `upd_`, `inc_`, `batch_`) and 128 random bits. | Attempts, mutations and holds cross the Engine boundary and are never reused, including on rollback (MODEL §2.2.1). |
+| Ids are opaque strings, `[A-Za-z0-9._:/@+-]{1,128}`. Node-minted ids carry a prefix (`att_`, `mut_`, `hold_`, `upd_`, `inc_`, `batch_`) and 128 random bits. | Attempts, mutations and holds cross the Engine boundary and are never reused, including on rollback. |
 | Authority documents are **strict**: unknown fields are refused. Telemetry and reports are **lenient**: unknown fields are ignored. | A field that restricts authority (a new scope limit in a capability) must never be silently dropped by an older node; adding one needs a new protocol version. A new optional metric field must not break an older control plane. |
-| Wall time is evidence and bounds validity windows. It never orders authority. | Ordering comes from epochs, terms and sequence numbers (MODEL I2). |
+| Wall time is evidence and bounds validity windows. It never orders authority. | Ordering comes from epochs, terms and sequence numbers. |
 
 Strict: `Capability`, `SlotGrant`, `LeaseRenewal`, `StopCertificate`,
 `ServingSet`, `Membership`, `OwnerSnapshot`, `EnrollCertificate`,
@@ -31,7 +31,7 @@ One integer names the protocol (`PROTOCOL_VERSION = 1`). The node sends the
 range it speaks in `hello`; the control plane picks the highest version both
 speak (`negotiate`) or answers `reject {code: unsupported-protocol, supported}`
 so the operator sees which side must upgrade. That is the upgrade-order gate
-of PLAN §5.1. Separate counters version the journal format, the ServiceSpec
+of the release order. Separate counters version the journal format, the ServiceSpec
 schema, the health evaluator IR and the metric schema. Optional behaviours are
 `features` (`bulk`, `realtime-metrics`, `probe-executor`, `discovery-relay`,
 `platform-bootstrap`), used only when both sides list them; nothing that
@@ -82,7 +82,7 @@ one session:
 - **bulk**: same URL, `hello.channel = "bulk"` plus `controlSessionId`;
   streams for logs, exec/PTY, archives, events.
 
-Limits arrive in `welcome.limits` (PLAN §5.1 defaults): 64 KiB frames, 16
+Limits arrive in `welcome.limits`: 64 KiB frames, 16
 active commands, 256 KiB control reserve, 2 MiB bulk queue, 256 KiB per-stream
 window, 16 streams, 4,000 telemetry items of credit.
 
@@ -99,7 +99,7 @@ window, 16 streams, 4,000 telemetry items of credit.
 Because both proofs bind both nonces, the session id, boot id and incarnation,
 neither can be replayed into another session. The node derives its clock
 bound from the handshake and `ping`/`pong` round trips (`cpUnixMs ± rtt/2`);
-without a bound it refuses new privileged work (PLAN §5.3). `goAway` closes a
+without a bound it refuses new privileged work. `goAway` closes a
 session from either side with a reason and an optional reconnect delay.
 
 ### Commands
@@ -120,7 +120,7 @@ hash for the capability, which is the only correct way to build a request.
 | Frame | Direction | Meaning |
 |---|---|---|
 | `slotReports {seq, quarantined, engineReachable, slots}` | node → CP | Journalled slot state after `ready` and on every change. `engineReachable` is a reconcile result, never a startup gate: dockerd's inspect can hang while containerd is blocked. |
-| `leaseRequest` / `lease {renewal}` | node → CP / CP → node | MODEL §3: the node records its nonce and `CLOCK_BOOTTIME` send instant before sending; the signed `LeaseRenewal` consumes that nonce once and its duration counts from the send instant. One outstanding request per scope. |
+| `leaseRequest` / `lease {renewal}` | node → CP / CP → node | The node records its nonce and `CLOCK_BOOTTIME` send instant before sending; the signed `LeaseRenewal` consumes that nonce once and its duration counts from the send instant. One outstanding request per scope. |
 | `telemetry` / `telemetryAck {batchId, disposition, credit}` | node → CP / CP → node | `SampleBatch`, credit-limited. `deferred` = keep buffering and retry; `refused` = drop and count. |
 | `discovery {from, to, message}` | relayed by the CP | A `DiscoveryMessage` when the peer path is down. The CP can carry but never answer a challenge. |
 | `authority {document}` | CP → node | A signed serving set, membership revision or authority revocation. |
@@ -190,9 +190,9 @@ fixtures hold exactly one case per verb.
 |---|---|---|
 | Lifecycle | `workload.apply {grant, spec}`, `workload.restart`, `workload.stop {grantId, reason, stopGraceMs?}`, `workload.remove`, `workload.inspect`, `workload.logs`, `job.run {grant, spec, runId}`, `op.status` | frozen |
 | Node | `node.details`, `node.health`, `node.units`, `node.reclaim`, `node.upgrade {release}`, `node.decommission`, `node.reenroll {certificate}`, `node.retireByBarrier {evidence}`, `metrics.sample {cacheMs, includeDetails}`, `events.subscribe`, `health.configure {revision, checks}` | frozen |
-| Containers, images, networks, volumes, pools, backups | `container.*`, `image.*`, `network.*`, `volume.*`, `pool.*`, `backup.*` | provisional, owned by L11 (and L5/L7b) |
+| Containers, images, networks, volumes, pools, backups | `container.*`, `image.*`, `network.*`, `volume.*`, `pool.*`, `backup.*` | provisional, owned by the storage, image and network work |
 | Interactive | `container.exec`, `db.connect`, `host.shell` | provisional |
-| Platform reconcilers | `firewall.apply {generation, policy}`, `firewall.cscli`, `proxy.apply {generation, routes}`, `proxy.status`, `platform.update {manifest}` | provisional; `policy`/`routes` are `OpaqueDocument {schema, body, digest}` until their lanes publish schemas |
+| Platform reconcilers | `firewall.apply {generation, policy}`, `firewall.cscli`, `proxy.apply {generation, routes}`, `proxy.status`, `platform.update {manifest}` | provisional; `policy`/`routes` are `OpaqueDocument {schema, body, digest}` until those components publish schemas |
 
 "Provisional" means the verb name and permissions are frozen and the
 arguments may still change before release through a contract PR that updates
@@ -206,13 +206,13 @@ by `kind`): `done`, `applied {grantId, attemptId}`, `stopped {certificate}`,
 `stop-unresolved {grantId, reasons}` (start authority revoked but no positive
 stop: the CP keeps the barrier and the grant stays Unknown), `slots`,
 `operation {record}`, `stream-opened`, `retired {mutationCount}`, and
-`document {schema, body}` for lane-owned read results.
+`document {schema, body}` for read results whose schema another component owns.
 
 ## Lifecycle documents (`lifecycle.rs`)
 
 - **`SlotGrant`**: start authority for one slot generation, bound to node
   epoch, authority term and the node's process **incarnation**, so a grant
-  never survives a daemon restart (MODEL §2.4). Carries `exclusive`,
+  never survives a daemon restart. Carries `exclusive`,
   `disconnectAction`, the delegated `restart` budget, `dataClaims` and
   `probeOnly` (a new attempt stays out of traffic until a serving set admits it).
 - **`SlotReport`**: per slot, grant state (`prepared … released`, `unknown`),
@@ -220,7 +220,7 @@ stop: the CP keeps the barrier and the grant stays Unknown), `slots`,
   observation (`absent | created | running | exited | unknown`) and every
   Engine mutation with its submission state (`not-submitted | submitted |
   settled | retired`). Process state and submission state are independent.
-- **`StopCertificate`** (node-signed): the positive stop of MODEL §2.3 path 1,
+- **`StopCertificate`** (node-signed): the positive stop of a responsive node,
   binding node epoch, slot, grant, `opId`, every attempt, every container's
   final observation, empty cgroups, the mutation-inventory digest and count,
   and the boot id. The CP checks it in the same transaction that releases the
@@ -253,7 +253,7 @@ produce; `normalize` fills the defaults and yields the fully explicit
 - `lifecycle`: **per-service failover** `{policy: stay | reschedule, delayMs}`,
   `exclusive`, `disconnectAction`, `concurrencyGroup`, `concurrentSafe`.
 
-Defaults (PLAN §4):
+Defaults:
 
 | Basis | When | Failover | Exclusive | Disconnect | Update order |
 |---|---|---|---|---|---|
@@ -310,12 +310,12 @@ atomically, omission deletes, empty is meaningful), `FreshnessChallenge` →
 send instant plus 30 s, never at receipt), `ServingSet` (CP-signed exact
 new-flow attempts and withdrawals for one VIP), `Membership` (CP-signed, with
 retained tombstones), `SnapshotChunk` (≤ 64 KiB, ≤ 4 MiB assembled), digest
-exchange, and `PeerChallenge` → `PeerAnswer` for MODEL §3 reachability, which
+exchange, and `PeerChallenge` → `PeerAnswer` for peer reachability, which
 never extends a lease or proves a stop.
 
 ## Health and metric frames (`health.rs`, `metrics.rs`)
 
-- **`HealthCheck`** (MONITORING §5): role (`readiness | liveness | uptime`),
+- **`HealthCheck`**: role (`readiness | liveness | uptime`),
   vantage, probe (`exec | tcp | http | grpc | dns | tls | icmp`; HTTP carries
   structured assertions `status-range | header-contains | body-contains |
   json-equals`, DNS a closed `expect` of `answer {contains?} | nxdomain |
@@ -341,8 +341,8 @@ never extends a lease or proves a stop.
   rollback or ceiling breach is sent as `null`, never as a wrong number. At
   most 16 non-container dimensions per node, enforced at the source.
 - **`SeriesMarker`**: `boot | gap-start | gap-end | tombstone |
-  maintenance-start | maintenance-end` (MONITORING §6.0 correction ledger).
-- **`NodeSignal`**: the MONITORING §6.2 built-ins (`firewall-drift`,
+  maintenance-start | maintenance-end`.
+- **`NodeSignal`**: the built-in node alerts (`firewall-drift`,
   `docker-rules-missing`, `mesh-peer-blocked`, `vip-receiver-stalled`,
   `dns-responder-down`) plus `engine-unreachable`, `watchdog-restart`,
   `boot-quarantine`, `probe-capacity`. None is a fencing or failover input.
@@ -365,12 +365,12 @@ elsewhere refuses to open (corruption is recovery, not repair).
 | `processStarted` | every process start: leases invalid, quarantine on |
 | `authorityRevoked` | a verified recovery-root revocation |
 | `opClaimed`, `opCompleted` | before any side effect / when the outcome is terminal |
-| `grantAccepted`, `grantRevoked` | grant installed / start authority revoked before any stop is sent (I4) |
+| `grantAccepted`, `grantRevoked` | grant installed / start authority revoked before any stop is sent |
 | `attemptBegun` | each attempt, initial, supervisor restart or manual |
-| `mutationIntent`, `mutationSubmitted`, `mutationSettled`, `mutationRetired` | the Engine submission states of MODEL §2.2.1; `submitted` is fsynced before the request is sent |
+| `mutationIntent`, `mutationSubmitted`, `mutationSettled`, `mutationRetired` | the Engine submission states; `submitted` is fsynced before the request is sent |
 | `stopCertified` | the signed certificate, kept so a duplicate stop returns it |
 | `quarantineCleared` | a fresh grant for this incarnation lifts boot quarantine for a slot |
-| `holdIntent`, `holdStaged`, `holdUnknown`, `holdReleased` | retained-mount staging (MODEL §2.6.1) |
+| `holdIntent`, `holdStaged`, `holdUnknown`, `holdReleased` | retained-mount staging |
 | `manifestActivated`, `updatePhaseEntered` | platform boot manifest and update phases; `schema-boundary` is the first irreversible phase |
 | `highWater` | durable monotonic counters (operation epoch, serving revision, membership epoch, publisher sequence, sample sequence, slot report sequence) |
 | `compacted` | heads a compacted file that keeps every record an open obligation still references |

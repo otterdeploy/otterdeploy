@@ -1,5 +1,5 @@
 //! Docker Engine adapter with journalled `NotSubmitted → Submitted → Settled`
-//! mutations (MODEL §2.2.1).
+//! mutations.
 //!
 //! The rule this crate exists to enforce: a request that crossed the Engine
 //! boundary without a definitive answer is `Submitted` and stays so. Inspect,

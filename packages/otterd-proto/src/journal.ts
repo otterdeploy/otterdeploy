@@ -1,5 +1,5 @@
 /**
- * Node journal records (MODEL §2.2.1, §2.6.1, §2.7); mirror of `journal.rs`.
+ * Node journal records; mirror of `journal.rs`.
  * The control plane never reads a live journal; it parses exports for
  * recovery inventory. Records are strict: an unknown field is a newer journal.
  */

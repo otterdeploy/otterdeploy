@@ -1,5 +1,5 @@
 //! Discovery replication, freshness challenges, serving sets and peer
-//! reachability (MODEL §3, §4).
+//! reachability.
 //!
 //! A snapshot arriving by any path is data only; freshness comes exclusively
 //! from an owner's signed answer to a receiver's single-use challenge, and
@@ -12,15 +12,15 @@ use crate::num::{DurationMs, U53};
 use crate::spec::PortProtocol;
 use serde::{Deserialize, Serialize};
 
-/// Largest chunk of a full snapshot (MODEL §4.3).
+/// Largest chunk of a full snapshot.
 pub const MAX_CHUNK_BYTES: usize = 64 * 1024;
-/// Largest assembled full set (MODEL §4.3).
+/// Largest assembled full set.
 pub const MAX_FULL_SET_BYTES: usize = 4 * 1024 * 1024;
-/// Challenge answer window W (MODEL §4.2).
+/// Challenge answer window W.
 pub const CHALLENGE_WINDOW_MS: u64 = 5_000;
-/// Owner eligibility TTL (MODEL §4.2).
+/// Owner eligibility TTL.
 pub const ELIGIBILITY_TTL_MS: u64 = 30_000;
-/// Per-receiver drain bound after installing a withdrawal (MODEL §4.4).
+/// Per-receiver drain bound after installing a withdrawal.
 pub const MAX_DRAIN_MS: u64 = 30_000;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,8 +100,9 @@ pub struct Withdrawal {
     pub drain_budget_ms: DurationMs,
 }
 
-/// CP-signed exact serving set for one VIP (`otterd/serving-set/v1`,
-/// MODEL §4.4). Each receiver installs one revision atomically.
+/// CP-signed exact serving set for one VIP (`otterd/serving-set/v1`). Each
+/// receiver installs one revision atomically; a candidate outside the set only
+/// receives readiness probes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ServingSet {
@@ -180,7 +181,7 @@ pub struct DigestEntry {
     pub full_set_digest: Sha256Hex,
 }
 
-/// Peer reachability challenge (MODEL §3). Reports never extend leases or prove stop.
+/// Peer reachability challenge. Reports never extend leases or prove stop.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PeerChallenge {

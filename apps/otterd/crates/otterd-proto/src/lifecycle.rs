@@ -1,5 +1,5 @@
 //! Ownership protocol shapes shared by commands, reports and the journal
-//! (MODEL §2, §3): slot grants, process observations, runtime submission
+//!: slot grants, process observations, runtime submission
 //! states, stop certificates, barrier evidence and leases.
 
 use crate::ids::{
@@ -10,7 +10,7 @@ use crate::num::{DurationMs, U53, UnixMs};
 use crate::spec::{DisconnectAction, RestartPolicy};
 use serde::{Deserialize, Serialize};
 
-/// Read-only or read-write access to a data identity (MODEL §2.6).
+/// Read-only or read-write access to a data identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DataAccess {
@@ -27,7 +27,7 @@ pub struct DataClaim {
 }
 
 /// Start authority for one slot generation on one node epoch and one node
-/// process incarnation: a grant never survives a daemon restart (MODEL §2.4).
+/// process incarnation: a grant never survives a daemon restart.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SlotGrant {
@@ -39,14 +39,14 @@ pub struct SlotGrant {
     pub incarnation: Incarnation,
     pub exclusive: bool,
     pub disconnect_action: DisconnectAction,
-    /// Delegated local restart budget (MODEL §2.5).
+    /// Delegated local restart budget.
     pub restart: RestartPolicy,
     pub data_claims: Vec<DataClaim>,
     /// New attempts stay probe-only until the CP admits them to a serving set.
     pub probe_only: bool,
 }
 
-/// CP grant states (MODEL §2.2).
+/// CP grant states.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GrantState {
@@ -60,7 +60,7 @@ pub enum GrantState {
     Unknown,
 }
 
-/// Runtime submission state of one Engine mutation (MODEL §2.2.1).
+/// Runtime submission state of one Engine mutation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SubmissionState {
@@ -110,7 +110,7 @@ pub enum ProcessObservation {
 }
 
 impl ProcessObservation {
-    /// Positively not running (MODEL §2.3). `Unknown` is never stopped.
+    /// Positively not running. `Unknown` is never stopped.
     #[must_use]
     pub fn is_positively_stopped(&self) -> bool {
         matches!(self, Self::Absent | Self::Created | Self::Exited { .. })
@@ -155,7 +155,7 @@ pub struct SlotReport {
     pub unknown_holds: Vec<HoldId>,
 }
 
-/// Responsive-node positive stop certificate (MODEL §2.3 path 1), signed by
+/// Responsive-node positive stop certificate, signed by
 /// the node identity key under `otterd/stop-certificate/v1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -188,7 +188,7 @@ pub struct ContainerObservation {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum BarrierMethod {
-    /// Provider hard power-off, action completion and off verified (MODEL §2.3 path 2).
+    /// Provider hard power-off, action completion and off verified.
     ProviderPowerOff,
     /// Operator-supplied out-of-band proof, recorded as a trust assertion (path 3).
     ManualFence,
@@ -242,7 +242,7 @@ pub struct LeaseRenewal {
     pub duration_ms: DurationMs,
 }
 
-/// Default lease renewal interval (MODEL §3).
+/// Default lease renewal interval.
 pub const LEASE_RENEW_INTERVAL_MS: u64 = 5_000;
-/// Default lease request validity L (MODEL §3).
+/// Default lease request validity L.
 pub const LEASE_DURATION_MS: u64 = 20_000;

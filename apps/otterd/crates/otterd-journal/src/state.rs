@@ -1,6 +1,6 @@
 //! The fold of all journal records.
 //!
-//! [`NodeState::check`] enforces the transition rules of MODEL §2, so an illegal
+//! [`NodeState::check`] enforces the ownership transition rules, so an illegal
 //! sequence can never be written, and a replayed log that violates them is
 //! corruption (journal loss), never something to repair silently. Rules that
 //! depend on the *current* process (a grant must be issued for this
@@ -149,7 +149,7 @@ pub struct IdentityState {
     pub host: HostBinding,
 }
 
-/// Runtime submission state of one Engine mutation (MODEL §2.2.1).
+/// Runtime submission state of one Engine mutation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "kebab-case")]
 pub enum Submission {
@@ -243,7 +243,7 @@ pub struct GrantState {
 
 impl GrantState {
     /// Released: start authority revoked **and** positive stop certified, or the
-    /// whole node epoch superseded by a re-enrollment (MODEL §2.4).
+    /// whole node epoch superseded by a re-enrollment.
     #[must_use]
     pub fn is_released(&self) -> bool {
         (self.revoked.is_some() && self.certificate.is_some()) || self.superseded_by_epoch.is_some()
@@ -688,7 +688,7 @@ impl NodeState {
                     && node_epoch > id.node_epoch =>
             {
                 // A new epoch supersedes every old grant; old Engine work must be
-                // settled or retired by a barrier first (MODEL §2.4, §6.5).
+                // settled or retired by a barrier first.
                 match self.unresolved_submissions().next() {
                     Some(m) => Err(TransitionError::UnresolvedBeforeReenroll(
                         m.record.mutation_id.clone(),
@@ -732,7 +732,7 @@ impl NodeState {
                 got: grant.generation,
             });
         }
-        // I1: an exclusive slot admits one non-released grant, and an exclusive
+        // An exclusive slot admits one non-released grant, and an exclusive
         // grant cannot join a slot that still holds a non-exclusive one either.
         if let Some(holder) = self.grants.values().find(|g| {
             g.grant.slot == grant.slot && !g.is_released() && (grant.exclusive || g.grant.exclusive)
