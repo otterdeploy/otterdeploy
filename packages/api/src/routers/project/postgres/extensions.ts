@@ -170,7 +170,10 @@ async function applyExtensionsLive(
   for (const url of connectionStrings) {
     let sql: SQL | null = null;
     try {
-      sql = new SQL({ url, max: 1, connectionTimeout: 5, idleTimeout: 5 });
+      // No idleTimeout: Bun.SQL fires it mid-statement (od-8r7r), and
+      // CREATE EXTENSION can take longer than a few seconds. The client is
+      // closed in `finally`.
+      sql = new SQL({ url, max: 1, connectionTimeout: 5 });
       for (const name of toEnable) {
         await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS "${name}"`);
       }

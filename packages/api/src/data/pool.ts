@@ -33,8 +33,15 @@ import { dataError } from "./errors";
 const MAX_CONNECTIONS = 4;
 /** Seconds a pooled connection may sit unused before it is reaped. */
 const IDLE_TIMEOUT_SECONDS = 60;
-/** Seconds before a connection is recycled regardless of use. */
-const MAX_LIFETIME_SECONDS = 15 * 60;
+/**
+ * No age-based recycling: Bun.SQL's `maxLifetime` fails a statement that is
+ * still running when its connection reaches that age (od-8r7r), which would
+ * surface as a random "Max lifetime timeout reached" on a busy workbench.
+ * Pools are closed by the reaper after POOL_TTL_MS unused instead. The idle
+ * timeout stays: it is longer than QUERY_TIMEOUT_MS, so it can only ever fire
+ * on a connection with nothing running.
+ */
+const MAX_LIFETIME_SECONDS = 0;
 /** Seconds to wait for the initial connect before calling the target down. */
 const CONNECT_TIMEOUT_SECONDS = 10;
 /** Queries are interactive; an unbounded statement must not pin a pool forever. */
