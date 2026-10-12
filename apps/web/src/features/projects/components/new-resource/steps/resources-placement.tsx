@@ -18,7 +18,7 @@ import { orpc } from "@/shared/server/orpc";
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 
-export interface SwarmNode {
+interface SwarmNode {
   id: string;
   name: string;
   cpuTotal: number;
