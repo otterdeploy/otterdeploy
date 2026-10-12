@@ -20,12 +20,13 @@ otterd-proto = { path = "crates/otterd-proto" }
 otterd-sys = { path = "crates/otterd-sys" }
 
 base64 = "0.22"
-clap = { version = "4", features = ["derive", "env"] }
 bytes = "1"
+clap = { version = "4", features = ["derive", "env"] }
 crc32c = "0.6"
 ed25519-dalek = { version = "2", features = ["std"] }
 getrandom = "0.3"
 hex = "0.4"
+hickory-proto = { version = "0.26", default-features = false, features = ["std"] }
 hmac = "0.12"
 http = "1"
 http-body-util = "0.1"

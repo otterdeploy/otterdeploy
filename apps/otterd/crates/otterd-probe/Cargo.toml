@@ -10,12 +10,15 @@ repository.workspace = true
 
 [dependencies]
 otterd-proto.workspace = true
+hickory-proto.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
 
 [lints]
 workspace = true
