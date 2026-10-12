@@ -17,10 +17,12 @@ import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shar
 
 import { Result } from "better-result";
 
+import type { EnvVersionConflictError } from "../service/env-version-error";
+
 import { EnvironmentNotFoundError } from "../env/errors";
 import { ProjectNotFoundError } from "./errors";
 import {
-  bulkReplaceProjectEnvVars as bulkReplaceProjectEnvVarsQuery,
+  bulkReplaceProjectEnvVarsAt,
   deleteProjectEnvVar as deleteProjectEnvVarQuery,
   getEnvironmentById,
   getProjectInOrg,
@@ -113,13 +115,22 @@ export async function deleteProjectEnvVarForOrg(
 export async function bulkReplaceProjectEnvVarsForOrg(
   input: ProjectEnvScope & {
     vars: ReadonlyArray<{ key: string; value: string; isSecret?: boolean }>;
+    /** The version of the set the editor loaded; see envSetVersion. */
+    expectedVersion?: string;
   },
-): Promise<Result<ProjectEnvVarRow[], ProjectNotFoundError | EnvironmentNotFoundError>> {
+): Promise<
+  Result<
+    ProjectEnvVarRow[],
+    ProjectNotFoundError | EnvironmentNotFoundError | EnvVersionConflictError
+  >
+> {
   const own = await verifyProjectOwnership(input);
   if (own.isErr()) return Result.err(own.error);
-  const rows = await bulkReplaceProjectEnvVarsQuery(
+  const rows = await bulkReplaceProjectEnvVarsAt(
     { projectId: input.projectId, environmentId: input.environmentId },
     input.vars,
+    input.expectedVersion,
   );
-  return Result.ok(rows.map(maskSealed));
+  if (rows.isErr()) return Result.err(rows.error);
+  return Result.ok(rows.value.map(maskSealed));
 }

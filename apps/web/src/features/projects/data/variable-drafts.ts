@@ -18,6 +18,12 @@ export interface VariableDraft {
   environmentId: string;
   text: string;
   updatedAt: number;
+  /** The saved set this draft started from: its version (envSetVersion), so
+   *  applying the draft names it and a set changed since is refused instead of
+   *  replaced, and its text, so "Reload to merge" knows which
+   *  lines the operator changed. Absent on drafts written before this. */
+  baseVersion?: string;
+  baseText?: string;
 }
 
 export const variableDraftId = (projectId: string, environmentId: string): string =>
@@ -37,6 +43,10 @@ export function setVariableDraft(input: {
   environmentId: string;
   text: string;
   pristine: string;
+  /** The saved set the editor loaded. Recorded when the draft starts; only
+   *  replaced when `rebase` is set (after "Reload to merge"). */
+  base?: { version: string; text: string };
+  rebase?: boolean;
 }): void {
   const id = variableDraftId(input.projectId, input.environmentId);
   if (input.text === input.pristine) {
@@ -47,6 +57,10 @@ export function setVariableDraft(input: {
     variableDraftsCollection.update(id, (draft) => {
       draft.text = input.text;
       draft.updatedAt = Date.now();
+      if (input.rebase && input.base) {
+        draft.baseVersion = input.base.version;
+        draft.baseText = input.base.text;
+      }
     });
   } else {
     variableDraftsCollection.insert({
@@ -55,6 +69,7 @@ export function setVariableDraft(input: {
       environmentId: input.environmentId,
       text: input.text,
       updatedAt: Date.now(),
+      ...(input.base ? { baseVersion: input.base.version, baseText: input.base.text } : {}),
     });
   }
 }

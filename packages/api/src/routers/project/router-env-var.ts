@@ -131,11 +131,14 @@ export const envVarRouter = {
         environmentId: input.environmentId,
         organizationId: context.activeOrganizationId,
         vars: input.vars,
+        expectedVersion: input.expectedVersion,
       });
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           EnvironmentNotFoundError: () => errors.NOT_FOUND(),
+          EnvVersionConflictError: (e) =>
+            errors.CONFLICT({ message: e.message, data: { currentVersion: e.currentVersion } }),
         });
       }
       // Every surviving key is marked `written`, so the patch shows which keys

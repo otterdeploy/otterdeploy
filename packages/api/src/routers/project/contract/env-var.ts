@@ -12,7 +12,14 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { basePath, environmentIdField, projectIdField, projectNotFoundErrors, tag } from "./shared";
+import {
+  basePath,
+  environmentIdField,
+  envVersionConflict,
+  projectIdField,
+  projectNotFoundErrors,
+  tag,
+} from "./shared";
 
 const projectEnvVarSchema = z.object({
   id: z.string(),
@@ -61,6 +68,12 @@ const bulkReplaceProjectEnvVarsInput = z.object({
       isSecret: z.boolean().optional(),
     }),
   ),
+  // The version of the environment's set the editor loaded (envSetVersion
+  // over the `list` rows). A replace built from a set that has changed since
+  // is refused with CONFLICT. Omitted: replace unconditionally
+  // (the CLI, and the bulk editor's "apply to other environments" targets,
+  // which overwrite on purpose).
+  expectedVersion: z.string().min(1).optional(),
 });
 
 export const projectEnvVarContractSlice = {
@@ -95,7 +108,7 @@ export const projectEnvVarContractSlice = {
     .output(z.object({ ok: z.boolean() })),
 
   bulkReplace: oc
-    .errors(projectNotFoundErrors)
+    .errors({ ...projectNotFoundErrors, CONFLICT: envVersionConflict })
     .meta({
       path: `${basePath}/{projectId}/env-vars/bulk`,
       tag,

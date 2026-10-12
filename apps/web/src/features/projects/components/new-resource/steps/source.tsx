@@ -30,17 +30,59 @@ import { orpc } from "@/shared/server/orpc";
 
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
+import { bumpedFrom, nameTakenError, useResourceNamesContext } from "../resource-names";
 import { RootDirectoryPicker } from "../root-directory-picker";
 import { useRepoDetection } from "../use-repo-detection";
 import { BuildMethodSelector } from "./build-method-selector";
 import { BindingSummary, useBindingSummary } from "./source-binding";
-import { useSourceDefaults } from "./source-defaults";
+import { useSourceDefaults, type SourceDefaults } from "./source-defaults";
 import {
   BranchPicker,
   DetectedFrameworkBadge,
   RepoCheck,
   ServiceTypeSelector,
 } from "./source-pickers";
+
+/** Headless fields. `repo`, `root` and `branch` are written programmatically
+ *  (by the binding card, the folder picker and the branch picker), and
+ *  TanStack Form only dispatches a field's listeners while that field is
+ *  mounted, so these are what make `setFieldValue` the trigger for the
+ *  repo-derived defaults. `onMount` covers a binding the wizard was
+ *  constructed with (project already bound to a repo). */
+function RepoDerivedDefaults({ defaults }: { defaults: SourceDefaults }) {
+  const form = useFormContext();
+  return (
+    <>
+      <form.AppField
+        name="repo"
+        listeners={{
+          onMount: ({ value }) => void defaults.onRepoBound(value),
+          onChange: ({ value }) => void defaults.onRepoBound(value),
+        }}
+      >
+        {() => null}
+      </form.AppField>
+      <form.AppField
+        name="root"
+        listeners={{
+          onChange: ({ value }) => void defaults.onRootPicked(value),
+          onChangeDebounceMs: 250,
+        }}
+      >
+        {() => null}
+      </form.AppField>
+      <form.AppField
+        name="branch"
+        listeners={{
+          onChange: () => void defaults.onBranchPicked(),
+          onChangeDebounceMs: 250,
+        }}
+      >
+        {() => null}
+      </form.AppField>
+    </>
+  );
+}
 
 export function StepSource() {
   const form = useFormContext();
@@ -76,6 +118,9 @@ export function StepSource() {
     null;
 
   const defaults = useSourceDefaults(form);
+  const names = useResourceNamesContext();
+  const nameEdited = useSelector(form.store, (s) => s.fieldMeta.name?.isDirty === true);
+  const bumped = bumpedFrom(name, names.taken, nameEdited);
 
   // Bind the repo; leave `branch` empty so the BranchPicker below can seed it
   // from the repo's real default branch once `git.listBranches` resolves
@@ -92,39 +137,7 @@ export function StepSource() {
 
   return (
     <>
-      {/* Headless fields. `repo` and `root` are written programmatically.
-          By the binding card and the folder picker below, and TanStack Form
-          only dispatches a field's listeners while that field is mounted, so
-          these are what make `setFieldValue` the trigger for the
-          repo-derived defaults. `onMount` covers a binding the wizard was
-          constructed with (project already bound to a repo). */}
-      <form.AppField
-        name="repo"
-        listeners={{
-          onMount: ({ value }) => void defaults.onRepoBound(value),
-          onChange: ({ value }) => void defaults.onRepoBound(value),
-        }}
-      >
-        {() => null}
-      </form.AppField>
-      <form.AppField
-        name="root"
-        listeners={{
-          onChange: ({ value }) => void defaults.onRootPicked(value),
-          onChangeDebounceMs: 250,
-        }}
-      >
-        {() => null}
-      </form.AppField>
-      <form.AppField
-        name="branch"
-        listeners={{
-          onChange: () => void defaults.onBranchPicked(),
-          onChangeDebounceMs: 250,
-        }}
-      >
-        {() => null}
-      </form.AppField>
+      <RepoDerivedDefaults defaults={defaults} />
 
       <SectionHeader title="Source" />
 
@@ -178,12 +191,23 @@ export function StepSource() {
                 root={root}
                 onChange={(next) => void defaults.onBuilderPicked(next)}
               />
-              <form.AppField name="name">
+              <form.AppField
+                name="name"
+                validators={{
+                  // Here, not after Add: the provisioner refuses a taken name,
+                  // and finding out five steps later is the bug.
+                  onChange: ({ value }) => nameTakenError(value, names.taken, "service"),
+                }}
+              >
                 {(f) => (
                   <f.TextField
                     label="Service name"
                     className="font-mono"
-                    description={`Internal hostname: ${name || "<name>"}`}
+                    description={
+                      bumped
+                        ? `${bumped} is already in this project, so this one is ${name}. Internal hostname: ${name}`
+                        : `Internal hostname: ${name || "<name>"}`
+                    }
                   />
                 )}
               </form.AppField>

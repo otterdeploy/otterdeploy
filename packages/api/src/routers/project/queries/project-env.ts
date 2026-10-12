@@ -22,9 +22,12 @@ import type { EnvironmentId, ProjectEnvVarId, ProjectId } from "@otterdeploy/sha
 
 import { db } from "@otterdeploy/db";
 import { project, projectEnvVar } from "@otterdeploy/db/schema/project";
+import { envSetVersion } from "@otterdeploy/shared/env-version";
+import { Result } from "better-result";
 import { and, asc, eq, or, sql } from "drizzle-orm";
 
 import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
+import { EnvVersionConflictError } from "../../service/env-version-error";
 import { changedSharedKeys, markSharedVarDependentsChanged } from "./project-env-dependents";
 export interface ProjectEnvVarRow {
   id: ProjectEnvVarId;
@@ -213,6 +216,23 @@ export async function bulkReplaceProjectEnvVars(
   scope: Scope,
   next: ReadonlyArray<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ProjectEnvVarRow[]> {
+  const result = await bulkReplaceProjectEnvVarsAt(scope, next, undefined);
+  // Without an expected version there is nothing to conflict with.
+  return result.unwrapOr([]);
+}
+
+/**
+ * The bulk replace, refused with EnvVersionConflictError when
+ * `expectedVersion` is given and the environment's set (as `list` shows it,
+ * sealed values masked) no longer has it. Checked under the
+ * project row's lock, so two replaces that loaded the same set cannot both
+ * pass.
+ */
+export async function bulkReplaceProjectEnvVarsAt(
+  scope: Scope,
+  next: ReadonlyArray<{ key: string; value: string; isSecret?: boolean }>,
+  expectedVersion: string | undefined,
+): Promise<Result<ProjectEnvVarRow[], EnvVersionConflictError>> {
   return db.transaction(async (tx) => {
     // One whole-map replace of a project's env at a time, for the reason
     // bulkReplaceServiceEnvVars gives: two interleaved replaces both
@@ -235,12 +255,14 @@ export async function bulkReplaceProjectEnvVars(
         ),
       );
     const sealedKeys = new Set(sealedRows.map((r) => r.key));
-    // What the replace changes, for the services that reference it.
+    // What the replace changes, for the services that reference it (and the
+    // set's version, for a caller that names the one it loaded).
     const before = await decryptUnsealedEnvRows(
       await tx
         .select({
           key: projectEnvVar.key,
           value: projectEnvVar.value,
+          isSecret: projectEnvVar.isSecret,
           sealed: projectEnvVar.sealed,
         })
         .from(projectEnvVar)
@@ -253,6 +275,14 @@ export async function bulkReplaceProjectEnvVars(
         )
         .$withCache(false),
     );
+
+    if (expectedVersion !== undefined) {
+      const currentVersion = envSetVersion([...before, ...sealedRows]);
+      if (currentVersion !== expectedVersion) {
+        // Nothing written yet: the transaction commits a no-op.
+        return Result.err(new EnvVersionConflictError({ expectedVersion, currentVersion }));
+      }
+    }
 
     await tx
       .delete(projectEnvVar)
@@ -299,7 +329,7 @@ export async function bulkReplaceProjectEnvVars(
     }
 
     await markSharedVarDependentsChanged(tx, scope, changedSharedKeys(before, toInsert));
-    return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
+    return Result.ok([...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key)));
   });
 }
 

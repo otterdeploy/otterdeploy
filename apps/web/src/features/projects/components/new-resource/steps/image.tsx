@@ -29,6 +29,7 @@ import { AUTO_WRITE, useFormContext } from "../form-context";
 import { SectionHeader, builderCardClass, builderCardActiveClass } from "../form-primitives";
 import { I } from "../icons";
 import { defaultImagePort, imageBasename } from "../image-defaults";
+import { bumpedFrom, nameTakenError, useResourceNamesContext } from "../resource-names";
 import { ImageTagBrowser } from "./image-tags";
 
 interface RegistryOption {
@@ -61,12 +62,16 @@ type WizardForm = ReturnType<typeof useFormContext>;
  * is still the wizard's to fill, instead of keeping a ref of its own last
  * write to tell that apart from a real edit.
  */
-function applyImageDefaults(form: WizardForm, image: string): void {
+function applyImageDefaults(
+  form: WizardForm,
+  image: string,
+  freeName: (base: string) => string,
+): void {
   const base = imageBasename(image);
   if (!base) return;
 
   if (form.getFieldMeta("name")?.isDirty !== true) {
-    form.setFieldValue("name", base, AUTO_WRITE);
+    form.setFieldValue("name", freeName(base), AUTO_WRITE);
   }
 
   // One pristine row is the only shape we fill: once the operator has been
@@ -87,6 +92,10 @@ export function StepImage() {
   const registryId = useSelector(form.store, (s) => s.values.registry);
   const image = useSelector(form.store, (s) => s.values.image);
   const tag = useSelector(form.store, (s) => s.values.tag);
+  const name = useSelector(form.store, (s) => s.values.name);
+  const nameEdited = useSelector(form.store, (s) => s.fieldMeta.name?.isDirty === true);
+  const names = useResourceNamesContext();
+  const bumped = bumpedFrom(name, names.taken, nameEdited);
 
   const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
 
@@ -153,7 +162,7 @@ export function StepImage() {
             <form.AppField
               name="image"
               listeners={{
-                onChange: ({ value }) => applyImageDefaults(form, value),
+                onChange: ({ value }) => applyImageDefaults(form, value, names.free),
                 onChangeDebounceMs: 300,
               }}
             >
@@ -186,8 +195,23 @@ export function StepImage() {
       </div>
       <Card className="mt-2.5 rounded-md">
         <CardContent>
-          <form.AppField name="name">
-            {(f) => <f.TextField label="Name" className="font-mono" />}
+          <form.AppField
+            name="name"
+            validators={{
+              onChange: ({ value }) => nameTakenError(value, names.taken, "service"),
+            }}
+          >
+            {(f) => (
+              <f.TextField
+                label="Name"
+                className="font-mono"
+                description={
+                  bumped
+                    ? `${bumped} is already in this project, so this one is ${name}.`
+                    : undefined
+                }
+              />
+            )}
           </form.AppField>
         </CardContent>
       </Card>

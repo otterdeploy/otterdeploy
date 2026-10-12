@@ -7,6 +7,7 @@ import type { Port } from "../form-fields/ports-field";
 import { AUTO_WRITE, useFormContext } from "../form-context";
 import { DOCKER_PORT_DEFAULTS } from "../image-defaults";
 import { KindPicker } from "../kind-picker";
+import { useResourceNamesContext } from "../resource-names";
 import { resourceDefaults } from "../schemas";
 
 interface StepKindProps {
@@ -39,6 +40,7 @@ export function StepKind({
 }: StepKindProps) {
   const form = useFormContext();
   const kindId = useSelector(form.store, (s) => s.values.kindId);
+  const names = useResourceNamesContext();
 
   return (
     <KindPicker
@@ -58,7 +60,8 @@ export function StepKind({
           // AUTO_WRITE: these are placeholders the wizard wrote, not answers
           // the operator gave. Leaving them pristine is what lets the later
           // steps fill them in from the repo or the image reference.
-          form.setFieldValue("name", k.id === "docker" ? "" : k.id, AUTO_WRITE);
+          // A name the project already has is bumped (`postgres-2`).
+          form.setFieldValue("name", k.id === "docker" ? "" : names.free(k.id), AUTO_WRITE);
           form.setFieldValue("version", k.versions && k.versions.length > 0 ? k.versions[0] : null);
           if (isPristinePorts(form.getFieldValue("ports"))) {
             // Docker flow starts with an EMPTY port (known images fill it on

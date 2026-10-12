@@ -1794,6 +1794,8 @@
     "envLiveSince": "Activo desde las {{time}}",
     "envLiveApply": "Aplicar y reiniciar",
     "variablesSaveFailed": "No se pudo guardar",
+    "variablesConflict": "Las variables cambiaron en otra pestaña — recarga para combinar",
+    "variablesReloadToMerge": "Recargar y combinar",
     "publicAccessTitle": "Acceso público",
     "publicAccessDescription": "Desactivado mantiene la BD solo en la red interna. Activado conecta el proxy de capa 4 de Caddy y expone el nombre de host público a internet.",
     "exposePublicly": "Exponer públicamente",
@@ -2054,7 +2056,9 @@
     "savedToast": "{{n}} variables guardadas en {{targets}}",
     "failedToast": "Falló para {{names}}: {{message}}",
     "appliedSuffix": " · aplicado a {{names}}",
-    "couldntSave": "No se pudo guardar"
+    "couldntSave": "No se pudo guardar",
+    "conflict": "Las variables cambiaron en otra pestaña — recarga para combinar",
+    "reloadToMerge": "Recargar y combinar"
   },
   "routeAccess": {
     "manageAccess": "Gestionar acceso",

@@ -11,6 +11,7 @@
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { idSchema } from "@otterdeploy/shared/id";
+import { Result } from "better-result";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 // env-var.ts pulls EVERYTHING (getProjectInOrg + the env-var CRUD) from the
@@ -18,7 +19,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 vi.mock("../queries", () => ({
   getProjectInOrg: vi.fn(),
   getEnvironmentById: vi.fn(),
-  bulkReplaceProjectEnvVars: vi.fn(),
+  bulkReplaceProjectEnvVarsAt: vi.fn(),
   deleteProjectEnvVar: vi.fn(),
   listProjectEnvVars: vi.fn(),
   upsertProjectEnvVar: vi.fn(),
@@ -149,10 +150,12 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
   test("bulk-replace masks every sealed row in the returned set", async () => {
     vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
     vi.mocked(queries.getEnvironmentById).mockResolvedValue(environmentRow);
-    vi.mocked(queries.bulkReplaceProjectEnvVars).mockResolvedValue([
-      sealedRow({ key: "SEALED_ONE", sealed: true }),
-      sealedRow({ key: "PLAIN_ONE", value: "visible", sealed: false }),
-    ]);
+    vi.mocked(queries.bulkReplaceProjectEnvVarsAt).mockResolvedValue(
+      Result.ok([
+        sealedRow({ key: "SEALED_ONE", sealed: true }),
+        sealedRow({ key: "PLAIN_ONE", value: "visible", sealed: false }),
+      ]),
+    );
 
     const result = await bulkReplaceProjectEnvVarsForOrg({
       projectId,
@@ -179,7 +182,7 @@ describe("env-var writes are scoped to the project's own environment", () => {
       projectId: otherProjectId,
     });
     vi.mocked(queries.upsertProjectEnvVar).mockClear();
-    vi.mocked(queries.bulkReplaceProjectEnvVars).mockClear();
+    vi.mocked(queries.bulkReplaceProjectEnvVarsAt).mockClear();
 
     const upserted = await upsertProjectEnvVarForOrg({
       projectId,
@@ -198,7 +201,7 @@ describe("env-var writes are scoped to the project's own environment", () => {
     expect(upserted.isErr() && upserted.error._tag).toBe("EnvironmentNotFoundError");
     expect(replaced.isErr() && replaced.error._tag).toBe("EnvironmentNotFoundError");
     expect(queries.upsertProjectEnvVar).not.toHaveBeenCalled();
-    expect(queries.bulkReplaceProjectEnvVars).not.toHaveBeenCalled();
+    expect(queries.bulkReplaceProjectEnvVarsAt).not.toHaveBeenCalled();
   });
 
   test("a missing environment gets the same answer as another project's", async () => {

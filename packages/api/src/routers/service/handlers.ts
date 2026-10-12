@@ -10,14 +10,16 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
+import { log } from "evlog";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { resolveRuntimeScopesForProject } from "../../lib/environment/runtime-scope";
-import { runtimeServiceName } from "../../lib/environment/scoping";
+import { networkScopeSuffix, runtimeServiceName } from "../../lib/environment/scoping";
 import { runtime } from "../../runtime";
+import { projectNetworkName } from "../../swarm/network-name";
 import { removeServiceFromManifest } from "../project/manifest";
 import { loadProject, loadResource } from "./context";
 import {
@@ -50,6 +52,7 @@ import {
   mapServiceView,
   normalizePorts,
   sanitizeSlug,
+  unknownRuntime,
   type EnvVarView,
   type ServiceMutationView,
   type ServiceView,
@@ -72,6 +75,10 @@ export { rollbackService } from "./rollback";
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
 type RedeployFailure = NotFound | ResolveError;
 
+/** What an unreadable live status tells the owner. */
+const RUNTIME_UNREADABLE =
+  "Docker did not answer, so the live status is unknown. The saved configuration is shown; it refreshes when Docker responds.";
+
 export async function listServices(
   input: ProjectRef,
 ): Promise<Result<ServiceView[], ProjectNotFoundError>> {
@@ -89,13 +96,31 @@ export async function listServices(
   const runtimeNames = records.map((r) =>
     runtimeServiceName(r.service.serviceName, scopeOf(r.resource.environmentId)),
   );
-  const runtimes = await runtime().inspectMany(
-    runtimeNames.map((serviceName) => ({ serviceName, projectSlug })),
-  );
+  const inspected = await Result.tryPromise({
+    try: () =>
+      runtime().inspectMany(runtimeNames.map((serviceName) => ({ serviceName, projectSlug }))),
+    catch: (cause) => cause,
+  });
+  // A Docker read that fails (daemon down, wedged past the request timeout,
+  // a 500) must not blank the whole list: every row still has its saved
+  // configuration. Each live status reads `unknown` with the reason instead.
+  // The daemon's own text stays in the log, not the response.
+  if (inspected.isErr()) {
+    log.warn({
+      service: { event: "list-runtime-unavailable", projectId: input.projectId },
+      error: inspected.error instanceof Error ? inspected.error.message : String(inspected.error),
+    });
+  }
   const views = await Promise.all(
     records.map((r, i) => {
       const name = runtimeNames[i];
-      return mapServiceView(r, project.value.slug, name ? runtimes.get(name) : undefined);
+      if (inspected.isErr()) {
+        const scope = scopeOf(r.resource.environmentId);
+        const network = projectNetworkName(projectSlug, networkScopeSuffix(scope));
+        const unknown = unknownRuntime(name ?? r.service.serviceName, network, RUNTIME_UNREADABLE);
+        return mapServiceView(r, project.value.slug, unknown);
+      }
+      return mapServiceView(r, project.value.slug, name ? inspected.value.get(name) : undefined);
     }),
   );
   return Result.ok(views);

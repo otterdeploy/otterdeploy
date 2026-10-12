@@ -21,6 +21,7 @@ import {
   builderPopClass,
   SectionHeader,
 } from "../form-primitives";
+import { nameTakenError, useResourceNamesContext } from "../resource-names";
 import { DatabasePlacementSection } from "./database-placement-section";
 import { PostgresExtensionsSection } from "./postgres-extensions-section";
 
@@ -34,6 +35,7 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
   const activeEnv = useActiveEnvironment(projectId);
   const version = useSelector(form.store, (s) => s.values.version);
   const name = useSelector(form.store, (s) => s.values.name);
+  const names = useResourceNamesContext();
 
   const existingName = useMutation({
     ...orpc.project.resource.checkName.mutationOptions(),
@@ -95,6 +97,9 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
           <form.AppField
             name="name"
             validators={{
+              // Against the staged manifest as they type (pending ghosts too,
+              // which the server check below cannot see), then the server.
+              onChange: ({ value }) => nameTakenError(value ?? "", names.taken, "database"),
               // Live check on blur. Fires AFTER the user tabs away rather
               // than on every keystroke so we don't hammer the API while
               // they're still typing.

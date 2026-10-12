@@ -1794,6 +1794,8 @@
     "envLiveSince": "Live since {{time}}",
     "envLiveApply": "Apply and restart",
     "variablesSaveFailed": "Failed to save",
+    "variablesConflict": "Variables changed in another tab — reload to merge",
+    "variablesReloadToMerge": "Reload to merge",
     "publicAccessTitle": "Public access",
     "publicAccessDescription": "Off keeps the DB on the internal network only. On wires the Caddy layer-4 proxy and exposes the public hostname to the open internet.",
     "exposePublicly": "Expose publicly",
@@ -2054,7 +2056,9 @@
     "savedToast": "Saved {{n}} variables to {{targets}}",
     "failedToast": "Failed for {{names}}: {{message}}",
     "appliedSuffix": " · applied to {{names}}",
-    "couldntSave": "Couldn't save"
+    "couldntSave": "Couldn't save",
+    "conflict": "Variables changed in another tab — reload to merge",
+    "reloadToMerge": "Reload to merge"
   },
   "routeAccess": {
     "manageAccess": "Manage access",

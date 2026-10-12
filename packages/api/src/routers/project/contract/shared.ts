@@ -7,6 +7,7 @@
  */
 
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import * as z from "zod";
 
 export const tag = "project";
 export const basePath = "/projects";
@@ -28,6 +29,17 @@ export const liveUpdatesUnavailableErrors = {
     status: 503 as const,
     message: "Live updates are unavailable right now; reconnecting" as const,
   },
+};
+
+/**
+ * A whole-set env save whose `expectedVersion` no longer matches the stored
+ * set: another tab (or a teammate, or `env set`) changed it since the editor
+ * loaded it. `currentVersion` is the set's version now.
+ */
+export const envVersionConflict = {
+  status: 409 as const,
+  message: "Variables changed since this editor loaded them. Reload to merge, then save." as const,
+  data: z.object({ currentVersion: z.string() }),
 };
 
 /** Same for inner-resource lookups under a project. */

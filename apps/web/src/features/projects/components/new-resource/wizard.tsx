@@ -6,6 +6,7 @@ import type { ComposePrefill } from "./compose-wizard-shared";
 import type { Step } from "./schemas";
 
 import { ComposeWizard } from "./compose-wizard";
+import { ResourceNamesContext, useResourceNames } from "./resource-names";
 import { Stepper } from "./steps";
 import { isKindWired, RequiredHint, WizardFooter, WizardStepBody } from "./wizard-chrome";
 import { useWizardForm } from "./wizard-form";
@@ -20,7 +21,7 @@ export interface ResourceWizardProps {
    *  Passed once at form construction so StepSource's bound/unbound
    *  state derives from form state (reactive) instead of a query. */
   initialGitRepoId?: string | null;
-  /** Seed for the `branch` form field; defaults to "main". */
+  /** Seed for the `branch` form field; empty seeds from the repo's default. */
   initialBranch?: string | null;
   initialKind?: string | null;
   initialStep?: Step;
@@ -62,6 +63,9 @@ function ResourceWizardBody({
 }: BodyProps) {
   // Provisioner state + create mutators (database + service) hoisted
   // into a hook so this component stays under the file-length cap.
+  // Names the project already uses: the steps default to a free one and
+  // refuse a taken one inline.
+  const names = useResourceNames(projectId);
   const { isCreating, runDatabaseCreate, runServiceCreate } = useResourceProvisioner({
     projectId,
     orgSlug,
@@ -133,45 +137,47 @@ function ResourceWizardBody({
   }
 
   return (
-    <form.AppForm>
-      <div className="flex h-full flex-col bg-transparent text-foreground">
-        <Stepper steps={steps} idx={idx} setStep={goToStep} failingSteps={failingSteps} />
+    <ResourceNamesContext.Provider value={names}>
+      <form.AppForm>
+        <div className="flex h-full flex-col bg-transparent text-foreground">
+          <Stepper steps={steps} idx={idx} setStep={goToStep} failingSteps={failingSteps} />
 
-        <WizardStepBody
-          step={step}
-          kind={kind}
-          isDb={isDb}
-          isSourceBased={isSourceBased}
-          isDocker={isDocker}
-          projectId={projectId}
-          dbView={dbEngineView}
-          onDbViewChange={setDbEngineView}
-          templateView={templateView}
-          onTemplateViewChange={setTemplateView}
-          onKindChosen={advanceAfterKind}
-        />
+          <WizardStepBody
+            step={step}
+            kind={kind}
+            isDb={isDb}
+            isSourceBased={isSourceBased}
+            isDocker={isDocker}
+            projectId={projectId}
+            dbView={dbEngineView}
+            onDbViewChange={setDbEngineView}
+            templateView={templateView}
+            onTemplateViewChange={setTemplateView}
+            onKindChosen={advanceAfterKind}
+          />
 
-        {attempted && currentStepIssues.length > 0 && <RequiredHint issues={currentStepIssues} />}
+          {attempted && currentStepIssues.length > 0 && <RequiredHint issues={currentStepIssues} />}
 
-        <WizardFooter
-          onCancel={onCancel}
-          idx={idx}
-          isLast={isLast}
-          isCreating={isCreating}
-          kind={kind}
-          kindWired={kindWired}
-          createDisabled={createDisabled}
-          goPrev={goPrev}
-          handleContinue={handleContinue}
-          showAdvancedToggle={idx === 0 && !!kind && !showDbBack && !showTemplateBack}
-          advancedSetup={advancedSetup}
-          onAdvancedChange={setAdvanced}
-          showDbBack={showDbBack}
-          onDbBack={exitDbEngineView}
-          showTemplateBack={showTemplateBack}
-          onTemplateBack={() => setTemplateView(false)}
-        />
-      </div>
-    </form.AppForm>
+          <WizardFooter
+            onCancel={onCancel}
+            idx={idx}
+            isLast={isLast}
+            isCreating={isCreating}
+            kind={kind}
+            kindWired={kindWired}
+            createDisabled={createDisabled}
+            goPrev={goPrev}
+            handleContinue={handleContinue}
+            showAdvancedToggle={idx === 0 && !!kind && !showDbBack && !showTemplateBack}
+            advancedSetup={advancedSetup}
+            onAdvancedChange={setAdvanced}
+            showDbBack={showDbBack}
+            onDbBack={exitDbEngineView}
+            showTemplateBack={showTemplateBack}
+            onTemplateBack={() => setTemplateView(false)}
+          />
+        </div>
+      </form.AppForm>
+    </ResourceNamesContext.Provider>
   );
 }

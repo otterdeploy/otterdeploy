@@ -213,7 +213,8 @@ export function useWizardForm({
           }
         : {}),
       repo: initialGitRepoId ?? "",
-      branch: initialBranch ?? "main",
+      // Empty = seed from the bound repo's real default (see resourceDefaults).
+      branch: initialBranch ?? "",
     },
     validators: { onChange: resourceFormValidator },
     onSubmit: ({ value }) => submitWizard(value, runDatabaseCreate, runServiceCreate),

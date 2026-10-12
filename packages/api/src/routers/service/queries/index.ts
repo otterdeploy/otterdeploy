@@ -58,6 +58,7 @@ export { getPrimaryHttpPort, listServicePorts, replaceServicePorts } from "./por
 
 export {
   bulkReplaceServiceEnvVars,
+  bulkReplaceServiceEnvVarsAt,
   deleteServiceEnvVar,
   findExternalDependents,
   findServiceDependentsByName,

@@ -123,6 +123,7 @@ export const resourceRouter = {
             env: input.env,
             secretKeys: input.secretKeys,
             redeploy: input.redeploy,
+            expectedVersion: input.expectedVersion,
           },
           context.log,
         );
@@ -131,6 +132,11 @@ export const resourceRouter = {
             ProjectNotFoundError: () => errors.NOT_FOUND(),
             PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
             RefSelfReferenceError: (e) => errors.INVALID_INPUT({ message: e.message }),
+            EnvVersionConflictError: (e) =>
+              errors.CONFLICT({
+                message: e.message,
+                data: { currentVersion: e.currentVersion },
+              }),
           });
         }
         return result.value;

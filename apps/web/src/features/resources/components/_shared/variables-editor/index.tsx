@@ -15,6 +15,8 @@ import { issueFor, type EnvSuggestion } from "@/features/resources/env-catalog";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { BulkEditDialog } from "./bulk-edit-dialog";
+import { ConflictBanner, useEnvConflict } from "./conflict-banner";
+import { savePayloadFrom } from "./draft-rows";
 import { TableView } from "./table-view";
 import { Toolbar } from "./toolbar";
 import { useEditorState } from "./use-editor-state";
@@ -157,9 +159,10 @@ export function VariablesEditor({
 
   const [stagingSave, setStagingSave] = useState(false);
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  const conflict = useEnvConflict(() => refreshAfterEnvSave(resource), editor.rebase);
   const saveMut = useMutation(
     orpc.project.resource.env.bulkSet.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: async (_data, sent) => {
         // The panel reads env from the react-db `resourceCollection`, whose
         // cache key is prefixed by RESOURCE_COLLECTION_KEY. Invalidating the
         // bare orpc list key (as before) never matched it, so the edit only
@@ -170,12 +173,12 @@ export function VariablesEditor({
         // clear immediately: the refetch above returns the same values, so the
         // effect-driven re-baseline would otherwise skip (rows still "pending"
         // vs the OLD baseline) and the dirty state never cleared.
-        editor.commit();
+        editor.commit(editor.savedVersionFor(sent.env, sent.secretKeys ?? []));
         // Saving persists only (redeploy: false): the strip says it is not
         // live yet and offers Apply and restart.
         toast.success(t("resources.variablesSaved"));
       },
-      onError: (err) => toast.error(err.message ?? t("resources.variablesSaveFailed")),
+      onError: conflict.onSaveError,
     }),
   );
 
@@ -207,9 +210,10 @@ export function VariablesEditor({
         env,
         secretKeys,
         redeploy: false,
+        expectedVersion: editor.loadedVersion,
       },
       {
-        onSuccess: () => editor.commitRow(id),
+        onSuccess: () => editor.commitRow(id, editor.savedVersionFor(env, secretKeys)),
         onSettled: () => setApplyingId(null),
       },
     );
@@ -221,7 +225,7 @@ export function VariablesEditor({
         await refreshAfterEnvSave(resource);
         toast.success(t("resources.variablesSaved"));
       },
-      onError: (err) => toast.error(err.message ?? t("resources.variablesSaveFailed")),
+      onError: conflict.onSaveError,
     }),
   );
 
@@ -230,14 +234,7 @@ export function VariablesEditor({
     // so a duplicate would silently drop all but one row server-side.
     if (editor.duplicateKeys.size > 0) return;
     if (blockingIssueCount > 0) return;
-    // Drop empty-keyed rows here rather than at the server so the operator
-    // sees the row disappear instead of a silent server-side filter.
-    const env = editor.rows.flatMap((r) =>
-      r.key.trim().length > 0 ? [{ key: r.key.trim(), value: r.value }] : [],
-    );
-    const secretKeys = editor.rows.flatMap((r) =>
-      r.isSecret && r.key.trim().length > 0 ? [r.key.trim()] : [],
-    );
+    const { env, secretKeys } = savePayloadFrom(editor.rows);
 
     if (onSave) {
       // Staging invalidates the manifest query, which re-feeds serverEnv and
@@ -261,11 +258,15 @@ export function VariablesEditor({
       // means recreating the task. Saving no longer forces that; the operator
       // hits Deploy when ready (the redeploy re-resolves env from these rows).
       redeploy: false,
+      // The set this draft was built from: a set another tab changed since is
+      // refused (CONFLICT) instead of losing that tab's variables.
+      expectedVersion: editor.loadedVersion,
     });
   };
 
   return (
     <div className="flex flex-col gap-3">
+      {conflict.conflicted && !onSave ? <ConflictBanner onReload={conflict.reloadToMerge} /> : null}
       <Toolbar
         totalCount={editor.rows.length}
         countLabel={countLabel}
