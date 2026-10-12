@@ -1,0 +1,25 @@
+[package]
+name = "otterd-identity"
+description = "otterd node keys: Ed25519 identity, X25519 cache encryption and WireGuard, with crash-safe rotation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+base64.workspace = true
+ed25519-dalek.workspace = true
+getrandom.workspace = true
+otterd-proto.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+x25519-dalek.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

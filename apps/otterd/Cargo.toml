@@ -14,6 +14,7 @@ repository = "https://github.com/otterdeploy/otterdeploy"
 otterd-anchor = { path = "crates/otterd-anchor" }
 otterd-engine = { path = "crates/otterd-engine" }
 otterd-fence = { path = "crates/otterd-fence" }
+otterd-identity = { path = "crates/otterd-identity" }
 otterd-journal = { path = "crates/otterd-journal" }
 otterd-proto = { path = "crates/otterd-proto" }
 otterd-sys = { path = "crates/otterd-sys" }
@@ -47,6 +48,8 @@ tokio = { version = "1", features = [
 ] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+zeroize = "1"
 
 # Test-only.
 proptest = "1"
