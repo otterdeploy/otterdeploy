@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 
-import { ArrowReloadHorizontalIcon, Key01Icon } from "@hugeicons/core-free-icons";
+import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 
@@ -26,6 +26,7 @@ import { EphemeralAccessCard } from "./ephemeral-access-card";
 import { ExtensionsCard } from "./extensions-card";
 import { DatabasePlacementCard } from "./placement-card";
 import { PublicAccessCard } from "./public-access-card";
+import { RotatePasswordRow } from "./rotate-password-row";
 
 interface PostgresSettingsBodyProps {
   resource: PostgresBodyProps["resource"];
@@ -105,22 +106,7 @@ export function PostgresSettingsBody({
         title="Maintenance"
         description="Run an on-demand backup, or rotate the database password."
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
-          <div className="flex flex-col">
-            <span className="text-[13px] font-medium">Rotate password</span>
-            {/* Still genuinely unimplemented: there is no rotate endpoint in
-                the API. Says so specifically, rather than the old shared blurb
-                that also claimed backups weren't wired (they are). */}
-            <span className="text-[11px] text-muted-foreground">
-              Not available yet. Rotating a password means rolling every connection string that
-              embeds it.
-            </span>
-          </div>
-          <Button variant="outline" size="sm" disabled className="gap-1.5">
-            <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
-            Rotate
-          </Button>
-        </div>
+        <RotatePasswordRow resource={resource} />
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <div className="flex flex-col">
             <span className="text-[13px] font-medium">Take backup</span>
