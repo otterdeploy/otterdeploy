@@ -1,5 +1,5 @@
 /**
- * Ownership protocol shapes (MODEL §2, §3): grants, process observations,
+ * Ownership protocol shapes: grants, process observations,
  * submission states, stop certificates, barrier evidence and leases. Mirror of
  * `lifecycle.rs`.
  */

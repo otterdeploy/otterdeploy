@@ -1,5 +1,5 @@
 /**
- * Discovery documents (MODEL §3, §4): owner snapshots, freshness challenges,
+ * Discovery documents: owner snapshots, freshness challenges,
  * serving sets, membership and peer reachability. Mirror of `discovery.rs`.
  */
 import { z } from "zod";

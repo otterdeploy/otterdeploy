@@ -1,10 +1,10 @@
 //! Metric samples, series markers, node signals and telemetry batches
-//! (MONITORING §5 `MetricIdentity`, §6, §6.2).
+//!.
 //!
 //! Telemetry travels on the authenticated control session, not in per-frame
 //! signatures. Each batch says whether it is `live` (just observed) or replay
 //! (buffered while disconnected): replay can correct history but never raise a
-//! current alert (MONITORING §6.2).
+//! current alert.
 
 use crate::health::ProbeResult;
 use crate::ids::{AttemptId, BatchId, BootId, InstallId, NodeId, OrgId, SubjectId};
@@ -17,7 +17,8 @@ pub const MAX_NODE_DIMENSIONS: usize = 16;
 /// Largest batch a node sends in one frame (also bounded by the frame size).
 pub const MAX_BATCH_ITEMS: usize = 2_000;
 
-/// The metric vocabulary for the MONITORING §3 subset. Units are in the name.
+/// The metric vocabulary: host CPU, load, memory, swap, filesystems, disk I/O,
+/// interfaces, containers, systemd units and ZFS pools. Units are in the name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum MetricName {
     #[serde(rename = "host.cpu.used_pct")]
@@ -123,7 +124,7 @@ impl MetricName {
     ];
 }
 
-/// Identity of one metric observation (MONITORING §5 `MetricIdentity`).
+/// Identity of one metric observation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetricIdentity {
@@ -166,7 +167,7 @@ pub struct MetricSample {
     pub values: Vec<MetricValue>,
 }
 
-/// Markers cut the predecessor in the correction ledger (MONITORING §6.0).
+/// Markers cut the predecessor in the correction ledger.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum MarkerKind {
@@ -191,7 +192,7 @@ pub struct SeriesMarker {
     pub dimension_set: Option<String>,
 }
 
-/// In-fleet node signals behind the MONITORING §6.2 built-ins. None is a
+/// In-fleet node signals behind the built-in node alerts. None is a
 /// fencing or failover input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

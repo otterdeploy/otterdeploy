@@ -2,7 +2,7 @@
 //!
 //! Every identifier on the wire is an opaque, validated string. Identities that
 //! cross the Engine boundary (attempts, mutations, holds) are minted once by the
-//! node and never reused, including on rollback (MODEL §2.2.1). Identities the
+//! node and never reused, including on rollback. Identities the
 //! control plane owns (installs, nodes, grants, operations) are only ever parsed.
 
 use serde::{Deserialize, Serialize};
@@ -163,7 +163,7 @@ wire_id!(
     GrantId
 );
 wire_id!(
-    /// Idempotency key of one control-plane operation (PLAN §5.3).
+    /// Idempotency key of one control-plane operation.
     OpId
 );
 wire_id!(
@@ -175,11 +175,11 @@ wire_id!(
     BootId
 );
 wire_id!(
-    /// A durable job run; survives attempts (MODEL §2.5).
+    /// A durable job run; survives attempts.
     RunId
 );
 wire_id!(
-    /// A health check definition (MONITORING §5).
+    /// A health check definition.
     CheckId
 );
 wire_id!(
@@ -195,7 +195,7 @@ wire_id!(
     VipId
 );
 wire_id!(
-    /// Normalized writable-data identity (MODEL §2.6).
+    /// Normalized writable-data identity.
     DataIdentity
 );
 wire_id!(
@@ -222,12 +222,12 @@ minted_id!(
     "mut"
 );
 minted_id!(
-    /// A retained mount hold (MODEL §2.6.1).
+    /// A retained mount hold.
     HoldId,
     "hold"
 );
 minted_id!(
-    /// A platform update transaction (MODEL §2.7).
+    /// A platform update transaction.
     UpdateId,
     "upd"
 );
@@ -242,7 +242,7 @@ minted_id!(
     "batch"
 );
 
-/// An exclusive slot is `(resourceId, slotIndex)` (MODEL §2.1).
+/// An exclusive slot is `(resourceId, slotIndex)`.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SlotRef {

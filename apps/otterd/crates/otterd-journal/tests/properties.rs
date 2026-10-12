@@ -1,4 +1,4 @@
-//! Property tests for the MODEL §2 invariants the journal enforces.
+//! Property tests for the ownership invariants the journal enforces.
 //!
 //! Random operation sequences are appended to a real journal file; refusals
 //! are expected and ignored. After every accepted record the invariants are
@@ -143,9 +143,10 @@ fn rank(s: &Submission) -> u8 {
     }
 }
 
-/// MODEL I1, I2 and the submission rules, checked after every accepted record.
+/// One live grant per exclusive slot, rising generations and the submission
+/// rules, checked after every accepted record.
 fn check_invariants(state: &NodeState, prev: &NodeState, generations: &mut BTreeMap<SlotRef, u64>) {
-    // I1: per slot, no two non-released grants if either is exclusive.
+    // Per slot, no two non-released grants if either is exclusive.
     let mut live: BTreeMap<&SlotRef, Vec<bool>> = BTreeMap::new();
     for g in state.grants.values().filter(|g| !g.is_released()) {
         live.entry(&g.grant.slot)
@@ -155,14 +156,17 @@ fn check_invariants(state: &NodeState, prev: &NodeState, generations: &mut BTree
     for (slot, flags) in &live {
         assert!(
             flags.len() <= 1 || flags.iter().all(|e| !e),
-            "I1 violated on {slot}: {flags:?}"
+            "two live grants on exclusive slot {slot}: {flags:?}"
         );
     }
-    // I2: a newly accepted grant raises its slot's generation.
+    // A newly accepted grant raises its slot's generation.
     for (gid, g) in &state.grants {
         if !prev.grants.contains_key(gid) {
             let last = generations.entry(g.grant.slot.clone()).or_insert(0);
-            assert!(g.grant.generation.get() > *last, "I2 violated for {gid}");
+            assert!(
+                g.grant.generation.get() > *last,
+                "generation did not rise for {gid}"
+            );
             *last = g.grant.generation.get();
         }
     }

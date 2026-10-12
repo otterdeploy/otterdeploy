@@ -1,4 +1,4 @@
-//! Node identity, enrollment and key rotation (PLAN §5.1, §5.2).
+//! Node identity, enrollment and key rotation.
 //!
 //! A node generates three keys locally and never sends a private key anywhere:
 //! an Ed25519 identity key (signs session proofs, stop certificates, snapshots),
@@ -12,7 +12,7 @@ use crate::ids::{InstallId, KeyId, NodeId, Nonce};
 use crate::num::{U53, UnixMs};
 use serde::{Deserialize, Serialize};
 
-/// What a node may be asked to do (PLAN §3).
+/// What a node may be asked to do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum NodeRole {
@@ -20,9 +20,9 @@ pub enum NodeRole {
     Edge,
     Build,
     Registry,
-    /// External monitor: no Docker, no mesh, no scheduling (MONITORING §4).
+    /// External monitor: no Docker, no mesh, no scheduling.
     Monitor,
-    /// Runs the host-pinned platform bootstrap members (MODEL §2.7).
+    /// Runs the host-pinned platform bootstrap members.
     Platform,
 }
 
@@ -38,7 +38,7 @@ impl NodeRole {
 }
 
 /// Provider machine binding. Fencing addresses the immutable provider id,
-/// never a name or an IP (MODEL §2.3).
+/// never a name or an IP.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProviderBinding {
@@ -120,7 +120,7 @@ pub struct TrustedKey {
     pub not_after_unix_ms: Option<UnixMs>,
 }
 
-/// Where the off-node recovery anchor lives (MODEL §2.7); absent in the
+/// Where the off-node recovery anchor lives; absent in the
 /// local-only single-host profile.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -146,7 +146,7 @@ pub struct EnrollCertificate {
     pub key_epoch: U53,
     pub host: HostBinding,
     pub cp_keys: Vec<TrustedKey>,
-    /// Offline install recovery key, pinned into the host guard (MODEL §2.7).
+    /// Offline install recovery key, pinned into the host guard.
     pub recovery_key: PublicKey,
     /// `wss://…/api/otterd/connect`.
     pub control_url: String,
@@ -179,7 +179,7 @@ pub struct CrossSigned {
     pub by_new: SignedEnvelope,
 }
 
-/// Control-plane signing-key transition (PLAN §5.2): nodes accept both keys
+/// Control-plane signing-key transition: nodes accept both keys
 /// until `old_valid_until`, and acknowledge the transition epoch.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -191,7 +191,8 @@ pub struct CpKeyTransition {
 }
 
 /// Recovery-root-signed revocation of all authority below a term
-/// (`otterd/authority-revoke/v1`, MODEL §2.7). Delivered by the recovery tool,
+/// (`otterd/authority-revoke/v1`), used when an authority database is restored
+/// from backup. Delivered by the recovery tool,
 /// over the control channel or written to disk from a rescue system.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

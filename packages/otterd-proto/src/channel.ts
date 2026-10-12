@@ -1,5 +1,5 @@
 /**
- * Control-channel frames (PLAN §5.1); mirror of `channel.rs`. Frames are
+ * Control-channel frames; mirror of `channel.rs`. Frames are
  * lenient (a newer node may add informational fields); the signed documents
  * inside them are strict.
  */

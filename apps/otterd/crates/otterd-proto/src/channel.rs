@@ -1,4 +1,4 @@
-//! The control channel (PLAN §5.1).
+//! The control channel.
 //!
 //! otterd dials `wss://<control-plane>/api/otterd/connect` and stays connected.
 //! Each WebSocket text frame is one JSON [`ControlFrame`], at most
@@ -16,7 +16,7 @@
 //!
 //! The node learns the authority term and a bounded wall-clock reading from the
 //! authenticated `welcome` and `pong` frames; without them it refuses new
-//! privileged operations (PLAN §5.3).
+//! privileged operations.
 
 use crate::capability::CapabilityError;
 use crate::command::OpOutcome;
@@ -38,7 +38,7 @@ pub enum ChannelKind {
     Bulk,
 }
 
-/// Limits the CP announces in `welcome` (PLAN §5.1 proposed values).
+/// Limits the CP announces in `welcome`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChannelLimits {

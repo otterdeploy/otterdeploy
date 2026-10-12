@@ -10,7 +10,7 @@
 //! cross the Engine boundary only after the record is durable. On open, a torn
 //! final frame (crash mid-append) is truncated; a bad frame followed by more data
 //! is corruption and the journal refuses to open: that is journal loss, which is
-//! recovery, never silent adoption (MODEL §2.4).
+//! recovery, never silent adoption.
 
 use crate::state::{NodeState, TransitionError};
 use otterd_proto::U53;

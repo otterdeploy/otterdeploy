@@ -153,13 +153,13 @@ fn exclusive_slot_admits_one_unreleased_grant() {
         transition(j.append(grant("g2", 0, 2, 1, false)).unwrap_err()),
         TransitionError::ExclusiveHeld { .. }
     ));
-    // Revocation alone is not release: a certificate is required (MODEL §2.3).
+    // Revocation alone is not release: a certificate is required.
     j.append(revoked("g1")).unwrap();
     assert!(j.append(grant("g2", 0, 2, 1, true)).is_err());
     let cert = certificate(j.state(), "g1");
     j.append(cert).unwrap();
     j.append(grant("g2", 0, 2, 1, true)).unwrap();
-    // I2: generations never go backwards; rollback is a new, higher generation.
+    // Generations never go backwards; rollback is a new, higher generation.
     let mut k = fresh(&tempfile::tempdir().unwrap());
     k.append(grant("g1", 1, 5, 1, false)).unwrap();
     assert!(matches!(

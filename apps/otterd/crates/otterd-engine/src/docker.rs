@@ -2,7 +2,7 @@
 //!
 //! One connection per request, so a stuck request never blocks another. A
 //! timeout or dropped connection is a transport error: it says nothing about
-//! whether dockerd executed the request (MODEL §2.2.1). dockerd can hang on
+//! whether dockerd executed the request. dockerd can hang on
 //! inspect and `/version` while containerd is blocked, so callers treat
 //! Engine reachability as a reconcile result, never a startup gate.
 

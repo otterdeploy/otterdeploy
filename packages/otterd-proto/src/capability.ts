@@ -1,5 +1,5 @@
 /**
- * Per-request capabilities (PLAN §5.3), mirror of `capability.rs`.
+ * Per-request capabilities, mirror of `capability.rs`.
  *
  * The control plane mints and signs these; the node enforces them. The verb
  * table (names, required permissions, monitor allowlist) is the single source

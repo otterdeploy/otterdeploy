@@ -1,5 +1,4 @@
-//! ServiceSpec: Swarm ServiceSpec semantics with otterd's defaults (PLAN §4,
-//! MODEL §2.1).
+//! ServiceSpec: Swarm ServiceSpec semantics with otterd's defaults.
 //!
 //! Two shapes: [`ServiceSpecInput`] is what the API, manifest and Compose
 //! normalization produce (lifecycle and update order may be left out), and
@@ -16,15 +15,15 @@ use crate::version::SERVICE_SPEC_SCHEMA;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Default per-service failover delay (PLAN §4).
+/// Default per-service failover delay.
 pub const DEFAULT_FAILOVER_DELAY_MS: u64 = 60_000;
 /// Smallest failover delay a service may configure.
 pub const MIN_FAILOVER_DELAY_MS: u64 = 30_000;
-/// Admission default when a workload declares no memory reservation (PLAN §6.4).
+/// Admission default when a workload declares no memory reservation.
 pub const DEFAULT_MEMORY_RESERVATION_BYTES: u64 = 64 * 1024 * 1024;
 /// Admission default when a workload declares no CPU reservation: 0.05 CPU.
 pub const DEFAULT_NANO_CPU_RESERVATION: u64 = 50_000_000;
-/// Default stop grace before SIGKILL (MODEL §3).
+/// Default stop grace before SIGKILL.
 pub const DEFAULT_STOP_GRACE_MS: u64 = 10_000;
 
 // serde's `skip_serializing_if` passes a reference.
@@ -42,7 +41,7 @@ pub enum ServiceMode {
     /// One slot per eligible active node; a missing node is never replaced by a
     /// second slot elsewhere.
     Global,
-    /// Durable runs with attempts (MODEL §2.5).
+    /// Durable runs with attempts.
     #[serde(rename_all = "camelCase")]
     Job {
         /// Attempts that may run at once for one run.
@@ -99,7 +98,7 @@ pub struct EnvVar {
     pub value: EnvValue,
 }
 
-/// Whether the image's own HEALTHCHECK stays effective (MONITORING §5).
+/// Whether the image's own HEALTHCHECK stays effective.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ImageHealthcheck {
@@ -179,7 +178,7 @@ pub struct Mount {
     pub target: String,
     #[serde(default, skip_serializing_if = "is_false")]
     pub read_only: bool,
-    /// Normalized on the owning host before admission (MODEL §2.6); when set,
+    /// Normalized on the owning host before admission; when set,
     /// the node stages the retained object instead of passing `source` to Docker.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data_identity: Option<DataIdentity>,
@@ -249,7 +248,7 @@ pub enum RestartCondition {
     None,
 }
 
-/// Owned by the node supervisor; Docker's restart policy is `no` (MODEL §2.4).
+/// Owned by the node supervisor; Docker's restart policy is `no`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RestartPolicy {
@@ -401,7 +400,8 @@ pub enum EndpointMode {
     /// invisible to pinned and pooled clients).
     #[default]
     Vip,
-    /// DNS round robin, opt-in with the PLAN §8.1 warning list.
+    /// DNS round robin, opt-in only: clients that cache or pool connections keep
+    /// talking to a moved backend, so the UI warns when it is chosen.
     Dnsrr,
 }
 
@@ -485,7 +485,7 @@ pub enum DisconnectAction {
     Stop,
 }
 
-/// Explicit authorization for several writers on one data identity (MODEL §2.6).
+/// Explicit authorization for several writers on one data identity.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ConcurrentSafe {
@@ -521,7 +521,7 @@ pub enum LifecycleField {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Lifecycle {
     pub failover: Failover,
-    /// No overlapping generations per slot (MODEL §2.1).
+    /// No overlapping generations per slot.
     pub exclusive: bool,
     pub disconnect_action: DisconnectAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -584,7 +584,7 @@ pub struct ServiceSpecInput {
 }
 
 impl ServiceSpecInput {
-    /// Fill every default (PLAN §4 defaults table). Pure and deterministic.
+    /// Fill every default. Pure and deterministic.
     #[must_use]
     pub fn normalize(&self) -> ServiceSpec {
         let basis = if matches!(self.mode, ServiceMode::Job { .. }) {

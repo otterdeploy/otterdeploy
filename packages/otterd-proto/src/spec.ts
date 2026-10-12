@@ -1,5 +1,5 @@
 /**
- * ServiceSpec: Swarm ServiceSpec semantics with otterd's defaults (PLAN §4),
+ * ServiceSpec: Swarm ServiceSpec semantics with otterd's defaults,
  * mirror of `spec.rs`. `normalizeServiceSpec` and `validateServiceSpec` must
  * agree with the Rust functions on every case in `fixtures/spec-normalize.json`.
  *

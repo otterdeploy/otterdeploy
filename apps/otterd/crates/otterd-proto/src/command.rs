@@ -5,9 +5,9 @@
 //!
 //! Argument schemas fall in two groups. **Frozen**: the lifecycle verbs, `op.*`,
 //! `node.*`, `metrics.sample`, `health.configure` and the stream binding; the
-//! daemon core implements them and every lane builds against them.
+//! daemon core implements them and every other component builds against them.
 //! **Provisional**: storage, backup, firewall, proxy and platform-update arguments
-//! are owned by their lanes (L11, L5, L7a, §3.1) and may still change before the
+//! are owned by the storage, network, edge and platform-update work and may still change before the
 //! release; changing one needs a contract PR touching both mirrors.
 
 use crate::capability::{CapabilityError, Verb};
@@ -41,7 +41,7 @@ pub struct TtySize {
     pub rows: u16,
 }
 
-/// Binds a bulk stream to its operation (PLAN §5.1): id, direction, maximum
+/// Binds a bulk stream to its operation: id, direction, maximum
 /// bytes, digest and deadline. The CP allocates `stream_id` per bulk session.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -68,7 +68,7 @@ pub enum ReclaimTarget {
     BranchPool,
 }
 
-/// A document whose schema is owned by another lane, carried as exact bytes
+/// A document whose schema is owned by another component, carried as exact bytes
 /// so its digest is stable across languages.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -175,7 +175,7 @@ pub enum Command {
         checks: Vec<HealthCheck>,
     },
 
-    // ---- Provisional: containers (L11) ----
+    // ---- Provisional: containers ----
     #[serde(rename = "container.list", rename_all = "camelCase")]
     ContainerList { all: bool, managed_only: bool },
     #[serde(rename = "container.inspect", rename_all = "camelCase")]
@@ -205,7 +205,7 @@ pub enum Command {
         stream: StreamBinding,
     },
 
-    // ---- Provisional: images (L11, L7b) ----
+    // ---- Provisional: images ----
     #[serde(rename = "image.pull", rename_all = "camelCase")]
     ImagePull {
         reference: String,
@@ -230,7 +230,7 @@ pub enum Command {
     #[serde(rename = "image.prune")]
     ImagePrune {},
 
-    // ---- Provisional: networks (L11, L5) ----
+    // ---- Provisional: networks ----
     #[serde(rename = "network.list")]
     NetworkList {},
     #[serde(rename = "network.inspect", rename_all = "camelCase")]
@@ -261,7 +261,7 @@ pub enum Command {
     #[serde(rename = "network.remove", rename_all = "camelCase")]
     NetworkRemove { name: String },
 
-    // ---- Provisional: volumes and storage (L11) ----
+    // ---- Provisional: volumes and storage ----
     #[serde(rename = "volume.list")]
     VolumeList {},
     #[serde(rename = "volume.inspect", rename_all = "camelCase")]
@@ -305,7 +305,7 @@ pub enum Command {
     #[serde(rename = "pool.grow", rename_all = "camelCase")]
     PoolGrow { pool: String, add_bytes: U53 },
 
-    // ---- Provisional: backups (L11) ----
+    // ---- Provisional: backups ----
     #[serde(rename = "backup.run", rename_all = "camelCase")]
     BackupRun {
         backup_id: String,
@@ -348,7 +348,7 @@ pub enum Command {
     },
     #[serde(rename = "proxy.status")]
     ProxyStatus {},
-    /// `manifest` is a signed platform boot manifest transition (MODEL §2.7).
+    /// `manifest` is a signed platform boot manifest transition.
     #[serde(rename = "platform.update", rename_all = "camelCase")]
     PlatformUpdate { manifest: SignedEnvelope },
 }
@@ -482,7 +482,7 @@ pub enum CommandResult {
     Retired {
         mutation_count: u32,
     },
-    /// A result whose schema is owned by another lane (`schema` names it).
+    /// A result whose schema is owned by another component (`schema` names it).
     Document {
         schema: String,
         body: serde_json::Value,

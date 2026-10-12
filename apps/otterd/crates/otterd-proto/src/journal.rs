@@ -1,4 +1,4 @@
-//! The node journal record schema (MODEL §2.2.1, §2.6.1, §2.7).
+//! The node journal record schema.
 //!
 //! Each record is one durable fact, appended and fsynced before the side
 //! effect it authorizes. Records are never rewritten; the node's state is the
@@ -10,7 +10,7 @@
 //! `u32 LE`, followed by frames of `len: u32 LE`, `crc32c(json): u32 LE`, then
 //! `len` bytes of UTF-8 JSON [`Entry`]. A torn final frame is truncated on open;
 //! a bad frame anywhere else refuses to open (journal corruption is recovery,
-//! not auto-repair). The bootstrap journal (MODEL §2.7) uses the same schema in
+//! not auto-repair). The bootstrap journal uses the same schema in
 //! a separate root-only file.
 //!
 //! The control plane never parses the live journal; it receives exports for
@@ -43,7 +43,8 @@ pub const FRAME_HEADER_LEN: usize = 8;
 pub enum WorkloadClass {
     /// Needs a fresh CP grant after every process start.
     Tenant,
-    /// CP-managed system workload (builder, CrowdSec), MODEL §2.7.1.
+    /// CP-managed system workload (builder, CrowdSec): a normal CP grant, never
+    /// bootstrap authority.
     System,
     /// Host-pinned platform bootstrap member under the signed boot manifest.
     Platform,
@@ -131,7 +132,7 @@ pub struct HoldRecord {
     pub attempt_id: AttemptId,
 }
 
-/// Platform update phases (MODEL §2.7). `SchemaBoundary` is the first
+/// Platform update phases. `SchemaBoundary` is the first
 /// irreversible step: from there only recover-forward or disaster recovery.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -168,11 +169,11 @@ pub enum AttemptReason {
     Manual,
 }
 
-/// Monotonic counters that must survive restarts (MODEL §4.1, PLAN §5.3).
+/// Monotonic counters that must survive restarts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum HighWaterKind {
-    /// Highest grant generation accepted for a slot (MODEL I2); scope = `resource#index`.
+    /// Highest grant generation accepted for a slot; scope = `resource#index`.
     SlotGeneration,
     OperationEpoch,
     ServingRevision,
@@ -249,7 +250,7 @@ pub enum Record {
         spec_digest: Sha256Hex,
         op_id: OpId,
     },
-    /// Durable start-authority revocation, written before any stop is sent (I4).
+    /// Durable start-authority revocation, written before any stop is sent.
     #[serde(rename_all = "camelCase")]
     GrantRevoked {
         grant_id: GrantId,

@@ -21,10 +21,10 @@ pub enum SignContext {
     /// Handshake proof of either end of a session.
     #[serde(rename = "otterd/session/v1")]
     Session,
-    /// Per-request authorization (PLAN §5.3).
+    /// Per-request authorization.
     #[serde(rename = "otterd/capability/v1")]
     Capability,
-    /// Lease renewal answering one node nonce (MODEL §3).
+    /// Lease renewal answering one node nonce.
     #[serde(rename = "otterd/lease/v1")]
     Lease,
     /// Node proof of possession at enrollment.
@@ -39,34 +39,34 @@ pub enum SignContext {
     /// Control-plane signing-key transition, signed by both keys.
     #[serde(rename = "otterd/cp-key-transition/v1")]
     CpKeyTransition,
-    /// Node-signed positive stop certificate (MODEL §2.3 path 1).
+    /// Node-signed positive stop certificate.
     #[serde(rename = "otterd/stop-certificate/v1")]
     StopCertificate,
-    /// Recovery-root revocation of authority below a term (MODEL §2.7).
+    /// Recovery-root revocation of authority below a term.
     #[serde(rename = "otterd/authority-revoke/v1")]
     AuthorityRevoke,
-    /// Install-admin signed platform boot manifest (MODEL §2.7).
+    /// Install-admin signed platform boot manifest.
     #[serde(rename = "otterd/platform-boot-manifest/v1")]
     PlatformBootManifest,
-    /// Signed release manifest pinning binaries and protocol versions (PLAN §5.1).
+    /// Signed release manifest pinning binaries and protocol versions.
     #[serde(rename = "otterd/release-manifest/v1")]
     ReleaseManifest,
-    /// Owner-signed full endpoint snapshot (MODEL §4.1).
+    /// Owner-signed full endpoint snapshot.
     #[serde(rename = "otterd/owner-snapshot/v1")]
     OwnerSnapshot,
-    /// Owner answer to a receiver freshness challenge (MODEL §4.2).
+    /// Owner answer to a receiver freshness challenge.
     #[serde(rename = "otterd/challenge-answer/v1")]
     ChallengeAnswer,
-    /// Control-plane serving set (MODEL §4.4).
+    /// Control-plane serving set.
     #[serde(rename = "otterd/serving-set/v1")]
     ServingSet,
-    /// Control-plane membership revision (MODEL §4.1).
+    /// Control-plane membership revision.
     #[serde(rename = "otterd/membership/v1")]
     Membership,
-    /// Peer reachability answer (MODEL §3).
+    /// Peer reachability answer.
     #[serde(rename = "otterd/peer-answer/v1")]
     PeerAnswer,
-    /// Off-node recovery anchor records (MODEL §2.7).
+    /// Off-node recovery anchor records.
     #[serde(rename = "otterd/anchor/v1")]
     Anchor,
 }

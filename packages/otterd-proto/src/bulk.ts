@@ -1,5 +1,5 @@
 /**
- * The bulk channel (PLAN §5.1); mirror of `bulk.rs`. Text frames are JSON;
+ * The bulk channel; mirror of `bulk.rs`. Text frames are JSON;
  * binary frames carry data after an 8-byte header:
  * `[version u8 = 1][pipe u8][reserved u16 = 0][stream id u32 big-endian]`.
  */

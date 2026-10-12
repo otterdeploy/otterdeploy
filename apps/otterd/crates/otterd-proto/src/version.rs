@@ -2,8 +2,7 @@
 //!
 //! One integer names the wire protocol. A node offers the range it speaks; the
 //! control plane picks the highest version both sides speak, or refuses with its
-//! own range so the operator sees which side must upgrade (PLAN §5.1: protocol
-//! negotiation gates upgrade order).
+//! own range so the operator sees which side must upgrade.
 //!
 //! Compatibility rule inside one protocol version: a sender may add an optional
 //! field to a telemetry or report frame, and receivers ignore fields they do not
@@ -21,9 +20,9 @@ pub const MIN_PROTOCOL_VERSION: u16 = 1;
 pub const JOURNAL_FORMAT: u16 = 1;
 /// [`crate::spec::ServiceSpec`] schema.
 pub const SERVICE_SPEC_SCHEMA: u16 = 1;
-/// Health check evaluator IR revision (MONITORING §5).
+/// Health check evaluator IR revision.
 pub const EVALUATOR_REVISION: u16 = 1;
-/// Metric sample schema (MONITORING §6).
+/// Metric sample schema.
 pub const METRIC_SCHEMA: u16 = 1;
 
 /// An inclusive range of protocol versions.
@@ -97,11 +96,11 @@ pub enum Feature {
     Bulk,
     /// Realtime metric cadence below the history tick.
     RealtimeMetrics,
-    /// Probe executor for MONITORING §5 checks.
+    /// Probe executor for health checks.
     ProbeExecutor,
-    /// Discovery frames relayed by the control plane (MODEL §4.2).
+    /// Discovery frames relayed by the control plane.
     DiscoveryRelay,
-    /// Platform bootstrap supervision (MODEL §2.7).
+    /// Platform bootstrap supervision.
     PlatformBootstrap,
 }
 

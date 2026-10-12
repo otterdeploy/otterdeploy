@@ -1,4 +1,4 @@
-//! Per-request capabilities and replay protection (PLAN §5.3).
+//! Per-request capabilities and replay protection.
 //!
 //! Every privileged read, mutation and stream carries a control-plane-signed
 //! [`Capability`] bound to one node epoch, one session, one operation and the
@@ -80,7 +80,7 @@ impl Permission {
 
 macro_rules! verbs {
     ($( $(#[$meta:meta])* $variant:ident = $name:literal => [$($perm:ident),*] $(, monitor = $mon:literal)? ;)*) => {
-        /// Every node verb (PLAN §5.3, §5.4). The name is frozen; argument
+        /// Every node verb. The name is frozen; argument
         /// schemas live in [`crate::command`].
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
         pub enum Verb {
@@ -101,7 +101,7 @@ macro_rules! verbs {
                 match self { $(Self::$variant => &[$(Permission::$perm),*]),* }
             }
 
-            /// Whether a monitor-role node accepts this verb (PLAN §5.3 last row).
+            /// Whether a monitor-role node accepts this verb.
             #[must_use]
             pub const fn allowed_on_monitor(self) -> bool {
                 match self { $(Self::$variant => verbs!(@mon $($mon)?)),* }
@@ -113,7 +113,7 @@ macro_rules! verbs {
 }
 
 verbs! {
-    // Lifecycle (MODEL §2). Grant-bound; the same barrier for every path.
+    // Lifecycle. Grant-bound; the same barrier for every path.
     /// Install a slot grant and start its first attempt.
     WorkloadApply = "workload.apply" => [Mutate];
     /// Start a new attempt under an active grant (operator restart).
@@ -142,7 +142,7 @@ verbs! {
     NodeRetireByBarrier = "node.retireByBarrier" => [Mutate, InstallAdmin];
     MetricsSample = "metrics.sample" => [Read], monitor = true;
     EventsSubscribe = "events.subscribe" => [Read, StreamOut];
-    /// Push the check definitions this node executes (MONITORING §5).
+    /// Push the check definitions this node executes.
     HealthConfigure = "health.configure" => [Mutate], monitor = true;
 
     // Containers.
@@ -239,7 +239,7 @@ pub struct Capability {
     pub path_root: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volume: Option<String>,
-    /// Durable, monotonic per-resource operation epoch (MODEL I2/I3).
+    /// Durable, monotonic per-resource operation epoch.
     pub operation_epoch: U53,
     pub op_id: OpId,
     /// SHA-256 of the exact command payload bytes.
@@ -266,7 +266,7 @@ pub struct CheckContext<'a> {
     /// Every term below this was revoked by the recovery root.
     pub revoked_below_term: U53,
     /// `None` when time validity cannot be established: new privileged
-    /// operations are then refused (PLAN §5.3).
+    /// operations are then refused.
     pub clock: Option<ClockBound>,
     /// Highest operation epoch the journal recorded for the capability's resource.
     pub operation_epoch_high_water: U53,

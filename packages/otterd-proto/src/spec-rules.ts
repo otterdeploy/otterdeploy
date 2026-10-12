@@ -113,7 +113,7 @@ function resourcesWithDefaults(task: TaskSpec): TaskSpec["resources"] {
   };
 }
 
-/** Fill every default (PLAN §4 defaults table). Pure. */
+/** Fill every default. Pure. */
 export function normalizeServiceSpec(input: ServiceSpecInput): ServiceSpec {
   const basis = basisOf(input);
   const defaults = DEFAULTS_BY_BASIS[basis];

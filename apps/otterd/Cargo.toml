@@ -14,6 +14,7 @@ repository = "https://github.com/otterdeploy/otterdeploy"
 otterd-engine = { path = "crates/otterd-engine" }
 otterd-journal = { path = "crates/otterd-journal" }
 otterd-proto = { path = "crates/otterd-proto" }
+otterd-sys = { path = "crates/otterd-sys" }
 
 base64 = "0.22"
 bytes = "1"
@@ -25,6 +26,7 @@ http = "1"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
+rustix = { version = "1", features = ["fs", "mount", "time", "process"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
