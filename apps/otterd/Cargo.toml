@@ -15,14 +15,21 @@ otterd-journal = { path = "crates/otterd-journal" }
 otterd-proto = { path = "crates/otterd-proto" }
 
 base64 = "0.22"
+bytes = "1"
 crc32c = "0.6"
 ed25519-dalek = { version = "2", features = ["std"] }
 getrandom = "0.3"
 hex = "0.4"
+http = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+rustix = { version = "1", default-features = false, features = ["std", "fs"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 thiserror = "2"
+tokio = { version = "1", features = ["rt", "net", "time", "macros", "sync"] }
 tracing = "0.1"
 
 # Test-only.
