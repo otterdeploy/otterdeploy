@@ -74,6 +74,60 @@ function PauseResumeButton({ control }: { control: PauseControl }) {
   );
 }
 
+/** A git service's deploy: build from HEAD, with a no-cache rebuild behind
+ *  the split. Labelled Deploy the first time, Redeploy after. */
+function GitDeployButton({
+  neverDeployed,
+  building,
+  onBuild,
+}: {
+  neverDeployed: boolean;
+  building: boolean;
+  onBuild: (noCache?: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center">
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => onBuild()}
+        disabled={building}
+        className="rounded-r-none"
+      >
+        <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
+        {building
+          ? neverDeployed
+            ? "Deploying…"
+            : "Redeploying…"
+          : neverDeployed
+            ? "Deploy"
+            : "Redeploy"}
+      </Button>
+      {/* The cache bypass is a per-deploy choice, not a service setting:
+          one clean rebuild, not a permanently slower service. Tucked
+          behind the split so the common path stays a single click. */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              size="sm"
+              disabled={building}
+              aria-label="More deploy options"
+              className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+            />
+          }
+        >
+          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => onBuild(true)}>Redeploy without cache</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 /** The header's runtime actions. Pause/resume, restart, and deploy. Only
  *  rendered for a deployed (non-pending) service. */
 export function HeaderActions({
@@ -82,6 +136,8 @@ export function HeaderActions({
   restarting,
   onBuild,
   building,
+  onRedeploy,
+  redeploying,
   pause,
 }: {
   resource: HeaderResource;
@@ -89,6 +145,9 @@ export function HeaderActions({
   restarting: boolean;
   onBuild: (noCache?: boolean) => void;
   building: boolean;
+  /** Image services: pull the image again and replace what runs. */
+  onRedeploy: () => void;
+  redeploying: boolean;
   pause?: PauseControl | null;
 }) {
   // `pending:<ref>` is the placeholder image a service carries until its first
@@ -122,55 +181,27 @@ export function HeaderActions({
         </Button>
       )}
       {/* Primary deploy action. Git services build a fresh image from
-          HEAD (onBuild); image services re-roll their pinned image
-          (onRestart). Labelled Deploy the first time, Redeploy after.
-          Hidden while paused: resume first, then deploy. */}
+          HEAD (onBuild); image services pull their image again and replace
+          what runs (onRedeploy), so a moved tag like `:latest` lands.
+          Labelled Deploy the first time, Redeploy after. Hidden while
+          paused: resume first, then deploy. */}
       {paused ? null : isGit ? (
-        <div className="flex items-center">
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => onBuild()}
-            disabled={building}
-            className="rounded-r-none"
-          >
-            <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
-            {building
-              ? neverDeployed
-                ? "Deploying…"
-                : "Redeploying…"
-              : neverDeployed
-                ? "Deploy"
-                : "Redeploy"}
-          </Button>
-          {/* The cache bypass is a per-deploy choice, not a service setting:
-              one clean rebuild, not a permanently slower service. Tucked
-              behind the split so the common path stays a single click. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={building}
-                  aria-label="More deploy options"
-                  className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
-                />
-              }
-            >
-              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3.5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => onBuild(true)}>
-                Redeploy without cache
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <GitDeployButton neverDeployed={neverDeployed} building={building} onBuild={onBuild} />
       ) : neverDeployed ? (
         <Button type="button" size="sm" onClick={onRestart} disabled={restarting}>
           <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
           {restarting ? "Deploying…" : "Deploy"}
+        </Button>
+      ) : resource.source === "image" ? (
+        <Button
+          type="button"
+          size="sm"
+          onClick={onRedeploy}
+          disabled={redeploying}
+          title={`Pull ${resource.image} again and replace what runs`}
+        >
+          <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
+          {redeploying ? "Redeploying…" : "Redeploy"}
         </Button>
       ) : null}
     </>

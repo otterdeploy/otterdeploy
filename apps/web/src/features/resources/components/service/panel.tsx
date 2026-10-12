@@ -154,7 +154,7 @@ export function ServiceResourcePanel({
   // anything commits, so there is no frame where Logs is open and empty.
   const [logsVisited, setLogsVisited] = useState(tab === "logs");
   if (tab === "logs" && !logsVisited) setLogsVisited(true);
-  const { buildMut, restartMut } = useServiceRuntimeActions({
+  const { buildMut, restartMut, redeployMut } = useServiceRuntimeActions({
     resourceId: resource.resourceId,
     orgSlug,
     projectSlug,
@@ -208,6 +208,13 @@ export function ServiceResourcePanel({
           })
         }
         building={buildMut.isPending}
+        onRedeploy={() =>
+          redeployMut.mutate({
+            projectId: resource.projectId,
+            resourceId: resource.resourceId,
+          })
+        }
+        redeploying={redeployMut.isPending}
         pause={pending ? null : pause}
         crumb={crumb}
         // Replicas and the public domain used to be a row of their own. They

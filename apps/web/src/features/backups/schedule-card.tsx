@@ -89,8 +89,9 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
       </div>
       <p className="text-[11px] text-muted-foreground">
         {s.sources.length} source{s.sources.length === 1 ? "" : "s"} ·{" "}
-        <span className="font-mono">{s.sources.slice(0, 3).join(", ")}</span>
-        {s.sources.length > 3 && <span> +{s.sources.length - 3}</span>}
+        {/* Names, not the stored resource ids: an id is not something to read. */}
+        <span className="font-mono">{s.sourceNames.slice(0, 3).join(", ")}</span>
+        {s.sourceNames.length > 3 && <span> +{s.sourceNames.length - 3}</span>}
       </p>
 
       {missing.length > 0 && <MissingSourceBanner missing={missing} />}

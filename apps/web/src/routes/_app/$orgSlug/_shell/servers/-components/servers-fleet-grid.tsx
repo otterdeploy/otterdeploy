@@ -69,9 +69,12 @@ function readings(health: HostHealth | null): Reading[] {
   ];
 }
 
+/** One meter's three cells. They sit in the parent's shared grid (no row
+ *  wrapper), so the value column is as wide as the widest reading and the
+ *  bars still line up: a fixed column cut "12.4 GB / 16 GB" short. */
 function MeterRow({ label, value, text }: Reading) {
   return (
-    <div className="grid grid-cols-[3.25rem_minmax(0,1fr)_5.5rem] items-center gap-3 text-xs">
+    <>
       <span className="text-muted-foreground">{label}</span>
       {value === null ? (
         <span className="h-[0.8em] rounded-[3px] bg-muted" aria-hidden />
@@ -80,13 +83,13 @@ function MeterRow({ label, value, text }: Reading) {
       )}
       <span
         className={cn(
-          "truncate text-right font-mono tabular-nums",
+          "text-right font-mono whitespace-nowrap tabular-nums",
           value === null ? "text-muted-foreground/50" : "text-muted-foreground",
         )}
       >
         {text}
       </span>
-    </div>
+    </>
   );
 }
 
@@ -162,7 +165,7 @@ function FleetCard({
 
       <div
         className={cn(
-          "pointer-events-none relative flex flex-col gap-1.5",
+          "pointer-events-none relative grid grid-cols-[3.25rem_minmax(0,1fr)_max-content] items-center gap-x-3 gap-y-1.5 text-xs",
           state.kind === "stale" && "opacity-60",
         )}
       >

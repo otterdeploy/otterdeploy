@@ -1,14 +1,15 @@
 /**
- * Server › Platform (control plane only): the install's own health. Deploy
- * throughput and the job queues, formerly the fleet page's "Install health"
- * tab. They describe processes that run on the control plane, so they live on
- * its page.
+ * Server › Platform (control plane only): the install's own health. Which
+ * build the platform containers run (version skew), then deploy throughput
+ * and the job queues, formerly the fleet page's "Install health" tab. They
+ * describe processes that run on the control plane, so they live on its page.
  */
 import { createFileRoute } from "@tanstack/react-router";
 
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 
 import { InstallHealthSection } from "../-components/install-health";
+import { PlatformImagesSection } from "../-components/platform-images";
 import { useServerPage } from "./-components/use-server-page";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/servers/$serverId/platform")({
@@ -36,6 +37,7 @@ function RouteComponent() {
   }
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <PlatformImagesSection />
       <InstallHealthSection />
     </div>
   );

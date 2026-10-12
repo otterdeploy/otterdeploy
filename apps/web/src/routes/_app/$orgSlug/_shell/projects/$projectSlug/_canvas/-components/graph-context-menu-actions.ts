@@ -30,6 +30,7 @@ import { toastMessage } from "@/shared/lib/errors";
 import { orpc } from "@/shared/server/orpc";
 
 import { usePreviewActions } from "../previews/$previewId/-components/use-preview-actions";
+import { graphFitPadding } from "./graph-fit";
 
 /** Structural check for the only node shape this canvas renders: every
  *  `ResourceNodeData` carries at least `kind` + `name` (see
@@ -181,7 +182,7 @@ export function useGraphContextMenu({
     },
     onFitView: () => {
       close();
-      void fitView({ padding: 0.2, duration: 400 });
+      void fitView({ padding: graphFitPadding(), duration: 400 });
     },
   };
 

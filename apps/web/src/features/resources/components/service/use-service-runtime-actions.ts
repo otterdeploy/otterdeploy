@@ -1,7 +1,7 @@
 /**
- * The two runtime actions the service panel's header fires: Build (git) and
- * Restart. Deploy jumps into the new deployment's Build Logs. There's a new
- * row worth watching build. Restart re-rolls the current deployment in place
+ * The runtime actions the service panel's header fires: Build (git),
+ * Redeploy (image) and Restart. Deploy jumps into the new deployment's Build
+ * Logs. There's a new row worth watching build. Restart re-rolls the current deployment in place
  * (no new row) and stays put. See the `restartMut` comment below. Extracted
  * so the panel component stays within the line budget.
  */
@@ -61,5 +61,14 @@ export function useServiceRuntimeActions({
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
   });
 
-  return { buildMut, restartMut };
+  // Redeploy (image services): the image is pulled again and replaces what
+  // runs. Like Restart it rolls in place, so stay put; the deployment row
+  // it records carries the outcome.
+  const redeployMut = useMutation({
+    ...orpc.service.redeploy.mutationOptions(),
+    onSuccess: () => toast.success("Redeploying: pulling the image again"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
+  });
+
+  return { buildMut, restartMut, redeployMut };
 }

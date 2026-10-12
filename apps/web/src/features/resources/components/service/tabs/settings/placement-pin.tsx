@@ -88,6 +88,12 @@ export function PlacementPin({
     (s) => !s.buildServer || s.id === service.placementServerId,
   );
   const pinnedServer = servers.find((s) => s.id === service.placementServerId);
+  // The closed trigger reads its label from `items`; without them it printed
+  // the raw value (a server id, or the "no pin" sentinel).
+  const items = [
+    { value: ANYWHERE, label: "Anywhere (scheduler decides)" },
+    ...servers.map((s) => ({ value: s.id, label: s.name })),
+  ];
 
   const move = (serverId: string | null, acknowledgeVolumeLoss?: boolean) => {
     pinMut.mutate(
@@ -133,6 +139,7 @@ export function PlacementPin({
             </div>
           </div>
           <Select
+            items={items}
             value={current}
             disabled={pinMut.isPending || serversQuery.isLoading}
             onValueChange={(next) => move(next === ANYWHERE ? null : next)}
@@ -141,10 +148,9 @@ export function PlacementPin({
               <SelectValue placeholder="Anywhere" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANYWHERE}>Anywhere (scheduler decides)</SelectItem>
-              {servers.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
+              {items.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -62,6 +62,12 @@ export function DatabasePlacementCard({
   const servers = serversQuery.data ?? [];
   const current = resource.placementServerId ?? ANYWHERE;
   const pinnedServer = servers.find((s) => s.id === resource.placementServerId);
+  // The closed trigger reads its label from `items`; without them it printed
+  // the raw value (a server id, or the "no pin" sentinel).
+  const items = [
+    { value: ANYWHERE, label: "Not pinned (scheduler decides)" },
+    ...servers.map((s) => ({ value: s.id, label: s.name })),
+  ];
 
   const move = (serverId: string | null, acknowledgeDataLoss?: boolean) => {
     pinMut.mutate(
@@ -111,6 +117,7 @@ export function DatabasePlacementCard({
             </div>
           </div>
           <Select
+            items={items}
             value={current}
             disabled={pinMut.isPending || serversQuery.isLoading}
             onValueChange={(next) => move(next === ANYWHERE ? null : next)}
@@ -119,10 +126,9 @@ export function DatabasePlacementCard({
               <SelectValue placeholder="Not pinned" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANYWHERE}>Not pinned (scheduler decides)</SelectItem>
-              {servers.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
+              {items.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
                 </SelectItem>
               ))}
             </SelectContent>
