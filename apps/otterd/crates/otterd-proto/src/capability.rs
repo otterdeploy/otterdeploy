@@ -301,8 +301,10 @@ pub enum CapabilityError {
     #[error("time validity cannot be established")]
     ClockUnknown,
     #[error("clock uncertainty {uncertainty_ms} ms exceeds the bound")]
+    #[serde(rename_all = "camelCase")]
     ClockTooUncertain { uncertainty_ms: U53 },
     #[error("validity window of {ttl_ms} ms is empty or exceeds the maximum")]
+    #[serde(rename_all = "camelCase")]
     BadValidityWindow { ttl_ms: U53 },
     #[error("capability is not yet valid")]
     NotYetValid,
@@ -315,6 +317,7 @@ pub enum CapabilityError {
     #[error("verb {verb} is not accepted by a monitor node")]
     NotOnMonitor { verb: Verb },
     #[error("operation epoch {got} is older than {high_water}")]
+    #[serde(rename_all = "camelCase")]
     StaleOperationEpoch { got: U53, high_water: U53 },
     #[error("nonce already used")]
     Replayed,

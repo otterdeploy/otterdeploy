@@ -25,7 +25,9 @@ use otterd_proto::discovery::{
     ChallengeAnswer, DiscoveryMessage, Membership, OwnerSnapshot, PeerAnswer, ServingSet,
 };
 use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
-use otterd_proto::health::{Cause, HealthCheck, Outcome};
+use otterd_proto::health::{
+    AttemptResult, Cause, HealthCheck, Outcome, ProtocolPhase, round_outcome,
+};
 use otterd_proto::identity::{
     AuthorityRevocation, CpKeyTransition, CrossSigned, EnrollCertificate, EnrollRequest,
     KeyRotation, NodeRole,
@@ -197,7 +199,10 @@ fn health_check() -> Value {
         "installId": "inst_1", "orgId": "org_1", "id": "chk_web", "revision": 2,
         "subjectId": "res_web", "resourceId": "res_web", "role": "readiness", "vantage": "serving-path",
         "probe": {"kind": "http", "url": "http://10.240.0.5:8080/healthz", "method": "GET",
-                  "assertions": [{"target": "status", "op": "eq", "value": "200"}],
+                  "assertions": [{"kind": "status-range", "min": 200, "max": 299},
+                                 {"kind": "header-contains", "name": "content-type", "value": "json"},
+                                 {"kind": "body-contains", "value": "ok"},
+                                 {"kind": "json-equals", "pointer": "/status", "value": "pass"}],
                   "followRedirects": false, "maxRedirects": 0, "tlsVerify": true},
         "intervalMs": 60000, "attemptTimeoutMs": 5000, "retries": 1, "retryBackoffMs": 1000,
         "roundBudgetMs": 15000, "startPeriodMs": 10000, "failureThreshold": 3, "successThreshold": 1,
@@ -389,6 +394,9 @@ fn schemas() {
         json!({"status": "conflict", "recordedPayloadHash": DIGEST}),
         json!({"status": "rejected", "error": {"code": "expired"}}),
         json!({"status": "rejected", "error": {"code": "stale-node-epoch", "got": 2, "current": 3}}),
+        json!({"status": "rejected", "error": {"code": "stale-operation-epoch", "got": 8, "highWater": 9}}),
+        json!({"status": "rejected", "error": {"code": "missing-permission", "verb": "host.shell",
+               "missing": "install-admin"}}),
     ];
     schema_file::<OpOutcome>("OpOutcome", outcomes);
     schema_file::<CommandResult>("CommandResult", vec![json!({"kind": "done"})]);
@@ -488,7 +496,45 @@ fn schemas() {
         "incarnation": "inc_0123456789abcdef0123456789abcdef", "nonce": NONCE_A,
         "grants": ["grant_1"], "durationMs": 20000})],
     );
-    schema_file::<HealthCheck>("HealthCheck", vec![health_check()]);
+    let with_probe = |probe: Value| {
+        let mut c = health_check();
+        c["probe"] = probe;
+        c["role"] = json!("uptime");
+        c["vantage"] = json!("outside");
+        c
+    };
+    schema_file::<HealthCheck>(
+        "HealthCheck",
+        vec![
+            health_check(),
+            with_probe(
+                json!({"kind": "exec", "command": {"kind": "argv", "argv": ["pg_isready"]},
+                              "user": "postgres"}),
+            ),
+            with_probe(
+                json!({"kind": "exec", "command": {"kind": "shell", "script": "test -f /ready"}}),
+            ),
+            with_probe(json!({"kind": "tcp", "host": "10.240.0.5", "port": 5432})),
+            with_probe(json!({"kind": "grpc", "host": "10.240.0.6", "port": 9090,
+                              "service": "app.Health", "tls": false})),
+            with_probe(
+                json!({"kind": "dns", "name": "example.com", "recordType": "A",
+                              "server": "1.1.1.1", "expect": {"kind": "answer", "contains": "93.184.215.14"}}),
+            ),
+            with_probe(
+                json!({"kind": "dns", "name": "gone.example.com", "recordType": "A",
+                              "expect": {"kind": "nxdomain"}}),
+            ),
+            with_probe(
+                json!({"kind": "dns", "name": "broken.example.com", "recordType": "AAAA",
+                              "expect": {"kind": "servfail"}}),
+            ),
+            with_probe(json!({"kind": "tls", "host": "10.240.0.7", "port": 443,
+                              "serverName": "app.example.com", "tlsVerify": true,
+                              "caBundleRef": "sec_ca", "minDaysValid": 14})),
+            with_probe(json!({"kind": "icmp", "host": "example.com"})),
+        ],
+    );
     schema_file::<SampleBatch>("SampleBatch", vec![sample_batch()]);
 
     let keys = json!({"keyEpoch": 1, "identity": public(NODE), "cacheEncryption": public(4),
@@ -750,7 +796,11 @@ fn schemas() {
             ),
             entry(
                 28,
-                json!({"type": "compacted", "throughSeq": 27, "droppedRecords": 1200,
+                json!({"type": "highWater", "kind": "slot-generation", "scope": "res_pg#0", "value": 4}),
+            ),
+            entry(
+                29,
+                json!({"type": "compacted", "throughSeq": 28, "droppedRecords": 1200,
             "priorDigest": DIGEST}),
             ),
         ],
@@ -942,8 +992,73 @@ fn vectors() {
     })
     .collect();
 
+    let att = |o: &str| AttemptResult {
+        outcome: serde_json::from_value(json!(o)).unwrap(),
+        cause: Cause::Ok,
+        phase: ProtocolPhase::Connect,
+        elapsed_ms: otterd_proto::U53::ONE,
+        latency_us: None,
+    };
+    let rounds: Vec<Value> = [
+        (vec!["target-failure", "success"], 2),
+        (vec!["target-failure", "target-failure"], 2),
+        (vec!["target-failure"], 2),
+        (vec!["target-failure"], 1),
+        (vec!["target-failure", "unknown"], 2),
+        (vec!["unknown", "configuration-error"], 2),
+        (vec![], 1),
+    ]
+    .into_iter()
+    .map(|(outcomes, configured)| {
+        let attempts: Vec<AttemptResult> = outcomes.iter().map(|o| att(o)).collect();
+        json!({"attempts": outcomes, "configured": configured,
+               "result": round_outcome(&attempts, configured)})
+    })
+    .collect();
+
     check_file(
         "vectors.json",
-        &json!({"signatures": signatures, "dataHeaders": headers, "negotiation": negotiation}),
+        &json!({"signatures": signatures, "dataHeaders": headers, "negotiation": negotiation,
+                "roundOutcome": rounds}),
     );
+}
+
+/// Wire keys are camelCase everywhere; a snake_case key means a missing
+/// `rename_all` on some variant.
+#[test]
+fn fixture_keys_are_camel_case() {
+    fn walk(v: &Value, path: &str, bad: &mut Vec<String>) {
+        match v {
+            Value::Object(map) => {
+                for (k, child) in map {
+                    if k.contains('_') {
+                        bad.push(format!("{path}/{k}"));
+                    }
+                    walk(child, &format!("{path}/{k}"), bad);
+                }
+            }
+            Value::Array(items) => {
+                for (i, child) in items.iter().enumerate() {
+                    walk(child, &format!("{path}/{i}"), bad);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut bad = Vec::new();
+    let mut dirs = vec![fixtures_dir()];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                dirs.push(path);
+            } else {
+                let v: Value =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                // Labels and env names are data, not keys of the contract.
+                walk(&v, &path.display().to_string(), &mut bad);
+            }
+        }
+    }
+    assert!(bad.is_empty(), "snake_case keys: {bad:#?}");
 }

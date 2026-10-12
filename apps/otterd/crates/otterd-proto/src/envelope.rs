@@ -311,6 +311,16 @@ impl SignedEnvelope {
         Ok(serde_json::from_slice(&bytes)?)
     }
 
+    /// Parse the payload **without verifying the signature**. Only for documents
+    /// this process signed itself and already holds (for example its own stop
+    /// certificate read back from its journal); never for anything received.
+    pub fn decode_own_payload<T: DeserializeOwned>(&self) -> Result<T, EnvelopeError> {
+        let payload = B64
+            .decode(self.payload.as_bytes())
+            .map_err(|_| EnvelopeError::Encoding("payload is not base64"))?;
+        Ok(serde_json::from_slice(&payload)?)
+    }
+
     /// SHA-256 of the signed payload bytes: what journals and certificates bind.
     pub fn payload_digest(&self) -> Result<Sha256Hex, EnvelopeError> {
         let payload = B64

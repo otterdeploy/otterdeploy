@@ -16,7 +16,15 @@
     "permission_missing",
     "unsupported_configuration",
     "missing_shell",
-    "vantage_missing"
+    "vantage_missing",
+    "connection_reset",
+    "protocol_error",
+    "dns_servfail",
+    "dns_nxdomain",
+    "round_budget_exceeded",
+    "executor_overloaded",
+    "ca_material_missing",
+    "invalid_target"
   ],
   "Feature": [
     "bulk",

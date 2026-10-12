@@ -150,6 +150,22 @@
         "got": 2
       },
       "status": "rejected"
+    },
+    {
+      "error": {
+        "code": "stale-operation-epoch",
+        "got": 8,
+        "highWater": 9
+      },
+      "status": "rejected"
+    },
+    {
+      "error": {
+        "code": "missing-permission",
+        "missing": "install-admin",
+        "verb": "host.shell"
+      },
+      "status": "rejected"
     }
   ],
   "schema": "OpOutcome"

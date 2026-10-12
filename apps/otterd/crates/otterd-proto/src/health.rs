@@ -46,14 +46,35 @@ pub enum ExecCommand {
     Shell { script: String },
 }
 
+/// A structured HTTP assertion; all of a check's assertions must hold.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct HttpAssertion {
-    /// `status`, `header:<name>`, `body`, `json:<pointer>`.
-    pub target: String,
-    /// `eq`, `neq`, `contains`, `lt`, `gt`, `matches`.
-    pub op: String,
-    pub value: String,
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum HttpAssertion {
+    /// Status within `min..=max` (an exact status has `min == max`).
+    StatusRange { min: u16, max: u16 },
+    /// A response header (case-insensitive name) contains `value`.
+    HeaderContains { name: String, value: String },
+    /// The (size-bounded) response body contains `value`.
+    BodyContains { value: String },
+    /// The JSON value at an RFC 6901 pointer equals `value`.
+    JsonEquals {
+        pointer: String,
+        value: serde_json::Value,
+    },
+}
+
+/// What a DNS check expects from the resolver under test (MONITORING §5.2).
+/// `nxdomain`/`servfail` succeed only when explicitly expected.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum DnsExpect {
+    /// A successful answer; when `contains` is set, one record must equal it.
+    Answer {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        contains: Option<String>,
+    },
+    Nxdomain,
+    Servfail,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,6 +107,9 @@ pub enum Probe {
         follow_redirects: bool,
         max_redirects: u8,
         tls_verify: bool,
+        /// Extra trust roots (a secret/config reference), for private CAs.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ca_bundle_ref: Option<String>,
     },
     Grpc {
         host: String,
@@ -100,13 +124,18 @@ pub enum Probe {
         record_type: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         server: Option<String>,
-        /// Expected answer; `NXDOMAIN`/`SERVFAIL` only when explicitly asserted.
-        expect: String,
+        expect: DnsExpect,
     },
     #[serde(rename_all = "camelCase")]
     Tls {
         host: String,
         port: u16,
+        /// SNI and the name verified against the certificate; defaults to `host`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        server_name: Option<String>,
+        tls_verify: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ca_bundle_ref: Option<String>,
         min_days_valid: u32,
     },
     Icmp {
@@ -254,10 +283,25 @@ pub enum Cause {
     UnsupportedConfiguration,
     MissingShell,
     VantageMissing,
+    ConnectionReset,
+    /// Wrong protocol on the port, or a TLS alert.
+    ProtocolError,
+    /// The resolver under test answered SERVFAIL (DNS checks).
+    DnsServfail,
+    /// The resolver under test answered NXDOMAIN (DNS checks).
+    DnsNxdomain,
+    /// The round budget ran out before every configured attempt ran.
+    RoundBudgetExceeded,
+    /// The executor's deadline timer fired more than 500 ms late.
+    ExecutorOverloaded,
+    /// Trust material the check names is not available.
+    CaMaterialMissing,
+    /// The target is not allowed (metadata, link-local, loopback, unauthorized range).
+    InvalidTarget,
 }
 
 impl Cause {
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 25] = [
         Self::Ok,
         Self::TargetTimeout,
         Self::ConnectionRefused,
@@ -275,6 +319,14 @@ impl Cause {
         Self::UnsupportedConfiguration,
         Self::MissingShell,
         Self::VantageMissing,
+        Self::ConnectionReset,
+        Self::ProtocolError,
+        Self::DnsServfail,
+        Self::DnsNxdomain,
+        Self::RoundBudgetExceeded,
+        Self::ExecutorOverloaded,
+        Self::CaMaterialMissing,
+        Self::InvalidTarget,
     ];
 }
 
@@ -378,22 +430,27 @@ pub struct ProbeResult {
     pub certificate_expiry_unix_ms: Option<UnixMs>,
 }
 
-/// Fold attempt outcomes into the round's single vote (MONITORING §5.2):
-/// any qualified success wins; all-target-failure is a failure; otherwise the
-/// round is Unknown (or ConfigurationError when every attempt was misconfigured).
+/// Fold attempt outcomes into the round's single vote (MONITORING §5.2).
+///
+/// `configured` is the number of attempts the check allows (`retries + 1`).
+/// Any success wins. Any configuration error makes the round a configuration
+/// error. Otherwise the round is a target failure only when every configured
+/// attempt ran and failed at the target; a missing (budget ran out, executor
+/// stalled) or unqualified attempt makes it Unknown.
 #[must_use]
-pub fn round_outcome(attempts: &[AttemptResult]) -> Outcome {
+pub fn round_outcome(attempts: &[AttemptResult], configured: u32) -> Outcome {
     if attempts.iter().any(|a| a.outcome == Outcome::Success) {
         Outcome::Success
-    } else if attempts.is_empty() {
-        Outcome::Unknown
-    } else if attempts.iter().all(|a| a.outcome == Outcome::TargetFailure) {
-        Outcome::TargetFailure
     } else if attempts
         .iter()
-        .all(|a| a.outcome == Outcome::ConfigurationError)
+        .any(|a| a.outcome == Outcome::ConfigurationError)
     {
         Outcome::ConfigurationError
+    } else if !attempts.is_empty()
+        && attempts.len() >= usize::try_from(configured).unwrap_or(usize::MAX)
+        && attempts.iter().all(|a| a.outcome == Outcome::TargetFailure)
+    {
+        Outcome::TargetFailure
     } else {
         Outcome::Unknown
     }
@@ -415,24 +472,18 @@ mod tests {
 
     #[test]
     fn one_round_one_vote() {
-        use Outcome::*;
+        use Outcome::{ConfigurationError, Success, TargetFailure, Unknown};
+        let tf = || attempt(TargetFailure);
+        assert_eq!(round_outcome(&[tf(), attempt(Success)], 2), Success);
+        assert_eq!(round_outcome(&[tf(), tf()], 2), TargetFailure);
+        // The budget ran out with a retry still configured: no vote.
+        assert_eq!(round_outcome(&[tf()], 2), Unknown);
+        assert_eq!(round_outcome(&[tf(), attempt(Unknown)], 2), Unknown);
         assert_eq!(
-            round_outcome(&[attempt(TargetFailure), attempt(Success)]),
-            Success
-        );
-        assert_eq!(
-            round_outcome(&[attempt(TargetFailure), attempt(TargetFailure)]),
-            TargetFailure
-        );
-        assert_eq!(
-            round_outcome(&[attempt(TargetFailure), attempt(Unknown)]),
-            Unknown
-        );
-        assert_eq!(
-            round_outcome(&[attempt(ConfigurationError)]),
+            round_outcome(&[tf(), attempt(ConfigurationError)], 2),
             ConfigurationError
         );
-        assert_eq!(round_outcome(&[]), Unknown);
+        assert_eq!(round_outcome(&[], 1), Unknown);
         assert!(!Unknown.is_vote() && !ConfigurationError.is_vote());
     }
 

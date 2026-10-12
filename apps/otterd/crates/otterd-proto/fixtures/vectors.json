@@ -83,6 +83,59 @@
       }
     }
   ],
+  "roundOutcome": [
+    {
+      "attempts": [
+        "target-failure",
+        "success"
+      ],
+      "configured": 2,
+      "result": "success"
+    },
+    {
+      "attempts": [
+        "target-failure",
+        "target-failure"
+      ],
+      "configured": 2,
+      "result": "target-failure"
+    },
+    {
+      "attempts": [
+        "target-failure"
+      ],
+      "configured": 2,
+      "result": "unknown"
+    },
+    {
+      "attempts": [
+        "target-failure"
+      ],
+      "configured": 1,
+      "result": "target-failure"
+    },
+    {
+      "attempts": [
+        "target-failure",
+        "unknown"
+      ],
+      "configured": 2,
+      "result": "unknown"
+    },
+    {
+      "attempts": [
+        "unknown",
+        "configuration-error"
+      ],
+      "configured": 2,
+      "result": "configuration-error"
+    },
+    {
+      "attempts": [],
+      "configured": 1,
+      "result": "unknown"
+    }
+  ],
   "signatures": [
     {
       "context": "otterd/capability/v1",

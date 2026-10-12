@@ -324,9 +324,23 @@
           "probe": {
             "assertions": [
               {
-                "op": "eq",
-                "target": "status",
-                "value": "200"
+                "kind": "status-range",
+                "max": 299,
+                "min": 200
+              },
+              {
+                "kind": "header-contains",
+                "name": "content-type",
+                "value": "json"
+              },
+              {
+                "kind": "body-contains",
+                "value": "ok"
+              },
+              {
+                "kind": "json-equals",
+                "pointer": "/status",
+                "value": "pass"
               }
             ],
             "followRedirects": false,

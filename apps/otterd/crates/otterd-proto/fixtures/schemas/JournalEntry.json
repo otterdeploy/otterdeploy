@@ -372,12 +372,22 @@
     {
       "atUnixMs": 1791000000028,
       "record": {
-        "droppedRecords": 1200,
-        "priorDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-        "throughSeq": 27,
-        "type": "compacted"
+        "kind": "slot-generation",
+        "scope": "res_pg#0",
+        "type": "highWater",
+        "value": 4
       },
       "seq": 28
+    },
+    {
+      "atUnixMs": 1791000000029,
+      "record": {
+        "droppedRecords": 1200,
+        "priorDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "throughSeq": 28,
+        "type": "compacted"
+      },
+      "seq": 29
     }
   ],
   "schema": "JournalEntry"

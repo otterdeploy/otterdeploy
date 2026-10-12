@@ -430,6 +430,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/otterd-proto": {
+      "name": "@otterdeploy/otterd-proto",
+      "version": "0.0.0",
+      "dependencies": {
+        "better-result": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@otterdeploy/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/shared": {
       "name": "@otterdeploy/shared",
       "version": "0.0.0",
@@ -1148,6 +1161,8 @@
     "@otterdeploy/i18n": ["@otterdeploy/i18n@workspace:packages/i18n"],
 
     "@otterdeploy/jobs": ["@otterdeploy/jobs@workspace:packages/jobs"],
+
+    "@otterdeploy/otterd-proto": ["@otterdeploy/otterd-proto@workspace:packages/otterd-proto"],
 
     "@otterdeploy/shared": ["@otterdeploy/shared@workspace:packages/shared"],
 

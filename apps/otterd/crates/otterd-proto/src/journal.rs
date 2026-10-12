@@ -6,7 +6,8 @@
 //! record still referenced by an open obligation, preceded by [`Record::Format`]
 //! and [`Record::Compacted`], so the schema has no separate snapshot form.
 //!
-//! On-disk framing of each entry: `len: u32 LE`, `crc32c(json): u32 LE`, then
+//! On disk: an 8-byte file header, `b"ODJ1"` then the journal format as
+//! `u32 LE`, followed by frames of `len: u32 LE`, `crc32c(json): u32 LE`, then
 //! `len` bytes of UTF-8 JSON [`Entry`]. A torn final frame is truncated on open;
 //! a bad frame anywhere else refuses to open (journal corruption is recovery,
 //! not auto-repair). The bootstrap journal (MODEL §2.7) uses the same schema in
@@ -29,6 +30,10 @@ use serde::{Deserialize, Serialize};
 
 /// Largest single entry accepted when reading a journal.
 pub const MAX_ENTRY_BYTES: u32 = 1024 * 1024;
+/// Magic bytes at the start of every journal file.
+pub const FILE_MAGIC: &[u8; 4] = b"ODJ1";
+/// Bytes of the file header (magic + format).
+pub const FILE_HEADER_LEN: usize = 8;
 /// Bytes of framing before each entry's JSON.
 pub const FRAME_HEADER_LEN: usize = 8;
 
@@ -164,9 +169,11 @@ pub enum AttemptReason {
 }
 
 /// Monotonic counters that must survive restarts (MODEL §4.1, PLAN §5.3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum HighWaterKind {
+    /// Highest grant generation accepted for a slot (MODEL I2); scope = `resource#index`.
+    SlotGeneration,
     OperationEpoch,
     ServingRevision,
     MembershipEpoch,
