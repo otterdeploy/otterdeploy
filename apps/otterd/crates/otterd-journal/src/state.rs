@@ -837,7 +837,7 @@ impl NodeState {
             ));
         }
         // Every create/start/restart must be terminal. An unresolved stop/kill/remove
-        // cannot start a process; the observed state covers what it did (F1-3).
+        // cannot start a process; the observed state covers what it did.
         if self
             .mutations_of_grant(grant_id)
             .any(|m| m.record.verb.can_start_process() && !m.submission.is_terminal())

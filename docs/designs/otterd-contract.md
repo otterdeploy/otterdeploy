@@ -119,7 +119,7 @@ hash for the capability, which is the only correct way to build a request.
 
 | Frame | Direction | Meaning |
 |---|---|---|
-| `slotReports {seq, quarantined, engineReachable, slots}` | node → CP | Journalled slot state after `ready` and on every change. `engineReachable` is a reconcile result, never a startup gate (F1-1). |
+| `slotReports {seq, quarantined, engineReachable, slots}` | node → CP | Journalled slot state after `ready` and on every change. `engineReachable` is a reconcile result, never a startup gate: dockerd's inspect can hang while containerd is blocked. |
 | `leaseRequest` / `lease {renewal}` | node → CP / CP → node | MODEL §3: the node records its nonce and `CLOCK_BOOTTIME` send instant before sending; the signed `LeaseRenewal` consumes that nonce once and its duration counts from the send instant. One outstanding request per scope. |
 | `telemetry` / `telemetryAck {batchId, disposition, credit}` | node → CP / CP → node | `SampleBatch`, credit-limited. `deferred` = keep buffering and retry; `refused` = drop and count. |
 | `discovery {from, to, message}` | relayed by the CP | A `DiscoveryMessage` when the peer path is down. The CP can carry but never answer a challenge. |
