@@ -27,6 +27,8 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { PostgresBodyProps } from "../../types";
 
+import { PublicConnectionUrlRow } from "./public-connection-url";
+
 export function PublicAccessCard({
   resource,
   pending = false,
@@ -135,9 +137,9 @@ export function PublicAccessCard({
             label={t("resources.publicEndpoint")}
             value={resource.publicHostname}
           />
-          <SettingsRowReadOnly
-            label={t("resources.publicConnectionUrl")}
-            value={resource.publicConnectionString}
+          <PublicConnectionUrlRow
+            url={resource.publicConnectionString}
+            password={resource.password}
           />
         </>
       )}

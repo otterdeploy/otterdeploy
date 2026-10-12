@@ -100,9 +100,10 @@ function roleText(server: Server, node: SwarmNode | null): string {
   return node?.leader ? `${role} · leader` : role;
 }
 
-/** "3 containers · 1 project · 100.64.0.2 · 1 to review": what is on it.
- *  Tasks on Swarm, containers on plain Docker (see server-facts). */
-function metaText(stats: ServerNodeStats | null, server: Server, isSwarm: boolean): string[] {
+/** "3 containers · 1 project": what is on it. Tasks on Swarm, containers on
+ *  plain Docker (see server-facts). No address: those are masked, and live
+ *  on the server's own page. */
+function metaText(stats: ServerNodeStats | null, isSwarm: boolean): string[] {
   const parts: string[] = [];
   if (stats) {
     parts.push(workloadCount(stats.tasksRunning, isSwarm));
@@ -110,7 +111,6 @@ function metaText(stats: ServerNodeStats | null, server: Server, isSwarm: boolea
       parts.push(`${stats.projects.length} project${stats.projects.length === 1 ? "" : "s"}`);
     }
   }
-  if (server.meshAddress) parts.push(server.meshAddress);
   return parts;
 }
 
@@ -133,7 +133,7 @@ function FleetCard({
 }) {
   const state = deriveServerState(server, entry);
   const health = hasReadings(state.kind) ? (entry?.health ?? null) : null;
-  const meta = metaText(stats, server, isSwarm);
+  const meta = metaText(stats, isSwarm);
   const name = serverDisplayName(server);
 
   return (

@@ -6,7 +6,8 @@
  *     `127.0.0.1`: how the control plane reaches itself, not what the machine
  *     is called or where anyone else can reach it. It is named by the
  *     hostname the host reports, and addressed by the install's public IP
- *     (`address`, resolved by `server.list`).
+ *     (`address`, resolved by `server.list` for installation admins only;
+ *     everyone else gets `addressHidden`).
  *   - "Tasks" are Swarm's scheduling units. On plain Docker the same number
  *     counts the platform's running containers, and says so.
  */
@@ -19,6 +20,7 @@ interface NamedServer {
   role: "manager" | "worker";
   labels: string[];
   address?: string | null;
+  addressHidden?: boolean;
 }
 
 export function serverDisplayName(server: NamedServer): string {
@@ -28,10 +30,19 @@ export function serverDisplayName(server: NamedServer): string {
 
 const LOOPBACK = "127.0.0.1";
 
-export function serverDisplayAddress(server: NamedServer): string {
-  if (server.address) return server.address;
-  if (server.host === LOOPBACK) return "unknown";
-  return server.host;
+/** Where the machine is, as this viewer may see it. */
+type ServerAddressView =
+  | { kind: "known"; address: string }
+  /** The control plane has a public IP the server sends to installation
+   *  admins only. */
+  | { kind: "hidden" }
+  | { kind: "unknown" };
+
+export function serverAddressView(server: NamedServer): ServerAddressView {
+  if (server.address) return { kind: "known", address: server.address };
+  if (server.addressHidden) return { kind: "hidden" };
+  if (server.host === LOOPBACK) return { kind: "unknown" };
+  return { kind: "known", address: server.host };
 }
 
 export function workloadCount(count: number, isSwarm: boolean): string {

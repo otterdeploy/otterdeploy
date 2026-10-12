@@ -9,6 +9,7 @@
  * lives next to the managers it would join.
  */
 import { type SwarmNode, type SwarmNodesView } from "@/features/servers/data/swarm";
+import { SensitiveValue } from "@/shared/components/sensitive-value";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card } from "@/shared/components/ui/card";
 import {
@@ -93,7 +94,11 @@ export function ManagersQuorumCard({ view }: { view: SwarmNodesView | null }) {
                 {n.role}
               </TableCell>
               <TableCell className="font-mono text-[11.5px]">
-                {n.addr ?? <span className="text-muted-foreground/40">–</span>}
+                {n.addr ? (
+                  <SensitiveValue density="inline" label={`${n.hostname} address`} value={n.addr} />
+                ) : (
+                  <span className="text-muted-foreground/40">–</span>
+                )}
               </TableCell>
               <TableCell className="font-mono text-[11.5px] text-muted-foreground">
                 {n.engineVersion ?? <span className="text-muted-foreground/40">–</span>}

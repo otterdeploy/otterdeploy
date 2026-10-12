@@ -12,9 +12,10 @@ import { formatBytes } from "@otterdeploy/shared/format";
 
 import { toProjectSlug } from "@/features/servers/detail/project-slug";
 import { isControlPlaneRow } from "@/features/servers/detail/server-state";
+import { serverAddressView } from "@/features/servers/detail/server-facts";
+import { SensitiveValue } from "@/shared/components/sensitive-value";
 import { timeAgo } from "@/shared/lib/time";
 import { SERVER_TAB_PATHS } from "../../-components/server-tab-paths";
-import { serverDisplayAddress } from "@/features/servers/detail/server-facts";
 
 function ProjectChip({ slug, orgSlug }: { slug: string; orgSlug: string }) {
   const branded = toProjectSlug(slug);
@@ -78,16 +79,43 @@ export function PlacementSummary({
   );
 }
 
+/** The machine's address, masked; the control plane's is withheld from
+ *  anyone but an installation admin. */
+function HostValue({ server }: { server: Server }) {
+  const view = serverAddressView(server);
+  if (view.kind === "unknown") return "unknown";
+  if (view.kind === "hidden") {
+    return (
+      <SensitiveValue
+        density="inline"
+        label="host"
+        restricted="Only installation admins can see the install's public IP"
+      />
+    );
+  }
+  return <SensitiveValue density="inline" label="host" value={view.address} />;
+}
+
+/** The mesh address, masked, with the provider readable beside it. */
+function MeshValue({ server, providerFirst }: { server: Server; providerFirst: boolean }) {
+  if (!server.meshAddress) return server.meshProvider;
+  return (
+    <SensitiveValue
+      density="inline"
+      label="mesh address"
+      value={server.meshAddress}
+      prefix={providerFirst ? `${server.meshProvider} · ` : undefined}
+      suffix={providerFirst ? undefined : ` · ${server.meshProvider}`}
+    />
+  );
+}
+
+/** Overview › About this machine: as registered and as reported. */
 export function machineFacts(server: Server, health: HostHealth | null) {
   return [
-    { label: "Host", value: serverDisplayAddress(server) },
+    { label: "Host", value: <HostValue server={server} /> },
     { label: "Hostname", value: server.hostname ?? "–" },
-    {
-      label: "Mesh",
-      value: server.meshAddress
-        ? `${server.meshAddress} · ${server.meshProvider}`
-        : server.meshProvider,
-    },
+    { label: "Mesh", value: <MeshValue server={server} providerFirst={false} /> },
     { label: "Region", value: server.region ?? "–" },
     { label: "Cores", value: health?.cpu ? String(health.cpu.coreCount) : server.cpuTotal || "–" },
     {
@@ -98,6 +126,29 @@ export function machineFacts(server: Server, health: HostHealth | null) {
     { label: "Role", value: isControlPlaneRow(server) ? "control plane" : server.role },
     { label: "Firewall", value: server.firewallStatus },
     { label: "Registered", value: timeAgo(server.createdAt.toISOString()) },
+  ];
+}
+
+/** Settings › Machine: how the server was registered. */
+export function machineRegistration(server: Server) {
+  return [
+    {
+      label: "SSH",
+      value: (
+        <SensitiveValue
+          density="inline"
+          label="SSH host"
+          value={server.host}
+          prefix={`${server.sshUser}@`}
+          suffix={`:${server.sshPort}`}
+        />
+      ),
+    },
+    { label: "Mesh", value: <MeshValue server={server} providerFirst /> },
+    { label: "Region", value: server.region ?? "–" },
+    { label: "Labels", value: server.labels.length ? server.labels.join(", ") : "–" },
+    { label: "Build server", value: server.buildServer ? (server.buildLane ?? "yes") : "no" },
+    { label: "Registered role", value: server.role },
   ];
 }
 

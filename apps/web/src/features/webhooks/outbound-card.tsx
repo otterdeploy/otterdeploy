@@ -18,12 +18,12 @@ import { toast } from "sonner";
 
 import { EVENTS } from "@/features/notifications/shared";
 import { relativeTime } from "@/features/notifications/shared";
+import { SensitiveValue } from "@/shared/components/sensitive-value";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { client } from "@/shared/server/orpc";
 
 import { invalidateOutbound, outboundCollection } from "./data/webhooks";
-import { SecretReveal } from "./secret-reveal";
 import { STATUS_META, type OutboundWebhook } from "./shared";
 
 const EVENT_LABELS = new Map(EVENTS.map((e) => [e.id, e.label]));
@@ -165,9 +165,9 @@ export function OutboundCard({
           <div className="mb-1.5 text-[10px] tracking-wider text-muted-foreground uppercase">
             HMAC secret
           </div>
-          <SecretReveal
+          <SensitiveValue
             label={t("webhooks.hmacSecret")}
-            fetchSecret={() =>
+            fetchValue={() =>
               client.webhooks.outbound.reveal({ id: webhook.id }).then((r) => r.secret)
             }
           />
