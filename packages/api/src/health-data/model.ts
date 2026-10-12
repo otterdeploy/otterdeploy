@@ -19,6 +19,8 @@ export const REPLAY_HORIZON_MS = 7 * DAY + 5 * MINUTE;
  * can change its predecessor (see `rebuildRange`).
  */
 export const MAX_AUTHORITATIVE_UNCERTAINTY_MS = 5 * MINUTE;
+/** Live lateness allowance: newer buckets are provisional, and replay yields past it. */
+export const LIVE_LATENESS_MS = 5 * MINUTE;
 /** Raw payload retention (probe detail, raw metric samples). */
 export const RAW_RETENTION_MS = 48 * HOUR;
 /** Records further in the future than this (receiver time) are refused. */
@@ -71,7 +73,7 @@ export interface LedgerRecord {
 
 /**
  * Metric vector width. A sample's named values are stored positionally in the
- * node contract's metric-name order, which must fit.
+ * node contract's metric-name order (see ./frames.ts), which must fit.
  */
 export const METRIC_WIDTH = 32;
 

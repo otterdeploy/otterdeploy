@@ -6,8 +6,9 @@
  * dedupe by full identity, reject and audit contradictions, append the
  * ledger and raw payloads, and record the rebuild obligations.
  *
- * Decoding a node's telemetry frame into a batch, and deciding whether a
- * replay batch may run now (live has priority), happen before this.
+ * Decoding a node's telemetry frame into a batch (./frames.ts), and deciding
+ * whether a replay batch may run now (`admitBatch` in ./lanes.ts), happen
+ * before this.
  */
 import { db } from "@otterdeploy/db";
 import { healthBatch, healthSeries } from "@otterdeploy/db/schema/health-data";
