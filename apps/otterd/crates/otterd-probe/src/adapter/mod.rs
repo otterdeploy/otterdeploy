@@ -11,8 +11,11 @@
 //! (`executor_overloaded`), not as the target timing out.
 
 mod dns;
+mod http;
+mod icmp;
 mod resolve;
 mod tcp;
+mod tls;
 
 pub use resolve::Resolver;
 
@@ -161,15 +164,10 @@ pub async fn run_attempt(
 async fn dispatch(probe: &ProbeSpec, ctx: &AttemptCtx) -> AttemptOutput {
     match probe {
         ProbeSpec::Tcp { host, port } => tcp::probe(host, *port, ctx).await.into(),
+        ProbeSpec::Http(spec) => http::probe(spec, ctx).await,
+        ProbeSpec::Tls(spec) => tls::probe(spec, ctx).await,
         ProbeSpec::Dns(spec) => dns::probe(spec, ctx).await.into(),
-        // Adapters for these protocols land separately; until then the
-        // check cannot run here and says so.
-        ProbeSpec::Http(_) | ProbeSpec::Tls(_) | ProbeSpec::Icmp { .. } => {
-            Attempt::ConfigurationError {
-                cause: ConfigCause::Unsupported,
-            }
-            .into()
-        }
+        ProbeSpec::Icmp { host } => icmp::probe(host, ctx).await.into(),
     }
 }
 
