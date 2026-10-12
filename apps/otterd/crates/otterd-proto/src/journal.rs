@@ -101,7 +101,7 @@ pub enum Retirement {
     /// A validated external barrier (provider fence or manual proof).
     ExternalBarrier { evidence: BarrierEvidence },
     /// The kernel boot changed since submission and the operator enabled the
-    /// host-reboot barrier profile for this Engine (F1-4; disabled by default).
+    /// host-reboot barrier profile for this Engine (disabled by default).
     #[serde(rename_all = "camelCase")]
     HostReboot {
         submitted_boot_id: BootId,

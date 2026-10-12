@@ -11,7 +11,7 @@ use crate::ids::{AttemptId, BatchId, BootId, InstallId, NodeId, OrgId, SubjectId
 use crate::num::{DurationMs, U53, UnixMs};
 use serde::{Deserialize, Serialize};
 
-/// Source-side bound on non-container metric dimensions per node (F5: the
+/// Source-side bound on non-container metric dimensions per node (the
 /// control plane refuses the 17th series; the node must not produce it).
 pub const MAX_NODE_DIMENSIONS: usize = 16;
 /// Largest batch a node sends in one frame (also bounded by the frame size).

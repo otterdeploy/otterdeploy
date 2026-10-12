@@ -222,7 +222,7 @@ fn certificate_rules() {
     };
     let wrong = certificate(&state, "g1");
     assert!(j.append(wrong).is_err());
-    // The unresolved stop (m4) does not block: it cannot start a process (F1-3).
+    // The unresolved stop (m4) does not block: it cannot start a process.
     let good = certificate(j.state(), "g1");
     j.append(good).unwrap();
     assert!(j.state().grants[&GrantId::new("g1").unwrap()].is_released());
