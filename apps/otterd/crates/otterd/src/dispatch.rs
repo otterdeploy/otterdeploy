@@ -3,8 +3,8 @@
 //!
 //! Order, for each request:
 //!
-//! 1. the capability envelope verifies against the control-plane keys pinned
-//!    at enrollment;
+//! 1. the capability envelope verifies against a control-plane key that is
+//!    valid at the session's bounded clock (keys rotate with an overlap);
 //! 2. [`Capability::check`] binds it to this install, node, epoch, session and
 //!    term, a bounded clock, the payload's hash, the verb's permissions and the
 //!    resource's operation-epoch high-water;
@@ -17,6 +17,7 @@
 //! Steps 1–4 refuse without any side effect or journal record.
 
 use crate::lifecycle::{Node, NodeError};
+use otterd_identity::rotation::valid_cp_keys;
 use otterd_journal::OpState;
 use otterd_proto::U53;
 use otterd_proto::capability::{
@@ -24,7 +25,7 @@ use otterd_proto::capability::{
 };
 use otterd_proto::channel::RequestRefusal;
 use otterd_proto::command::{Command, CommandResult, OpOutcome, OperationRecord, SideEffects};
-use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
+use otterd_proto::envelope::{SignContext, SignedEnvelope};
 use otterd_proto::ids::{OpId, SessionId, Sha256Hex};
 use otterd_proto::journal::{HighWaterKind, Record};
 use std::sync::Mutex;
@@ -153,7 +154,15 @@ impl Dispatcher {
             .identity
             .as_ref()
             .ok_or_else(|| malformed("node has no identity".into()))?;
-        let cp_keys: Vec<PublicKey> = identity.cp_keys.iter().map(|k| k.key.clone()).collect();
+        let clock = session
+            .clock
+            .ok_or_else(|| refuse(CapabilityError::ClockUnknown))?;
+        // A control-plane key is usable only if it is valid at the latest
+        // instant the bounded clock allows.
+        let cp_keys = valid_cp_keys(
+            &identity.cp_keys,
+            clock.now_unix_ms.saturating_add(clock.uncertainty_ms.get()),
+        );
         let cap: Capability = capability
             .verify(&cp_keys, SignContext::Capability)
             .map_err(|e| malformed(format!("capability: {e}")))?;
@@ -172,9 +181,6 @@ impl Dispatcher {
             monitor_only: session.monitor_only,
         };
         cap.check(&ctx, payload.as_bytes()).map_err(refuse)?;
-        let clock = session
-            .clock
-            .ok_or_else(|| refuse(CapabilityError::ClockUnknown))?;
         let command: Command =
             serde_json::from_str(payload).map_err(|e| malformed(e.to_string()))?;
         if command.verb() != cap.verb {

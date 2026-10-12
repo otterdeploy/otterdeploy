@@ -1,6 +1,7 @@
 //! `otterd`: the per-node daemon.
 //!
-//! * `otterd keygen` creates the node identity key (0600) and prints its public half.
+//! * `otterd keygen` creates the node keys (identity, cache encryption,
+//!   WireGuard; root-only) and prints their public halves.
 //! * `otterd init --certificate <file> --cp-key <base64>` creates the journal from
 //!   a control-plane-signed enrollment certificate. It refuses when a journal,
 //!   or any otterd-managed container, already exists: a lost journal is
@@ -11,17 +12,15 @@
 //!   passes.
 
 use clap::{Parser, Subcommand};
-use ed25519_dalek::SigningKey;
 use otterd::{LifecycleConfig, Node, Progress};
 use otterd_engine::{DockerClient, EngineAdapter, JournalHandle, engine_incarnation};
+use otterd_identity::{KeyStore, NodeKeyset};
 use otterd_journal::{Journal, JournalError};
 use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
 use otterd_proto::identity::EnrollCertificate;
 use otterd_proto::ids::{BootId, Incarnation};
 use otterd_proto::journal::Record;
 use otterd_sys::notify::Notifier;
-use std::io::Write as _;
-use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -46,12 +45,8 @@ struct Paths {
         default_value = "/var/lib/otterd/journal/node.journal"
     )]
     journal: PathBuf,
-    #[arg(
-        long,
-        env = "OTTERD_IDENTITY_KEY",
-        default_value = "/etc/otterd/identity.key"
-    )]
-    identity_key: PathBuf,
+    #[arg(long, env = "OTTERD_KEYS_DIR", default_value = "/etc/otterd/keys")]
+    keys_dir: PathBuf,
     #[arg(
         long,
         env = "OTTERD_DOCKER_SOCKET",
@@ -68,7 +63,7 @@ struct Paths {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    /// Create the node identity key.
+    /// Create the node keys.
     Keygen {
         #[command(flatten)]
         paths: Paths,
@@ -105,40 +100,14 @@ enum Cmd {
     },
 }
 
-fn read_key(path: &Path) -> Result<SigningKey, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let bytes =
-        hex::decode(text.trim()).map_err(|_| format!("{} is not a hex key", path.display()))?;
-    let seed: [u8; 32] = bytes
-        .try_into()
-        .map_err(|_| format!("{} must hold 32 bytes", path.display()))?;
-    Ok(SigningKey::from_bytes(&seed))
-}
-
 fn keygen(paths: &Paths) -> Result<(), String> {
-    if paths.identity_key.exists() {
-        return Err(format!(
-            "{} exists; an identity key is never replaced here",
-            paths.identity_key.display()
-        ));
-    }
-    let key = otterd_proto::envelope::generate_signing_key().map_err(|e| e.to_string())?;
-    if let Some(dir) = paths.identity_key.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    let mut f = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(&paths.identity_key)
+    let keys = KeyStore::new(&paths.keys_dir)
+        .create()
         .map_err(|e| e.to_string())?;
-    f.write_all(hex::encode(key.to_bytes()).as_bytes())
-        .and_then(|()| f.sync_all())
-        .map_err(|e| e.to_string())?;
-    let public = PublicKey::from_verifying_key(&key.verifying_key());
+    let public = keys.public();
     println!(
         "{}",
-        serde_json::json!({"identityKey": public, "keyId": public.key_id()})
+        serde_json::json!({"keys": public, "identityKeyId": public.identity.key_id()})
     );
     Ok(())
 }
@@ -171,7 +140,9 @@ async fn init(paths: &Paths, certificate: &Path, cp_key: &str) -> Result<(), Str
     if managed_containers_exist(paths).await? {
         return Err("otterd-managed containers exist without a journal: this is journal loss, use the recovery procedure".into());
     }
-    let key = read_key(&paths.identity_key)?;
+    let keys = KeyStore::new(&paths.keys_dir)
+        .current()
+        .map_err(|e| e.to_string())?;
     let pinned: PublicKey =
         serde_json::from_value(serde_json::json!(cp_key)).map_err(|e| format!("--cp-key: {e}"))?;
     let env: SignedEnvelope =
@@ -180,8 +151,15 @@ async fn init(paths: &Paths, certificate: &Path, cp_key: &str) -> Result<(), Str
     let cert: EnrollCertificate = env
         .verify(&[pinned], SignContext::Enroll)
         .map_err(|e| e.to_string())?;
-    if cert.identity_key_id != PublicKey::from_verifying_key(&key.verifying_key()).key_id() {
+    if cert.identity_key_id != keys.identity_public().key_id() {
         return Err("the certificate binds another identity key".into());
+    }
+    if cert.key_epoch != keys.epoch() {
+        return Err(format!(
+            "the certificate is for key epoch {}, the key store holds {}",
+            cert.key_epoch,
+            keys.epoch()
+        ));
     }
     let mut journal =
         Journal::create(&paths.journal, env!("CARGO_PKG_VERSION")).map_err(|e| e.to_string())?;
@@ -201,19 +179,11 @@ async fn init(paths: &Paths, certificate: &Path, cp_key: &str) -> Result<(), Str
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn run(
-    paths: Paths,
-    socket: PathBuf,
-    staging_root: PathBuf,
-    engine_timeout: Duration,
-    stop_grace: Duration,
-    reconcile: Duration,
-    boot_barrier_profile: String,
-) -> Result<(), (u8, String)> {
-    let fail = |e: String| (1, e);
-    let key = read_key(&paths.identity_key).map_err(fail)?;
-    let mut journal = match Journal::open(&paths.journal) {
+/// Open the journal and the key epoch it records. A missing or corrupt
+/// journal, or keys that disagree with it, is recovery: exit
+/// [`EXIT_NO_INVENTORY`] so systemd does not restart into the same state.
+fn open_journal_and_keys(paths: &Paths) -> Result<(Journal, NodeKeyset), (u8, String)> {
+    let journal = match Journal::open(&paths.journal) {
         Ok((j, report)) => {
             tracing::info!(
                 entries = report.entries,
@@ -228,8 +198,39 @@ async fn run(
                 format!("{e}; refusing every start (recovery required)"),
             ));
         }
-        Err(e) => return Err(fail(e.to_string())),
+        Err(e) => return Err((1, e.to_string())),
     };
+    // The journal decides the key epoch; a rotation that was journalled but
+    // not yet activated is completed here, any other disagreement is recovery.
+    let key_epoch = journal
+        .state()
+        .identity
+        .as_ref()
+        .map(|i| i.key_epoch)
+        .ok_or_else(|| {
+            (
+                EXIT_NO_INVENTORY,
+                "the journal has no identity; refusing every start (recovery required)".into(),
+            )
+        })?;
+    let keys = KeyStore::new(&paths.keys_dir)
+        .reconcile(key_epoch)
+        .map_err(|e| (EXIT_NO_INVENTORY, e.to_string()))?;
+    Ok((journal, keys))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run(
+    paths: Paths,
+    socket: PathBuf,
+    staging_root: PathBuf,
+    engine_timeout: Duration,
+    stop_grace: Duration,
+    reconcile: Duration,
+    boot_barrier_profile: String,
+) -> Result<(), (u8, String)> {
+    let fail = |e: String| (1, e);
+    let (mut journal, keys) = open_journal_and_keys(&paths)?;
     let incarnation = Incarnation::mint().map_err(|e| fail(e.to_string()))?;
     let boot: BootId = otterd_sys::host::kernel_boot_id()
         .map_err(|e| fail(e.to_string()))?
@@ -264,7 +265,7 @@ async fn run(
             boot_barrier_profile,
         },
         engine,
-        key,
+        keys.identity().clone(),
         incarnation,
         progress.clone(),
     ));
