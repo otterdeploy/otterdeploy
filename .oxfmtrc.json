@@ -11,7 +11,8 @@
     ".agents/",
     ".claude/",
     "**/migrations/**/snapshot.json",
-    "**/migrations/**/migration.sql"
+    "**/migrations/**/migration.sql",
+    "apps/otterd/crates/*/fixtures/**"
   ],
   "sortTailwindcss": {
     "stylesheet": "./apps/web/src/index.css",
