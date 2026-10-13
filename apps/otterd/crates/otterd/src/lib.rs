@@ -1,11 +1,13 @@
 //! The otterd daemon: boot quarantine, grant admission, positive stop
 //! certificates, barrier retirement, capability-checked command dispatch, a
-//! progress-tied watchdog and a root-only local control socket.
+//! progress-tied watchdog, a root-only local control socket, and the daemon's
+//! side of the control-plane session.
 
 pub mod api;
 pub mod container;
 pub mod dispatch;
 pub mod lifecycle;
+pub mod session;
 pub mod watchdog;
 
 pub use dispatch::{Answer, Dispatcher, Session};
