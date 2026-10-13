@@ -8,7 +8,7 @@ import type { Result } from "better-result";
  */
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { z } from "zod";
+import * as z from "zod";
 
 import {
   type AddressPlan,

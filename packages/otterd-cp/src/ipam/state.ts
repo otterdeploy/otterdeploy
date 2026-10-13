@@ -5,7 +5,7 @@
  * successful mutation.
  */
 import { Result } from "better-result";
-import { z } from "zod";
+import * as z from "zod";
 
 import { type Net, compareNet, formatAddr, formatNet, parseAddr, parseNet } from "./addr";
 import { type Layout, layoutFromJson, layoutToJson } from "./layout";
