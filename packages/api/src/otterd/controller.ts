@@ -31,6 +31,7 @@ import type { Hub } from "./hub/hub";
 import type { GrantRow } from "./store/rows";
 import type { ToolConfig } from "./tools";
 
+import { processMigrations } from "./migration/cp";
 import { runFence, sendApply, sendStop, sendUpgrade } from "./node-commands";
 import { publishServing } from "./serving";
 import { adoptGrant, grantRow } from "./store/adopt";
@@ -109,6 +110,7 @@ export class Controller {
     this.resendStops(snap.value);
     const connected = snap.value.nodes.filter((n) => n.connected).map((n) => n.nodeId);
     await publishServing(this.cfg, connected);
+    await processMigrations(this.cfg);
   }
 
   private async apply(a: Action, issuing: boolean): Promise<void> {
