@@ -43,7 +43,7 @@ export function buildLayer4Block(routes: ProxyRouteInput[]): string {
       lines.push("\t\t\t\t\t\t}");
       lines.push("\t\t\t\t\t}");
     }
-    lines.push(`\t\t\t\t\tproxy ${route.upstreamHost}:${route.upstreamPort}`);
+    lines.push(`\t\t\t\t\tproxy ${route.upstreamVip ?? route.upstreamHost}:${route.upstreamPort}`);
     lines.push("\t\t\t\t}");
   }
 

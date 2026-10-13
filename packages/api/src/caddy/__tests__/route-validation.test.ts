@@ -4,7 +4,7 @@ import type { ProxyRouteInput } from "../builder";
 
 import { PLATFORM } from "../../constants";
 import { composeSwarmServiceName } from "../../stack/compose/to-spec";
-import { buildHttpBlock } from "../builder";
+import { buildHttpBlock, buildLayer4Block } from "../builder";
 import { routeValidationError } from "../route-validation";
 
 /**
@@ -69,11 +69,30 @@ describe("route-validation", () => {
     expect(buildHttpBlock(route)).toContain("reverse_proxy 172.31.0.7:3000");
     for (const vip of ["localhost", "172.31.0.7:80", "300.1.1.1", ""]) {
       expect(routeValidationError({ ...route, upstreamVip: vip })).toBe(
-        "service address is not an IPv4 literal on an HTTP route",
+        "service address is not an IPv4 literal",
       );
     }
     expect(routeValidationError({ ...httpRoute("excalidraw"), upstreamVip: "172.31.0.7" })).toBe(
       "HTTP upstream is not a managed service identity",
+    );
+  });
+
+  test("a public database route dials the database's stable address, still behind its identity", () => {
+    const route: ProxyRouteInput = {
+      projectId: "project_abc",
+      type: "layer4",
+      domain: "db-acme.otterdeploy.dev",
+      upstreamHost: "shop-db.otterdeploy.internal",
+      upstreamPort: 5432,
+      protocol: "tcp",
+      layer4Alpn: "postgresql",
+      usesAcme: false,
+      upstreamVip: "172.31.0.9",
+    };
+    expect(routeValidationError(route)).toBeNull();
+    expect(buildLayer4Block([route])).toContain("proxy 172.31.0.9:5432");
+    expect(routeValidationError({ ...route, upstreamHost: "shop-db" })).toBe(
+      "layer-4 upstream is not a managed database identity",
     );
   });
 });
