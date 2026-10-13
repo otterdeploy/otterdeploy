@@ -7,11 +7,17 @@
 import { db } from "@otterdeploy/db";
 import { otterdGrant, otterdNode, otterdService } from "@otterdeploy/db/schema/otterd";
 import { resource } from "@otterdeploy/db/schema/project";
+import { server } from "@otterdeploy/db/schema/server";
 import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { type StoreFailure, toStoreFailure } from "./errors";
+
+/** Label the installer gives the first node: the host the platform runs on. */
+const PRIMARY_LABEL = "otterdeploy.primary";
+/** The bootstrap server row's address (see bootstrapLocalhostIfMissing). */
+const LOCALHOST = "127.0.0.1";
 
 export interface ServiceStatus {
   resourceId: string | null;
@@ -125,11 +131,29 @@ export function pinOf(resourceId: string): Promise<Result<Pin, StoreFailure>> {
         .from(resource)
         .where(eq(resource.id, id.data));
       if (!row?.serverId) return { pinned: false };
-      const [node] = await db
+      const live = ne(otterdNode.admin, "retired");
+      const [linked] = await db
         .select({ nodeId: otterdNode.nodeId })
         .from(otterdNode)
-        .where(and(eq(otterdNode.serverId, row.serverId), ne(otterdNode.admin, "retired")));
-      return { pinned: true, nodeId: node?.nodeId ?? null, serverId: row.serverId };
+        .where(and(eq(otterdNode.serverId, row.serverId), live));
+      if (linked) return { pinned: true, nodeId: linked.nodeId, serverId: row.serverId };
+      // The bootstrap `localhost` row (one per organization, created after
+      // the install) is the host the installer enrolled first: that node
+      // carries the PRIMARY_LABEL instead of a server id.
+      const [srv] = await db
+        .select({ host: server.host })
+        .from(server)
+        .where(eq(server.id, row.serverId));
+      const [primary] =
+        srv?.host === LOCALHOST
+          ? await db
+              .select({ nodeId: otterdNode.nodeId })
+              .from(otterdNode)
+              .where(and(sql`${otterdNode.labels} ->> ${PRIMARY_LABEL} = 'true'`, live))
+              .orderBy(desc(otterdNode.enrolledAt))
+              .limit(1)
+          : [];
+      return { pinned: true, nodeId: primary?.nodeId ?? null, serverId: row.serverId };
     },
   });
 }
