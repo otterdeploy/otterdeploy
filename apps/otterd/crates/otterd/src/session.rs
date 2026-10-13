@@ -7,8 +7,10 @@
 
 use crate::dispatch::{Answer, Dispatcher, Session};
 use crate::keys::KeyRotator;
+use crate::lease::LeaseKeeper;
 use crate::lifecycle::{Node, NodeError};
 use crate::platform::Platform;
+use crate::telemetry::Telemetry;
 use crate::upgrade::Upgrader;
 use otterd_identity::rotation::apply_cp_transition;
 use otterd_proto::U53;
@@ -35,6 +37,8 @@ pub struct ControlHandler {
     rotator: Option<Arc<KeyRotator>>,
     upgrader: Option<Arc<Upgrader>>,
     platform: Option<Arc<Platform>>,
+    telemetry: Option<Arc<Telemetry>>,
+    lease: Option<Arc<LeaseKeeper>>,
     outbox: OnceLock<Outbox>,
     /// The live session negotiated `key-rotation`.
     rotation_enabled: AtomicBool,
@@ -50,6 +54,8 @@ impl ControlHandler {
             rotator: None,
             upgrader: None,
             platform: None,
+            telemetry: None,
+            lease: None,
             outbox: OnceLock::new(),
             rotation_enabled: AtomicBool::new(false),
         }
@@ -66,6 +72,20 @@ impl ControlHandler {
     #[must_use]
     pub fn with_upgrader(mut self, upgrader: Arc<Upgrader>) -> Self {
         self.upgrader = Some(upgrader);
+        self
+    }
+
+    /// Answer `health.configure` and `metrics.sample` with this telemetry.
+    #[must_use]
+    pub fn with_telemetry(mut self, telemetry: Arc<Telemetry>) -> Self {
+        self.telemetry = Some(telemetry);
+        self
+    }
+
+    /// Accept `lease` answers into this keeper.
+    #[must_use]
+    pub fn with_lease(mut self, lease: Arc<LeaseKeeper>) -> Self {
+        self.lease = Some(lease);
         self
     }
 
@@ -87,6 +107,7 @@ impl ControlHandler {
             .clone()
             .map_or_else(Dispatcher::new, Dispatcher::with_upgrader)
             .and_platform(self.platform.clone())
+            .and_telemetry(self.telemetry.clone())
     }
 
     /// The transport's outbox, once the connection manager exists.
@@ -247,6 +268,15 @@ impl Handler for ControlHandler {
                         }
                     }
                     Err(e) => tracing::error!(error = %e, "key rotation acknowledgement refused"),
+                }
+                vec![]
+            }
+            ControlFrame::Lease { renewal } => {
+                if let Some(l) = &self.lease {
+                    match l.accept(&self.node, &renewal, session.clock_now()) {
+                        Ok(left) => tracing::debug!(?left, "lease renewed"),
+                        Err(e) => tracing::warn!(error = %e, "lease refused"),
+                    }
                 }
                 vec![]
             }
