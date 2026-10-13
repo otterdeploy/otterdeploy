@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { buildNodeEnrollmentScript } from "../enrollment-script";
+import { buildNodeEnrollmentScript, buildOtterdEnrollmentScript } from "../enrollment-script";
 
 describe("buildNodeEnrollmentScript", () => {
   test("joins once and reports completion with bounded retries", () => {
@@ -30,5 +30,25 @@ describe("buildNodeEnrollmentScript", () => {
     expect(script).toContain(`'${injection.replaceAll("'", "'\"'\"'")}'`);
     expect(script).not.toContain(`--token ${injection}`);
     expect(script).not.toContain(`-X POST ${injection}`);
+  });
+
+  test("an otterd host runs the release's installer as a node, with the CA pinned", () => {
+    const script = buildOtterdEnrollmentScript({
+      join: {
+        controlUrl: "wss://10.0.0.4:7443/api/otterd/connect",
+        caPin: "a".repeat(64),
+        cpKey: "Q".repeat(43) + "=",
+        token: "tok'en",
+        installerUrl: "https://get.otterdeploy.com/v0.9.0/install.sh",
+      },
+      completeUrl: "https://deploy.example/api/node-enrollments/enroll_1/complete",
+      credential: `enroll_1.${"x".repeat(43)}`,
+    });
+    expect(script.startsWith("#!/bin/sh\nset -eu\n")).toBe(true);
+    expect(script).toContain("'https://get.otterdeploy.com/v0.9.0/install.sh'");
+    expect(script).toContain(`--ca-sha256 '${"a".repeat(64)}'`);
+    expect(script).toContain("--control-url 'wss://10.0.0.4:7443/api/otterd/connect'");
+    expect(script).toContain(`--token 'tok'"'"'en'`);
+    expect(script).not.toContain("docker swarm join");
   });
 });
