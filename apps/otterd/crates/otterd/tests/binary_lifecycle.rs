@@ -6,7 +6,12 @@
 //! ```sh
 //! cargo test -p otterd --test binary_lifecycle -- --ignored
 //! ```
-#![allow(clippy::unwrap_used, clippy::panic, clippy::indexing_slicing)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::too_many_lines
+)]
 
 use base64::Engine as _;
 use ed25519_dalek::SigningKey;
@@ -149,6 +154,27 @@ fn keygen_init_run_and_key_epoch_recovery() {
     let printed: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
     let identity: PublicKey = serde_json::from_value(printed["keys"]["identity"].clone()).unwrap();
     assert!(!d.output(&["keygen"]).status.success());
+
+    // The enrollment request: signed by the identity key, binding the token,
+    // the keys and this host.
+    let o = d.output(&[
+        "enroll", "--token", "tok-123", "--role", "worker", "--role", "edge",
+    ]);
+    assert!(o.status.success(), "{}", stderr(&o));
+    let env: SignedEnvelope = serde_json::from_slice(&o.stdout).unwrap();
+    let req: otterd_proto::identity::EnrollRequest = env
+        .verify(std::slice::from_ref(&identity), SignContext::EnrollRequest)
+        .unwrap();
+    assert_eq!(req.token, "tok-123");
+    assert_eq!(req.keys.identity, identity);
+    assert_eq!(req.requested_roles, vec![NodeRole::Worker, NodeRole::Edge]);
+    assert!(!req.facts.kernel.is_empty() && req.facts.cpu_cores >= 1);
+    assert!(req.facts.docker_version.is_some());
+    assert!(
+        !d.output(&["enroll", "--token", "t", "--role", "wizard"])
+            .status
+            .success()
+    );
 
     // Enrollment checks the certificate's signer, key and key epoch.
     let cert_path = d.keys.with_file_name("cert.json");

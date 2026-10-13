@@ -2,7 +2,8 @@
 //! container cgroup state.
 
 use crate::SysError;
-use otterd_proto::identity::{HostBinding, ProviderBinding};
+use otterd_proto::U53;
+use otterd_proto::identity::{HostBinding, HostFacts, ProviderBinding};
 use serde::{Deserialize, Serialize};
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpStream};
@@ -58,6 +59,54 @@ pub fn host_binding(provider: Option<&dyn ProviderIdentity>) -> Result<HostBindi
                 None
             }
         }),
+    })
+}
+
+/// Static facts about this host, as the control plane records them at
+/// enrollment and once per connection. `docker_version` is left for the
+/// caller, which owns the Engine client.
+pub fn host_facts() -> Result<HostFacts, SysError> {
+    let os_release = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
+    let os_field = |key: &str| {
+        os_release
+            .lines()
+            .find_map(|l| l.strip_prefix(key)?.strip_prefix('='))
+            .map(|v| v.trim_matches('"').to_owned())
+            .unwrap_or_default()
+    };
+    let memory_kib = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|m| {
+            m.lines()
+                .find_map(|l| l.strip_prefix("MemTotal:"))
+                .and_then(|v| v.split_whitespace().next()?.parse::<u64>().ok())
+        })
+        .unwrap_or(0);
+    let systemd_version = std::process::Command::new("systemctl")
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .split_whitespace()
+                .nth(1)
+                .map(str::to_owned)
+        });
+    Ok(HostFacts {
+        hostname: read_trimmed(Path::new("/proc/sys/kernel/hostname"))?,
+        arch: match std::env::consts::ARCH {
+            "x86_64" => "amd64".into(),
+            "aarch64" => "arm64".into(),
+            other => other.into(),
+        },
+        os_id: os_field("ID"),
+        os_version: os_field("VERSION_ID"),
+        kernel: read_trimmed(Path::new("/proc/sys/kernel/osrelease"))?,
+        cpu_cores: std::thread::available_parallelism()
+            .map_or(1, |n| u32::try_from(n.get()).unwrap_or(u32::MAX)),
+        memory_bytes: U53::new(memory_kib.saturating_mul(1024)).unwrap_or(U53::MAX),
+        docker_version: None,
+        systemd_version,
     })
 }
 
