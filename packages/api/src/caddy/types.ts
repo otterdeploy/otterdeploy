@@ -16,6 +16,10 @@ export interface ProxyRouteInput {
   domain: string;
   upstreamHost: string;
   upstreamPort: number;
+  /** For a service the otterd runtime runs: its stable service address,
+   *  dialled instead of `upstreamHost` (which still names the identity the
+   *  route was validated against). Set only from the scheduler's own rows. */
+  upstreamVip?: string;
   protocol: "tcp" | "http";
   layer4Alpn: string | null;
   /** When true, Caddy attempts public ACME issuance (Let's Encrypt) for

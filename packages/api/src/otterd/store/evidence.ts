@@ -27,6 +27,7 @@ import type { FenceRow } from "./rows";
 
 import { type StoreFailure, refusal, run } from "./errors";
 import { journal } from "./journal";
+import { fenceNetworkPeer } from "./network";
 
 /** Verify and store a node's stop certificate for a grant. Idempotent per grant. */
 export function recordStopCertificate(
@@ -255,6 +256,7 @@ export function finishFence(
       nodeId: fence.nodeId,
       detail: { fenceId, evidence: barrier, record },
     });
+    await fenceNetworkPeer(tx, fence.nodeId, now);
     return done ?? fence;
   });
 }

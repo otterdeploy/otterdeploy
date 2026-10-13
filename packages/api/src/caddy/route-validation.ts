@@ -28,6 +28,7 @@ function isManagedServiceName(host: string): boolean {
     (prefix) => host.startsWith(prefix) && SERVICE_SUFFIX.test(host.slice(prefix.length)),
   );
 }
+const IPV4 = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
 const DATABASE_NAME =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.otterdeploy\.internal$/;
 
@@ -40,6 +41,9 @@ const DATABASE_NAME =
  */
 /** Who this route is allowed to point at, by identity rather than by string. */
 function upstreamViolation(route: ProxyRouteInput): string | null {
+  if (route.upstreamVip !== undefined && (route.type !== "http" || !IPV4.test(route.upstreamVip))) {
+    return "service address is not an IPv4 literal on an HTTP route";
+  }
   if (route.projectId === "control-plane") {
     return ["server", "host.docker.internal"].includes(route.upstreamHost)
       ? null

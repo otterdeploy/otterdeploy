@@ -139,7 +139,7 @@ function policyOf(input: unknown): RoutePolicy {
  */
 function upstreamOf(route: ProxyRouteInput): string {
   const scheme = policyOf(route.routePolicy).upstreamProtocol === "h2c" ? "h2c://" : "";
-  return `${scheme}${route.upstreamHost}:${route.upstreamPort}`;
+  return `${scheme}${route.upstreamVip ?? route.upstreamHost}:${route.upstreamPort}`;
 }
 
 function routePolicyLines(input: unknown): string[] {

@@ -132,6 +132,9 @@ controller = new Controller({
   mayIssue,
   leader: () => leadership.check(),
   adoption: true,
+  signer,
+  installId: config.OTTERD_CP_INSTALL_ID,
+  authorityTerm: () => term,
 });
 
 const admin = adminRoutes({

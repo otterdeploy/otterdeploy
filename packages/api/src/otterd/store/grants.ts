@@ -22,6 +22,7 @@ import type { Tx } from "../../health-data/sql";
 
 import { type StoreFailure, mintId, refusal, run } from "./errors";
 import { journal } from "./journal";
+import { allocateNetwork, releaseNetwork } from "./network";
 import { type GrantRow, grantView, retirementOf } from "./rows";
 
 export interface IssueRequest {
@@ -94,6 +95,7 @@ export function admitGrant(req: IssueRequest): Promise<Result<GrantRow, StoreFai
       .returning();
     if (!svc) throw refusal("unknown-service", `no service ${req.resourceId}`);
     await tx.update(otterdSlot).set({ generationHighWater: generation.value }).where(slotKey);
+    const network = await allocateNetwork(tx, req);
     const [grant] = await tx
       .insert(otterdGrant)
       .values({
@@ -111,6 +113,7 @@ export function admitGrant(req: IssueRequest): Promise<Result<GrantRow, StoreFai
         surge: req.surge,
         operationEpoch: svc.operationEpoch,
         opId: mintId("op"),
+        network,
         createdAt: req.now,
       })
       .returning();
@@ -127,6 +130,7 @@ export function admitGrant(req: IssueRequest): Promise<Result<GrantRow, StoreFai
         surge: req.surge,
         revision: req.specRevision,
         reason: req.reason,
+        ...(network ? { address: network.address, subnet: network.subnet } : {}),
       },
     });
     return grant;
@@ -219,6 +223,7 @@ export function releaseGrant(
       })
       .where(eq(otterdGrant.grantId, grantId))
       .returning();
+    await releaseNetwork(tx, out ?? g, now);
     // A start-first candidate whose incumbent is gone becomes the slot's incumbent.
     const rest = await tx
       .select()
