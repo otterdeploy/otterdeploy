@@ -10,12 +10,18 @@
 //! small traits so they can be exercised on real hosts.
 
 pub mod addr;
+pub mod agent;
 pub mod cmd;
+pub mod conntrack;
+pub mod docker;
 pub mod firewall;
+pub mod guard;
 pub mod ids;
 pub mod integrations;
 pub mod ipam;
 pub mod mesh;
+#[cfg(target_os = "linux")]
+pub mod netlink;
 pub mod policy;
 pub mod rotation;
 pub mod vip;

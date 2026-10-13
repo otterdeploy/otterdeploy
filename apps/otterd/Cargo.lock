@@ -1231,12 +1231,15 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "otterd-proto",
+ "otterd-sys",
  "proptest",
  "rustix",
  "serde",
  "serde_json",
  "sha2",
  "thiserror",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
