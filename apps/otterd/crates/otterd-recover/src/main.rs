@@ -2,7 +2,7 @@
 
 use clap::{Parser, Subcommand};
 use otterd_anchor::s3::{S3, S3Config};
-use otterd_anchor::{Anchor, RetirementMethod};
+use otterd_anchor::{Anchor, EnrollmentRecord, RetirementMethod};
 use otterd_fence::{
     FenceAdapter as _, FenceEvidence, HetznerFence, MachineBinding, ManualFence, ManualProof,
     PowerOn, Silence,
@@ -10,7 +10,7 @@ use otterd_fence::{
 use otterd_proto::U53;
 use otterd_proto::envelope::SignedEnvelope;
 use otterd_proto::identity::HostBinding;
-use otterd_proto::ids::{InstallId, NodeId};
+use otterd_proto::ids::{InstallId, KeyId, NodeId};
 use otterd_proto::platform::PlatformBootManifest;
 use otterd_recover::{RecoverError, authority, journal, keys, now_ms};
 use serde::Deserialize;
@@ -120,6 +120,16 @@ enum AnchorCmd {
     Status,
     /// Every enrollment record, committed or pending.
     Inventory,
+    /// Append a node's enrollment record and commit it in the head
+    /// (enrollment key). Only `committed` lets the control plane issue the
+    /// node's first grant.
+    Enroll {
+        #[arg(long)]
+        enrollment_key: PathBuf,
+        /// `{nodeId, nodeEpoch, identityKeyId, host}` (JSON).
+        #[arg(long)]
+        node: PathBuf,
+    },
     /// Create the anchor (recovery key).
     Init {
         #[arg(long)]
@@ -277,6 +287,16 @@ fn open_anchor(config: &Path) -> Result<Anchor, RecoverError> {
     ))
 }
 
+/// The node fields of an enrollment record; the anchor fills the rest.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EnrollNode {
+    node_id: NodeId,
+    node_epoch: U53,
+    identity_key_id: KeyId,
+    host: HostBinding,
+}
+
 fn retirement_method(s: &str) -> Result<RetirementMethod, RecoverError> {
     Ok(serde_json::from_value(Value::String(s.to_owned()))?)
 }
@@ -290,6 +310,26 @@ async fn anchor(config: &Path, cmd: AnchorCmd) -> Result<Value, RecoverError> {
             json!({"head": h.head, "term": h.term, "etag": h.etag})
         }
         AnchorCmd::Inventory => serde_json::to_value(a.inventory().await?)?,
+        AnchorCmd::Enroll {
+            enrollment_key,
+            node,
+        } => {
+            let n: EnrollNode = read_json(&node)?;
+            let install: AnchorFile = read_json(config)?;
+            // The anchor sets the install, sequence, term, time and link.
+            let record = EnrollmentRecord {
+                install_id: install.install_id,
+                seq: U53::ZERO,
+                node_id: n.node_id,
+                node_epoch: n.node_epoch,
+                identity_key_id: n.identity_key_id,
+                host: n.host,
+                recovery_term: U53::ZERO,
+                at_unix_ms: now_ms(),
+                prev_record: None,
+            };
+            serde_json::to_value(a.enroll(&keys::read(&enrollment_key)?, record).await?)?
+        }
         AnchorCmd::Init {
             recovery_key,
             machine_id,
