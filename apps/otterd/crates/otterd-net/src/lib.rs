@@ -18,5 +18,6 @@ pub mod ipam;
 pub mod mesh;
 pub mod policy;
 pub mod rotation;
+pub mod vip;
 
 pub use addr::Ipv4Net;
