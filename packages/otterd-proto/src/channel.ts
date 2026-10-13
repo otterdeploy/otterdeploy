@@ -8,12 +8,12 @@ import * as z from "zod";
 import { capabilityError } from "./capability";
 import { opOutcome } from "./command";
 import { discoveryMessage } from "./discovery";
-import { signedEnvelope } from "./envelope";
+import { signContext, signedEnvelope } from "./envelope";
 import { crossSigned, hostFacts } from "./identity";
 import { leaseRequest, slotReport } from "./lifecycle";
 import { batchDisposition, sampleBatch } from "./metrics";
 import { platformReport } from "./platform";
-import { keyId, nonce, u16, u32, u53, wireId } from "./primitives";
+import { keyId, nonce, sha256Hex, u16, u32, u53, wireId } from "./primitives";
 import { feature, versionRange } from "./version";
 
 export const channelKind = z.enum(["control", "bulk"]);
@@ -139,6 +139,14 @@ export const controlFrame = z.discriminatedUnion("type", [
   f("telemetryAck", { batchId: wireId, disposition: batchDisposition, credit: u32 }),
   f("discovery", { from: wireId, to: wireId, message: discoveryMessage }),
   f("authority", { document: signedEnvelope }),
+  /** Node → CP: a serving set took effect (empty `drainedAttempts`), or these withdrawn attempts finished draining. */
+  f("authorityAck", {
+    context: signContext,
+    documentDigest: sha256Hex,
+    vipId: wireId,
+    servingRevision: u53,
+    drainedAttempts: z.array(wireId).optional(),
+  }),
   f("keyRotation", { statement: crossSigned }),
   f("keyRotationAck", { ack: signedEnvelope }),
   f("cpKeyTransition", { transition: crossSigned }),

@@ -502,6 +502,11 @@ fn schemas() {
                "kind": "challenge", "challenge": {"receiverId": "node_2",
                "receiverBoot": "4c1d1b7e-1d8a-4f0b-9d3e-000000000002", "ownerId": "node_1", "nonce": NONCE_B}}}),
         json!({"type": "authority", "document": sign(CP, SignContext::ServingSet, &json!({"x": 1}))}),
+        json!({"type": "authorityAck", "context": "otterd/serving-set/v1", "documentDigest": DIGEST,
+               "vipId": "vip_web", "servingRevision": 18}),
+        json!({"type": "authorityAck", "context": "otterd/serving-set/v1", "documentDigest": DIGEST,
+               "vipId": "vip_web", "servingRevision": 18,
+               "drainedAttempts": ["att_fedcba9876543210fedcba9876543210"]}),
         json!({"type": "keyRotation", "statement": key_rotation_statement()}),
         json!({"type": "keyRotationAck", "ack": sign(CP, SignContext::KeyRotationAck, &key_rotation_ack())}),
         json!({"type": "cpKeyTransition", "transition": {
