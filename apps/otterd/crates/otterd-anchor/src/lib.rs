@@ -428,6 +428,14 @@ impl Anchor {
                     None => Err(AnchorError::Frozen(state.term.phase)),
                 };
             }
+            // An ambiguous head write of ours may have applied and then been
+            // built on by another enrollment: then our record is committed.
+            if let Some(w) = &written
+                && state.head.inventory_seq > w.seq
+                && self.chain_reaches(&state.head, &w.key, w.seq).await?
+            {
+                return Ok(EnrollOutcome::Committed { seq: w.seq });
+            }
             let seq = state
                 .head
                 .inventory_seq
@@ -492,6 +500,32 @@ impl Anchor {
             }
         }
         Err(AnchorError::Contended(MAX_CAS_ATTEMPTS))
+    }
+
+    /// Whether the committed chain from `head` passes through the record at
+    /// `key` (sequence `seq`). Reads back only the records above it.
+    async fn chain_reaches(&self, head: &Head, key: &str, seq: U53) -> Result<bool, AnchorError> {
+        let mut cursor = head.last_record.clone();
+        while let Some(k) = cursor {
+            if k == key {
+                return Ok(true);
+            }
+            let Some((bytes, _)) = self.s3.get(&k).await? else {
+                return Ok(false);
+            };
+            let (doc, _) = decode(&k, &bytes, std::slice::from_ref(&self.enrollment))?;
+            let AnchorDocument::Enrollment(record) = doc else {
+                return Err(AnchorError::Invalid {
+                    key: k,
+                    reason: "not an enrollment record".into(),
+                });
+            };
+            if record.seq <= seq {
+                return Ok(false);
+            }
+            cursor = record.prev_record;
+        }
+        Ok(false)
     }
 
     /// Every enrollment record ever written, committed or pending. Recovery
