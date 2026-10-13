@@ -225,6 +225,11 @@ impl S3 {
     /// applied; unchanged (absent, or still at the expected ETag) means it did
     /// not and is sent again; anything else lost the race. `body` must be unique
     /// to this writer (anchor objects carry a signature and a timestamp).
+    ///
+    /// A write that reading back proved did not apply is always safe to send
+    /// again, so those attempts do not end the loop early: only answers that
+    /// stay unresolved (the read-back itself failing) count against
+    /// [`MAX_UNRESOLVED`]. [`MAX_RESOLVE_ATTEMPTS`] bounds the whole exchange.
     pub async fn put_resolving(
         &self,
         key: &str,
@@ -232,9 +237,10 @@ impl S3 {
         cond: Condition,
     ) -> Result<String, S3Error> {
         let mut ambiguous = None;
-        for attempt in 0..4u32 {
+        let mut unresolved = 0u32;
+        for attempt in 0..MAX_RESOLVE_ATTEMPTS {
             if attempt > 0 {
-                tokio::time::sleep(Duration::from_millis(150 * u64::from(attempt))).await;
+                tokio::time::sleep(resolve_backoff(attempt)).await;
             }
             match self.put(key, body.clone(), cond.clone()).await {
                 Err(e) if is_ambiguous(&e) => ambiguous = Some(e),
@@ -249,10 +255,15 @@ impl S3 {
             }
             match self.get(key).await {
                 Ok(Some((current, etag))) if current == body => return Ok(etag),
+                // Proven not applied: send again.
                 Ok(current) if unchanged(&cond, current.as_ref().map(|(_, e)| e.as_str())) => {}
                 Ok(_) => return Err(S3Error::PreconditionFailed),
                 Err(e) => {
                     tracing::debug!(key, error = %e, "could not resolve an ambiguous write yet");
+                    unresolved += 1;
+                    if unresolved >= MAX_UNRESOLVED {
+                        break;
+                    }
                 }
             }
         }
@@ -316,6 +327,16 @@ impl S3 {
             .next()
             .unwrap_or_default())
     }
+}
+
+/// Attempts at one ambiguous conditional write, in all.
+const MAX_RESOLVE_ATTEMPTS: u32 = 24;
+/// Attempts whose outcome could not be read back before giving up.
+const MAX_UNRESOLVED: u32 = 4;
+
+/// Linear backoff between attempts, capped at one second.
+fn resolve_backoff(attempt: u32) -> Duration {
+    Duration::from_millis(150 * u64::from(attempt)).min(Duration::from_secs(1))
 }
 
 fn is_ambiguous(e: &S3Error) -> bool {
