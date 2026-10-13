@@ -235,6 +235,7 @@ services:
       # mounted read-only.
       OTTERD_CP_TLS_CERT: /etc/otterd-cp/server.pem
       OTTERD_CP_TLS_KEY: /etc/otterd-cp/server.key
+      OTTERD_CP_TLS_CA: /etc/otterd-cp/ca.pem
       OTTERD_CP_SIGNING_KEY: /etc/otterd-cp/signing.key
     volumes:
       - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/otterd-cp:/etc/otterd-cp:ro

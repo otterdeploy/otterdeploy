@@ -7,6 +7,7 @@
  *
  *   OTTERD_CP_LISTEN_PORT        TLS port for nodes and the admin API
  *   OTTERD_CP_TLS_CERT / _KEY    PEM files
+ *   OTTERD_CP_TLS_CA             the private CA, served at /api/otterd/ca.pem (optional)
  *   OTTERD_CP_SIGNING_KEY        file holding the base64 Ed25519 seed (0600)
  *   OTTERD_CP_INSTALL_ID         install id
  *   OTTERD_CP_CONTROL_URL        wss URL written into enrollment certificates
@@ -45,6 +46,8 @@ const config = z
     OTTERD_CP_LISTEN_PORT: z.coerce.number().int().positive(),
     OTTERD_CP_TLS_CERT: z.string().min(1),
     OTTERD_CP_TLS_KEY: z.string().min(1),
+    /** The private CA, served to joining nodes, which use it only if it matches their pin. */
+    OTTERD_CP_TLS_CA: z.string().min(1).optional(),
     OTTERD_CP_SIGNING_KEY: z.string().min(1),
     OTTERD_CP_INSTALL_ID: z.string().min(1),
     OTTERD_CP_CONTROL_URL: z.url(),
@@ -154,6 +157,11 @@ Bun.serve<{ conn: Connection | null }>({
   tls: { cert: Bun.file(config.OTTERD_CP_TLS_CERT), key: Bun.file(config.OTTERD_CP_TLS_KEY) },
   fetch(req, server) {
     const url = new URL(req.url);
+    if (url.pathname === "/api/otterd/ca.pem" && req.method === "GET" && config.OTTERD_CP_TLS_CA) {
+      return new Response(Bun.file(config.OTTERD_CP_TLS_CA), {
+        headers: { "content-type": "application/x-pem-file" },
+      });
+    }
     if (url.pathname === "/api/otterd/connect") {
       return server.upgrade(req, { data: { conn: null } })
         ? undefined
