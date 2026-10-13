@@ -21,6 +21,48 @@
         "min": 1
       },
       "version": "1.4.0"
+    },
+    {
+      "artifacts": [
+        {
+          "arch": "x86_64",
+          "name": "otterd",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 18234112
+        },
+        {
+          "arch": "x86_64",
+          "name": "otterd-guard",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 2101248
+        },
+        {
+          "arch": "x86_64",
+          "name": "otterd-recover",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "size": 6291456
+        },
+        {
+          "arch": "x86_64",
+          "name": "otterd-net",
+          "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "size": 7340032
+        },
+        {
+          "arch": "x86_64",
+          "name": "otterd-dns",
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "size": 3145728
+        }
+      ],
+      "issuedAtUnixMs": 1791000000000,
+      "journalFormat": 1,
+      "minRollbackVersion": "1.4.0",
+      "protocol": {
+        "max": 1,
+        "min": 1
+      },
+      "version": "1.5.0"
     }
   ],
   "schema": "ReleaseManifest"

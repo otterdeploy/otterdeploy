@@ -120,6 +120,24 @@ describe("schema fixtures", () => {
     const first = z.record(z.string(), z.unknown()).parse(cases[0]);
     expect(capability.safeParse({ ...first, extra: true }).success).toBe(false);
   });
+
+  test("a release lists each (name, arch) once; unnamed means otterd", () => {
+    const { cases } = schemaFile.parse(readJson("schemas/ReleaseManifest.json"));
+    const first = z.record(z.string(), z.unknown()).parse(cases[0]);
+    const sha = "a".repeat(64);
+    const withArtifacts = (artifacts: unknown[]) =>
+      releaseManifest.safeParse({ ...first, artifacts });
+    expect(withArtifacts([{ arch: "x86_64", sha256: sha, size: 1 }]).success).toBe(true);
+    expect(
+      withArtifacts([
+        { arch: "x86_64", sha256: sha, size: 1 },
+        { name: "otterd", arch: "x86_64", sha256: sha, size: 1 },
+      ]).success,
+    ).toBe(false);
+    expect(
+      withArtifacts([{ name: "../otterd", arch: "x86_64", sha256: sha, size: 1 }]).success,
+    ).toBe(false);
+  });
 });
 
 describe("enums", () => {
