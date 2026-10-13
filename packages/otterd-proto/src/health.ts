@@ -1,5 +1,5 @@
 /** Health checks and probe results; mirror of `health.rs`. */
-import { z } from "zod";
+import * as z from "zod";
 
 import { u32, u53, u8, u16, wireId } from "./primitives";
 

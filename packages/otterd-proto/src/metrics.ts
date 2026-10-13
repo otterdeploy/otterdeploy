@@ -3,7 +3,7 @@
  *; mirror of `metrics.rs`. Telemetry is lenient:
  * a newer node may add fields that this side strips.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { probeResult } from "./health";
 import { u16, u53, wireId } from "./primitives";

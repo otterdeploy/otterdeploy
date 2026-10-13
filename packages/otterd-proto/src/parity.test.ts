@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { z } from "zod";
+import * as z from "zod";
 
 import { bulkFrame, decodeDataHeader, encodeDataHeader, pipe } from "./bulk";
 import { PERMISSIONS, VERB_TABLE, VERBS, capability } from "./capability";

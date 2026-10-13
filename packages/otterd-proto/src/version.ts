@@ -1,6 +1,6 @@
 /** Protocol and schema versions, and their negotiation (mirror of `version.rs`). */
 import { Result } from "better-result";
-import { z } from "zod";
+import * as z from "zod";
 
 import { u16 } from "./primitives";
 

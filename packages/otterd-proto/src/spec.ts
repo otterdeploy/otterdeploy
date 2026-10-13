@@ -7,7 +7,7 @@
  * here; a Rust field with a serde default that is always serialized carries the
  * same `.default()` here, so canonical fixtures round-trip unchanged.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { nodeRole } from "./identity";
 import { u16, u32, u53, wireId } from "./primitives";

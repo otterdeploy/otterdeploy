@@ -5,7 +5,7 @@
  * table (names, required permissions, monitor allowlist) is the single source
  * both sides read, and is checked against `fixtures/enums.json`.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { nonce, sha256Hex, slotRef, u53, wireId } from "./primitives";
 

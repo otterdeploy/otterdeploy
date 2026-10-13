@@ -3,7 +3,7 @@
  * The control plane never reads a live journal; it parses exports for
  * recovery inventory. Records are strict: an unknown field is a newer journal.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { verb } from "./capability";
 import { opOutcome } from "./command";

@@ -4,7 +4,7 @@
  * `[version u8 = 1][pipe u8][reserved u16 = 0][stream id u32 big-endian]`.
  */
 import { Result } from "better-result";
-import { z } from "zod";
+import * as z from "zod";
 
 import { sha256Hex, i32, u16, u32, u53 } from "./primitives";
 

@@ -3,7 +3,7 @@
  * lenient (a newer node may add informational fields); the signed documents
  * inside them are strict.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { capabilityError } from "./capability";
 import { opOutcome } from "./command";
