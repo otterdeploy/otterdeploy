@@ -988,6 +988,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "otterd-metrics"
+version = "0.1.0"
+dependencies = [
+ "http",
+ "otterd-engine",
+ "otterd-proto",
+ "otterd-sys",
+ "proptest",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "otterd-proto"
 version = "0.1.0"
 dependencies = [
