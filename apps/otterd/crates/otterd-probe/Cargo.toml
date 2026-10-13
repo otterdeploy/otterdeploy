@@ -10,15 +10,28 @@ repository.workspace = true
 
 [dependencies]
 otterd-proto.workspace = true
+bytes.workspace = true
 hickory-proto.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+socket2.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tokio-rustls.workspace = true
+webpki-roots.workspace = true
+x509-parser.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
+rcgen.workspace = true
+tempfile.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util", "io-util"] }
 
 [lints]
 workspace = true
