@@ -21,6 +21,7 @@ import { Temporal } from "@otterdeploy/shared/temporal";
 import { Result } from "better-result";
 import { setTimeout as sleep } from "node:timers/promises";
 
+import { grantRow } from "../store/adopt";
 import { putService } from "../store/services";
 import { buildHostNode } from "../store/status";
 import { forgetService } from "./cp-store";
@@ -168,8 +169,11 @@ async function adoptSteps(docker: Docker, sessionId: string, resourceId: string,
   (await stepResource(resourceId, "restart-disabled", now())).unwrap();
   (await stepResource(resourceId, "adopt-requested", now())).unwrap();
   const done = await waitFor(resourceId, ["adopted"]);
-  if (done.state !== "adopted")
+  if (done.state !== "adopted") {
+    // Refused with no side effects: the node never took it, so it goes back as it was.
+    if (await neverAdopted(done)) await giveBackUnadopted(docker, done);
     throw new Error(done.error ?? "adoption failed; the resource stays held");
+  }
   (await stepResource(resourceId, "migrated", now(), { owner: "otterd" })).unwrap();
   return `adopted ${before.containerId.slice(0, 12)} in place`;
 }
@@ -186,11 +190,27 @@ export async function migrateResource(docker: Docker, resourceId: string, by: st
   });
 }
 
-async function rollbackSteps(resourceId: string) {
+/** The adoption grant is gone or retired: no node holds the container. */
+async function neverAdopted(row: MigrationRow): Promise<boolean> {
+  if (!row.grantId) return true;
+  const g = (await grantRow(row.grantId)).unwrap();
+  return !g || g.state === "released";
+}
+
+/** A container the migration never adopted, given back exactly as it was. */
+async function giveBackUnadopted(docker: Docker, row: MigrationRow): Promise<string> {
+  if (row.beforeImage) await restoreRestart(docker, row.beforeImage);
+  await forgetService(row.resourceId);
+  (await stepResource(row.resourceId, "rolled-back", now(), { owner: "legacy" })).unwrap();
+  return "never adopted; given back as it was";
+}
+
+async function rollbackSteps(docker: Docker, resourceId: string) {
   const row = (await migrationRow(resourceId)).unwrap();
   if (!row || (row.state !== "migrated" && row.state !== "failed")) {
     throw new Error(`resource ${resourceId} is not migrated`);
   }
+  if (row.state === "failed" && (await neverAdopted(row))) return giveBackUnadopted(docker, row);
   (await stepResource(resourceId, "release-requested", now(), { owner: "migrating" })).unwrap();
   const done = await waitFor(resourceId, ["released"]);
   if (done.state !== "released") throw new Error(done.error ?? "the node did not give it back");
@@ -199,12 +219,12 @@ async function rollbackSteps(resourceId: string) {
   return "given back to the legacy runtime";
 }
 
-export async function rollbackResource(resourceId: string) {
+export async function rollbackResource(docker: Docker, resourceId: string) {
   const session = await currentSession();
   if (session.isErr() || session.value?.state !== "open") {
     return Result.err("rollback needs the session open (it is not finalized)");
   }
-  return Result.tryPromise({ try: () => rollbackSteps(resourceId), catch: message });
+  return Result.tryPromise({ try: () => rollbackSteps(docker, resourceId), catch: message });
 }
 
 /** Finalize once every container is otterd's and nothing is mid-step. */

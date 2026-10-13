@@ -4,10 +4,15 @@
  * again, untouched), and recording that a kept adopted container was deleted.
  */
 import { db } from "@otterdeploy/db";
-import { otterdGrant, otterdService, otterdServiceRevision } from "@otterdeploy/db/schema/otterd";
+import {
+  otterdEvidence,
+  otterdGrant,
+  otterdService,
+  otterdServiceRevision,
+} from "@otterdeploy/db/schema/otterd";
 import { serviceSpec } from "@otterdeploy/otterd-proto";
 import { Result } from "better-result";
-import { and, eq, isNotNull, isNull, not, like } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { type StoreFailure, refusal, run, toStoreFailure } from "../store/errors";
 import { lockedGrant } from "../store/grants";
@@ -67,21 +72,28 @@ export function releaseAdoption(
   });
 }
 
-/** Adopted grants stopped (with a certificate) whose kept container is not yet deleted. */
+/**
+ * Adopted grants retired by a stop certificate whose kept container is not
+ * yet deleted. A grant given back, or one whose adoption was refused, never
+ * held a container to delete.
+ */
 export const adoptedLeftBehind = () =>
   Result.tryPromise({
-    try: () =>
-      db
-        .select()
-        .from(otterdGrant)
-        .where(
-          and(
-            isNotNull(otterdGrant.adoptsContainer),
-            eq(otterdGrant.state, "released"),
-            isNull(otterdGrant.adoptedRemovedAt),
-            not(like(otterdGrant.releaseEvidenceId, `${GIVEN_BACK}%`)),
-          ),
-        ),
+    try: async () =>
+      (
+        await db
+          .select({ grant: otterdGrant })
+          .from(otterdGrant)
+          .innerJoin(otterdEvidence, eq(otterdEvidence.evidenceId, otterdGrant.releaseEvidenceId))
+          .where(
+            and(
+              isNotNull(otterdGrant.adoptsContainer),
+              eq(otterdGrant.state, "released"),
+              isNull(otterdGrant.adoptedRemovedAt),
+              eq(otterdEvidence.kind, "stop-certificate"),
+            ),
+          )
+      ).map((r) => r.grant),
     catch: toStoreFailure,
   });
 

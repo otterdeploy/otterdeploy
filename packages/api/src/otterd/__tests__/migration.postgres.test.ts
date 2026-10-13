@@ -6,7 +6,12 @@
  * finalized migration sends every resource to otterd.
  */
 import { db } from "@otterdeploy/db";
-import { otterdAuthority, otterdGrant, otterdNode } from "@otterdeploy/db/schema/otterd";
+import {
+  otterdAuthority,
+  otterdEvidence,
+  otterdGrant,
+  otterdNode,
+} from "@otterdeploy/db/schema/otterd";
 import {
   normalizeServiceSpec,
   publicKeyFromSeed,
@@ -199,9 +204,26 @@ describe("otterd migration state", () => {
         adoptsContainer: "e".repeat(64),
       })
     ).unwrap();
+    // Refused, never adopted: nothing to delete.
     await db
       .update(otterdGrant)
-      .set({ state: "released", releaseEvidenceId: "stop-certificate" })
+      .set({ state: "released", releaseEvidenceId: `refused_${g.grantId}` })
+      .where(eq(otterdGrant.grantId, g.grantId));
+    expect((await adoptedLeftBehind()).unwrap().some((x) => x.grantId === g.grantId)).toBe(false);
+    // Stopped with a certificate: the kept container is the control plane's to delete.
+    await db.insert(otterdEvidence).values({
+      evidenceId: `cert_${g.grantId}`,
+      kind: "stop-certificate",
+      nodeId,
+      nodeEpoch: 1,
+      grantId: g.grantId,
+      document: {},
+      observedAt: NOW,
+      recordedAt: NOW,
+    });
+    await db
+      .update(otterdGrant)
+      .set({ releaseEvidenceId: `cert_${g.grantId}` })
       .where(eq(otterdGrant.grantId, g.grantId));
     expect((await adoptedLeftBehind()).unwrap().some((x) => x.grantId === g.grantId)).toBe(true);
     (await markAdoptedRemoved(g.grantId, NOW)).unwrap();

@@ -67,7 +67,7 @@ export function registerMigrationRoutes<E extends Env>(app: Hono<E>): void {
   );
   app.post(
     "/api/otterd/migration/resources/:id/rollback",
-    route(async (c) => answer(c, await rollbackResource(c.req.param("id") ?? ""))),
+    route(async (c) => answer(c, await rollbackResource(writer(), c.req.param("id") ?? ""))),
   );
   app.post(
     "/api/otterd/migration/finalize",
