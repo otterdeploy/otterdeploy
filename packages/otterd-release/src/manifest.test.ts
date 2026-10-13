@@ -44,6 +44,36 @@ describe("release manifest", () => {
     ]);
   });
 
+  test("signs every binary of a release, the daemon unnamed and the rest by name", async () => {
+    const guard = new Uint8Array([8, 8]);
+    const built = buildManifest({
+      ...input,
+      binaries: [...input.binaries, { name: "otterd-guard", arch: "x86_64", bytes: guard }],
+    }).unwrap();
+    expect(built.manifest.artifacts.map((a) => [a.name, a.arch])).toEqual([
+      [undefined, "x86_64"],
+      [undefined, "aarch64"],
+      ["otterd-guard", "x86_64"],
+    ]);
+    const env = (await signRelease(built.payload, signer)).unwrap();
+    const check = (name: string, bytes: Uint8Array) =>
+      verifyRelease(env, keys(signer.publicKey), input.issuedAtUnixMs, [
+        { name, arch: "x86_64", bytes },
+      ]);
+    expect(check("otterd-guard", guard).isOk()).toBe(true);
+    expect(check("otterd-guard", amd).isErr()).toBe(true);
+    const unsigned = check("otterd-dns", guard);
+    expect(unsigned.isErr() && unsigned.error).toBe(
+      "the release does not sign otterd-dns for x86_64",
+    );
+    expect(
+      buildManifest({
+        ...input,
+        binaries: [{ name: "otterd-guard", arch: "x86_64", bytes: guard }],
+      }).isErr(),
+    ).toBe(true);
+  });
+
   test("refuses an unknown or repeated architecture", () => {
     const bad = (binaries: ReleaseInput["binaries"]) => buildManifest({ ...input, binaries });
     expect(bad([{ arch: "arm64", bytes: arm }]).isErr()).toBe(true);
@@ -96,6 +126,6 @@ describe("release manifest", () => {
     const tampered = verifyRelease(env, keys(signer.publicKey), input.issuedAtUnixMs, [
       { arch: "x86_64", bytes: new Uint8Array([1, 2, 3, 5]) },
     ]);
-    expect(tampered.isErr() && tampered.error).toBe("the x86_64 binary does not match the release");
+    expect(tampered.isErr() && tampered.error).toBe("otterd for x86_64 does not match the release");
   });
 });

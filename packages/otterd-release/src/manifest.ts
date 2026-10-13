@@ -3,7 +3,9 @@ import type * as z from "zod";
 /**
  * Building, signing and checking an otterd release manifest
  * (`otterd/release-manifest/v1`): the document a node verifies against its
- * pinned release keys before it installs or upgrades to a binary.
+ * pinned release keys before it installs or upgrades. One manifest signs
+ * every binary of the release (`otterd`, `otterd-guard`, `otterd-dns`,
+ * `otterd-net`, `otterd-recover`) for each architecture.
  *
  * Signing goes through one interface so the key can live anywhere: a seed
  * the release job reads from its secret store, or an offline key that signs
@@ -14,6 +16,8 @@ import type * as z from "zod";
 import {
   type ReleaseManifest,
   type SignedEnvelope,
+  OTTERD,
+  artifactName,
   keyIdOf,
   publicKeyFromSeed,
   type releaseKeySet,
@@ -30,9 +34,16 @@ type ReleaseKeySet = z.infer<typeof releaseKeySet>;
 const CONTEXT = "otterd/release-manifest/v1";
 const ARCHES = new Set(["x86_64", "aarch64"]);
 
+/** One binary of a release; `name` defaults to `otterd`. */
+export interface ReleaseBinary {
+  name?: string;
+  arch: string;
+  bytes: Uint8Array;
+}
+
 export interface ReleaseInput {
   version: string;
-  binaries: readonly { arch: string; bytes: Uint8Array }[];
+  binaries: readonly ReleaseBinary[];
   protocol: { min: number; max: number };
   journalFormat: number;
   minRollbackVersion: string;
@@ -45,16 +56,24 @@ export interface UnsignedRelease {
   payload: Uint8Array;
 }
 
-/** The manifest naming each binary by architecture, size and SHA-256. */
+const nameOf = (b: { name?: string }) => b.name ?? OTTERD;
+
+/**
+ * The manifest naming each binary by name, architecture, size and SHA-256.
+ * The daemon's own binary is listed unnamed, as nodes look it up.
+ */
 export function buildManifest(input: ReleaseInput): Result<UnsignedRelease, string> {
-  const arches = input.binaries.map((b) => b.arch);
-  const unknown = arches.find((a) => !ARCHES.has(a));
-  if (unknown !== undefined) return Result.err(`unknown architecture ${unknown}`);
-  if (new Set(arches).size !== arches.length) return Result.err("one binary per architecture");
-  if (arches.length === 0) return Result.err("a release needs at least one binary");
+  const unknown = input.binaries.find((b) => !ARCHES.has(b.arch));
+  if (unknown !== undefined) return Result.err(`unknown architecture ${unknown.arch}`);
+  const keys = input.binaries.map((b) => `${nameOf(b)}/${b.arch}`);
+  if (new Set(keys).size !== keys.length) return Result.err("one binary per name and architecture");
+  if (!input.binaries.some((b) => nameOf(b) === OTTERD)) {
+    return Result.err("a release needs the otterd binary");
+  }
   const parsed = releaseManifest.safeParse({
     version: input.version,
     artifacts: input.binaries.map((b) => ({
+      ...(nameOf(b) === OTTERD ? {} : { name: nameOf(b) }),
       arch: b.arch,
       sha256: sha256HexOf(b.bytes),
       size: b.bytes.length,
@@ -126,7 +145,7 @@ export function verifyRelease(
   envelope: SignedEnvelope,
   keys: ReleaseKeySet,
   now: number,
-  binaries: readonly { arch: string; bytes: Uint8Array }[] = [],
+  binaries: readonly ReleaseBinary[] = [],
 ): Result<ReleaseManifest, string> {
   const valid = keys.keys
     .filter((k) => (k.notBeforeUnixMs ?? 0) <= now && (k.notAfterUnixMs ?? Infinity) > now)
@@ -136,10 +155,11 @@ export function verifyRelease(
     return Result.err(`release does not verify: ${JSON.stringify(verified.error)}`);
   const manifest = verified.value;
   for (const b of binaries) {
-    const want = manifest.artifacts.find((a) => a.arch === b.arch);
-    if (!want) return Result.err(`the release has no ${b.arch} binary`);
+    const name = nameOf(b);
+    const want = manifest.artifacts.find((a) => artifactName(a) === name && a.arch === b.arch);
+    if (!want) return Result.err(`the release does not sign ${name} for ${b.arch}`);
     if (want.size !== b.bytes.length || want.sha256 !== sha256HexOf(b.bytes)) {
-      return Result.err(`the ${b.arch} binary does not match the release`);
+      return Result.err(`${name} for ${b.arch} does not match the release`);
     }
   }
   return Result.ok(manifest);
