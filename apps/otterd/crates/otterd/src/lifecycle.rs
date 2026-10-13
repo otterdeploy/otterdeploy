@@ -205,11 +205,13 @@ impl Node {
 
     // ---------------------------------------------------------------- reconcile
 
-    /// Run at process start and on every reconcile pass. Grants of an earlier
-    /// incarnation never authorize anything again: revoke them durably, retire
-    /// their unsent work, stop their attempts and try to certify. Unresolved
-    /// submissions keep the slot blocked; the control plane must wait for
-    /// settlement or fence the host.
+    /// Run at process start and on every reconcile pass. Exclusive grants of
+    /// an earlier incarnation never authorize anything again: revoke them
+    /// durably, retire their unsent work, stop their attempts and try to
+    /// certify. Unresolved submissions keep the slot blocked; the control plane
+    /// must wait for settlement or fence the host. Shared (overlap-tolerant)
+    /// grants keep running and are reported, for the control plane to re-bind
+    /// or stop; they authorize no new start.
     pub async fn reconcile(&self) -> Result<(), NodeError> {
         // Holds first: a stage lost while the node was down is recorded Unknown
         // before any cleanup could treat it as releasable.
@@ -225,9 +227,7 @@ impl Node {
         let to_stop: Vec<GrantId> = state
             .grants
             .values()
-            .filter(|g| {
-                !g.is_released() && (g.grant.incarnation != self.incarnation || g.revoked.is_some())
-            })
+            .filter(|g| stopped_by_reconcile(g, &self.incarnation))
             .map(|g| g.grant.grant_id.clone())
             .collect();
         for grant in to_stop {
@@ -1013,6 +1013,15 @@ pub fn start_guard(
     Ok(())
 }
 
+/// Whether a reconcile pass stops this grant: a revoked grant, or an
+/// exclusive grant from an earlier process incarnation (boot quarantine). A
+/// shared grant from an earlier incarnation keeps running; it cannot start
+/// anything new, because starts require the current incarnation.
+fn stopped_by_reconcile(g: &otterd_journal::GrantState, incarnation: &Incarnation) -> bool {
+    !g.is_released()
+        && (g.revoked.is_some() || (g.grant.exclusive && &g.grant.incarnation != incarnation))
+}
+
 /// Tenants cannot hold platform or system slots or mount otterd's or the
 /// Engine's own paths.
 fn check_tenant_scope(slot: &SlotRef, spec: &ServiceSpec) -> Result<(), NodeError> {
@@ -1060,6 +1069,53 @@ fn view_obs(v: Option<&ContainerView>) -> ProcessObservation {
 mod tests {
     use super::*;
     use otterd_proto::spec::ServiceSpecInput;
+
+    fn grant_state(exclusive: bool, incarnation: &Incarnation) -> otterd_journal::GrantState {
+        otterd_journal::GrantState {
+            grant: SlotGrant {
+                grant_id: "g".parse().unwrap(),
+                slot: SlotRef::new("svc".parse().unwrap(), 0),
+                generation: U53::ONE,
+                authority_term: U53::ONE,
+                node_epoch: U53::ONE,
+                incarnation: incarnation.clone(),
+                exclusive,
+                disconnect_action: otterd_proto::spec::DisconnectAction::Stop,
+                restart: otterd_proto::spec::RestartPolicy::default(),
+                data_claims: vec![],
+                probe_only: false,
+            },
+            spec_digest: Sha256Hex::digest(b"s"),
+            op_id: "op".parse().unwrap(),
+            revoked: None,
+            certificate: None,
+            superseded_by_epoch: None,
+            attempts: vec![],
+        }
+    }
+
+    #[test]
+    fn a_restart_stops_exclusive_grants_only() {
+        let (old, now) = (Incarnation::mint().unwrap(), Incarnation::mint().unwrap());
+        assert!(
+            stopped_by_reconcile(&grant_state(true, &old), &now),
+            "exclusive, earlier incarnation"
+        );
+        assert!(
+            !stopped_by_reconcile(&grant_state(false, &old), &now),
+            "shared keeps running"
+        );
+        assert!(
+            !stopped_by_reconcile(&grant_state(true, &now), &now),
+            "current incarnation"
+        );
+        let mut revoked = grant_state(false, &old);
+        revoked.revoked = Some("rollout".into());
+        assert!(
+            stopped_by_reconcile(&revoked, &now),
+            "a revoked grant is always stopped"
+        );
+    }
 
     fn spec(resource: &str, source: &str) -> ServiceSpec {
         serde_json::from_value::<ServiceSpecInput>(serde_json::json!({
