@@ -38,7 +38,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, thiserror::Error)]
 pub enum NodeError {
@@ -124,6 +124,19 @@ pub struct Node {
     pub engine_reachable: AtomicBool,
     pub gate: Mutex<TenantGate>,
     slot_locks: Mutex<BTreeMap<SlotRef, Arc<tokio::sync::Mutex<()>>>>,
+    /// The Engine's latest answer per live container, for slot reports.
+    observations: Mutex<BTreeMap<ContainerRef, Observation>>,
+}
+
+/// One container's latest observation.
+#[derive(Debug, Clone)]
+struct Observation {
+    process: ProcessObservation,
+    /// First observation that saw `process` as it is now.
+    since: U53,
+    /// When the request that produced it was sent: an older answer never
+    /// replaces a newer one.
+    taken: Instant,
 }
 
 /// Host paths no tenant grant may mount: otterd's journals, keys and staging,
@@ -163,6 +176,7 @@ impl Node {
                 reason: "no platform bootstrap on this host".into(),
             }),
             slot_locks: Mutex::new(BTreeMap::new()),
+            observations: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -224,6 +238,7 @@ impl Node {
         self.engine_reachable.store(reachable, Ordering::SeqCst);
         if !reachable {
             // Engine reachability is a reconcile result, never a reason to stall.
+            self.mark_unobserved("engine unreachable");
             return Ok(());
         }
         self.apply_boot_barrier().await?;
@@ -259,7 +274,165 @@ impl Node {
                 tracing::warn!(%grant, error = %e, "quarantine stop incomplete");
             }
         }
+        self.observe().await;
         self.check_holds().await
+    }
+
+    // ---------------------------------------------------------- observation
+
+    /// Ask the Engine about the container of every attempt of an unreleased
+    /// grant. One request that times out marks the rest `Unknown` instead of
+    /// waiting on each in turn, so a pass costs at most one Engine timeout.
+    pub async fn observe(&self) {
+        let pass = Instant::now();
+        let Ok(state) = self.state() else {
+            return;
+        };
+        let live = live_containers(&state);
+        if let Ok(mut map) = self.observations.lock() {
+            map.retain(|c, o| live.contains(c) || o.taken >= pass);
+        }
+        let mut stalled: Option<String> = None;
+        for container in &live {
+            if let Some(reason) = &stalled {
+                self.record_observation(
+                    container,
+                    ProcessObservation::Unknown {
+                        reason: reason.clone(),
+                    },
+                    Instant::now(),
+                );
+                continue;
+            }
+            if let Err(TransportError::Timeout(t)) = self.observe_container(container).await {
+                stalled = Some(format!("engine did not answer an inspect within {t:?}"));
+            }
+        }
+    }
+
+    /// Inspect one container and record the answer (or why there is none).
+    async fn observe_container(&self, container: &ContainerRef) -> Result<(), TransportError> {
+        let taken = Instant::now();
+        let (process, result) = match self.engine.inspect(container.as_str()).await {
+            Ok(view) => (view_obs(view.as_ref()), Ok(())),
+            Err(e) => (
+                ProcessObservation::Unknown {
+                    reason: format!("engine inspect failed: {e}"),
+                },
+                Err(e),
+            ),
+        };
+        self.record_observation(container, process, taken);
+        result
+    }
+
+    fn record_observation(
+        &self,
+        container: &ContainerRef,
+        process: ProcessObservation,
+        taken: Instant,
+    ) {
+        let Ok(mut map) = self.observations.lock() else {
+            return;
+        };
+        match map.get_mut(container) {
+            Some(o) if o.taken > taken => {}
+            Some(o) => {
+                if o.process != process {
+                    o.process = process;
+                    o.since = now_ms();
+                }
+                o.taken = taken;
+            }
+            None => {
+                map.insert(
+                    container.clone(),
+                    Observation {
+                        process,
+                        since: now_ms(),
+                        taken,
+                    },
+                );
+            }
+        }
+    }
+
+    /// The Engine could not be asked at all: nothing observed earlier still
+    /// stands.
+    fn mark_unobserved(&self, reason: &str) {
+        let containers: Vec<ContainerRef> = match self.observations.lock() {
+            Ok(map) => map.keys().cloned().collect(),
+            Err(_) => return,
+        };
+        for c in containers {
+            self.record_observation(
+                &c,
+                ProcessObservation::Unknown {
+                    reason: reason.to_owned(),
+                },
+                Instant::now(),
+            );
+        }
+    }
+
+    /// What a slot report says about one attempt's process, and since when.
+    fn attempt_process(
+        &self,
+        grant: &otterd_journal::GrantState,
+        container: Option<&ContainerRef>,
+        mutations: &[&otterd_journal::MutationState],
+    ) -> (ProcessObservation, Option<U53>) {
+        let Some(container) = container else {
+            // No container recorded: absent unless a request may still have
+            // created one.
+            let unresolved = mutations.iter().any(|m| {
+                matches!(
+                    m.submission,
+                    Submission::Submitted { .. } | Submission::Retired { .. }
+                )
+            });
+            return if unresolved {
+                (
+                    ProcessObservation::Unknown {
+                        reason: "no container recorded and a request is unresolved".into(),
+                    },
+                    None,
+                )
+            } else {
+                (ProcessObservation::Absent, None)
+            };
+        };
+        // A certified stop's final observation is the last word on its
+        // containers; anything else comes from the latest pass.
+        let known = grant
+            .certificate
+            .as_ref()
+            .and_then(|c| c.decode_own_payload::<StopCertificate>().ok())
+            .and_then(|cert| {
+                cert.containers
+                    .into_iter()
+                    .find(|o| &o.container == container)
+                    .map(|o| (o.process, Some(cert.issued_at_unix_ms)))
+            })
+            .or_else(|| {
+                self.observations
+                    .lock()
+                    .ok()
+                    .and_then(|map| map.get(container).cloned())
+                    .map(|o| (o.process, Some(o.since)))
+            });
+        known.unwrap_or_else(|| {
+            (
+                ProcessObservation::Unknown {
+                    reason: if grant.is_released() {
+                        "not observed since the grant was released".into()
+                    } else {
+                        "not observed yet".into()
+                    },
+                },
+                None,
+            )
+        })
     }
 
     async fn apply_boot_barrier(&self) -> Result<(), NodeError> {
@@ -436,6 +609,8 @@ impl Node {
                     guard,
                 )
                 .await?;
+            // Best effort: the next pass observes it anyway.
+            let _ = self.observe_container(container).await;
         }
         Ok(CommandResult::Applied {
             grant_id: grant.grant_id.clone(),
@@ -1116,6 +1291,7 @@ impl Node {
                 return Err(NodeError::Internal(format!("unpause unresolved: {r:?}")));
             }
         }
+        let _ = self.observe_container(&held.container).await;
         tracing::info!(old = %old, new = %grant.grant_id, %attempt, "held attempt adopted");
         Ok(CommandResult::Applied {
             grant_id: grant.grant_id.clone(),
@@ -1139,13 +1315,15 @@ impl Node {
                             .mutations_of_grant(&g.grant.grant_id)
                             .filter(|m| &m.record.attempt_id == a)
                             .collect();
+                        let container = mutations.iter().find_map(|m| m.container().cloned());
+                        let (process, since) =
+                            self.attempt_process(g, container.as_ref(), &mutations);
                         AttemptReport {
                             attempt_id: a.clone(),
                             ordinal: u32::try_from(i + 1).unwrap_or(u32::MAX),
-                            container: mutations.iter().find_map(|m| m.container().cloned()),
-                            process: ProcessObservation::Unknown {
-                                reason: "not observed in this report".into(),
-                            },
+                            container,
+                            process,
+                            observed_since_unix_ms: since,
                             mutations: mutations
                                 .iter()
                                 .map(|m| MutationReport {
@@ -1280,6 +1458,21 @@ fn check_tenant_scope(slot: &SlotRef, spec: &ServiceSpec) -> Result<(), NodeErro
         }
     }
     Ok(())
+}
+
+/// The container of every attempt of an unreleased grant.
+fn live_containers(state: &NodeState) -> BTreeSet<ContainerRef> {
+    state
+        .grants
+        .values()
+        .filter(|g| !g.is_released())
+        .flat_map(|g| {
+            state
+                .mutations_of_grant(&g.grant.grant_id)
+                .filter_map(|m| m.container().cloned())
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 
 fn view_obs(v: Option<&ContainerView>) -> ProcessObservation {

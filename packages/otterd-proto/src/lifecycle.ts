@@ -73,7 +73,10 @@ export const slotReport = z.object({
       attemptId: wireId,
       ordinal: u32,
       container: wireId.optional(),
+      /** The Engine's latest answer; a pass that cannot ask it reports `unknown`. */
       process: processObservation,
+      /** First observation that saw `process` as it is now; absent when it comes from the journal. */
+      observedSinceUnixMs: u53.optional(),
       mutations: z.array(
         z.object({ mutationId: wireId, verb: engineVerb, state: submissionState }),
       ),
