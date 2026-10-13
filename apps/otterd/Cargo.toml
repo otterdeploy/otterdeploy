@@ -12,11 +12,13 @@ repository = "https://github.com/otterdeploy/otterdeploy"
 
 [workspace.dependencies]
 otterd-anchor = { path = "crates/otterd-anchor" }
+otterd-dns = { path = "crates/otterd-dns" }
 otterd-engine = { path = "crates/otterd-engine" }
 otterd-fence = { path = "crates/otterd-fence" }
 otterd-identity = { path = "crates/otterd-identity" }
 otterd-journal = { path = "crates/otterd-journal" }
 otterd-metrics = { path = "crates/otterd-metrics" }
+otterd-net = { path = "crates/otterd-net" }
 otterd-probe = { path = "crates/otterd-probe" }
 otterd-proto = { path = "crates/otterd-proto" }
 otterd-recover = { path = "crates/otterd-recover" }
