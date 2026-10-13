@@ -38,6 +38,7 @@ export * from "./mesh";
 export * from "./notification";
 export * from "./notification-channel";
 export * from "./orphaned-resource";
+export * from "./otterd";
 export * from "./platform";
 export * from "./project";
 export * from "./platform-metric";
