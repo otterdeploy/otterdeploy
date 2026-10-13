@@ -1,5 +1,11 @@
 import { db } from "@otterdeploy/db";
-import { type Action, type GrantView, type Snapshot, plan } from "@otterdeploy/otterd-cp";
+import {
+  type Action,
+  type GrantView,
+  type Signer,
+  type Snapshot,
+  plan,
+} from "@otterdeploy/otterd-cp";
 import { type ServiceSpec, serviceSpec } from "@otterdeploy/otterd-proto";
 import { log } from "evlog";
 
@@ -26,6 +32,7 @@ import type { GrantRow } from "./store/rows";
 import type { ToolConfig } from "./tools";
 
 import { runFence, sendApply, sendStop, sendUpgrade } from "./node-commands";
+import { publishServing } from "./serving";
 import { adoptGrant, grantRow } from "./store/adopt";
 import { admitGrant, markGrant, markSent, releaseGrant } from "./store/grants";
 import { journal } from "./store/journal";
@@ -43,6 +50,10 @@ export interface ControllerConfig {
   leader: () => Promise<boolean>;
   /** Adopt held attempts; when off, a held grant is stopped and must certify instead. */
   adoption: boolean;
+  /** Signs serving sets. */
+  signer: Signer;
+  installId: string;
+  authorityTerm: () => number;
 }
 
 const STOP_RETRY_MS = 10_000;
@@ -96,6 +107,8 @@ export class Controller {
     const issuing = await this.cfg.mayIssue();
     for (const action of plan(snap.value)) await this.apply(action, issuing);
     this.resendStops(snap.value);
+    const connected = snap.value.nodes.filter((n) => n.connected).map((n) => n.nodeId);
+    await publishServing(this.cfg, connected);
   }
 
   private async apply(a: Action, issuing: boolean): Promise<void> {

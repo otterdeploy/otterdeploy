@@ -47,6 +47,7 @@ export async function sendApply(
         dataClaims: [],
         probeOnly: false,
         ...(adoptsAttempt === null ? {} : { adoptsAttempt }),
+        ...(g.network ? { network: g.network } : {}),
       },
       spec,
     },

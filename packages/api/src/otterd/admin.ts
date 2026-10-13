@@ -10,7 +10,7 @@
  *   POST /admin/nodes/:id/manual-fence      an operator's verified out-of-band fence record
  *   POST /admin/nodes/:id/reenroll          a fenced node rejoins at a new epoch
  *   POST /admin/upgrades                    queue nodes for a rolling otterd upgrade to a signed release
- *   GET  /admin/state                       snapshot and the latest decisions
+ *   GET  /admin/state                       snapshot, held addresses and the latest decisions
  *
  * Every /admin route needs the bearer token; comparison is constant-time.
  */
@@ -26,6 +26,7 @@ import * as z from "zod";
 import { type RegistryConfig, createEnrollToken, enroll } from "./registry";
 import { beginFence, finishFence } from "./store/evidence";
 import { queueUpgrade, setAdmin, setFence } from "./store/nodes";
+import { addressState } from "./store/plan-row";
 import { beginReenroll } from "./store/reenroll";
 import { putService, setPaused } from "./store/services";
 import { loadSnapshot } from "./store/snapshot";
@@ -135,7 +136,12 @@ const routes: Record<string, Handler> = {
       catch: (e) => ({ message: String(e) }),
     });
     if (snap.isErr()) return outcome(snap);
-    return json({ snapshot: snap.value, decisions: decisions.unwrapOr([]) });
+    const addresses = await addressState();
+    return json({
+      snapshot: snap.value,
+      addresses: addresses.isOk() ? addresses.value : { error: addresses.error.message },
+      decisions: decisions.unwrapOr([]),
+    });
   },
 };
 

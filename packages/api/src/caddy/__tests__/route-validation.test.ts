@@ -4,6 +4,7 @@ import type { ProxyRouteInput } from "../builder";
 
 import { PLATFORM } from "../../constants";
 import { composeSwarmServiceName } from "../../stack/compose/to-spec";
+import { buildHttpBlock } from "../builder";
 import { routeValidationError } from "../route-validation";
 
 /**
@@ -60,5 +61,19 @@ describe("route-validation", () => {
         "HTTP upstream is not a managed service identity",
       );
     }
+  });
+
+  test("a service's stable address is dialled only as an IPv4 literal, still behind its identity", () => {
+    const route = { ...httpRoute("od-storefront-web"), upstreamVip: "172.31.0.7" };
+    expect(routeValidationError(route)).toBeNull();
+    expect(buildHttpBlock(route)).toContain("reverse_proxy 172.31.0.7:3000");
+    for (const vip of ["localhost", "172.31.0.7:80", "300.1.1.1", ""]) {
+      expect(routeValidationError({ ...route, upstreamVip: vip })).toBe(
+        "service address is not an IPv4 literal on an HTTP route",
+      );
+    }
+    expect(routeValidationError({ ...httpRoute("excalidraw"), upstreamVip: "172.31.0.7" })).toBe(
+      "HTTP upstream is not a managed service identity",
+    );
   });
 });

@@ -43,6 +43,7 @@ import { toRouteInput } from "./route-input";
 import { routeValidationError } from "./route-validation";
 import { loadControlPlaneEdge } from "./self-heal";
 import { protectionFloorRouteIds } from "./service-protection";
+import { withServiceVips } from "./service-vips";
 
 export type { ReconcileResult } from "./reconciler";
 export type { ProxyRouteInput } from "./builder";
@@ -154,7 +155,7 @@ async function reconcileEdges(rlog?: RequestLogger): Promise<ReconcileResult> {
   log.info({ caddy: { step: "fetch-routes", count: records.length } });
 
   const envProtected = await protectionFloorRouteIds();
-  let routes = records.map((r) => toRouteInput(r, envProtected));
+  let routes = await withServiceVips(records.map((r) => toRouteInput(r, envProtected)));
   const [options, { servable: customCerts, recovered: recoveredCerts }] = await Promise.all([
     loadCaddyOptions(),
     // Write (or heal) every servable uploaded cert's files for the edge
@@ -252,9 +253,9 @@ export interface ProjectCaddyfile {
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
   const envProtected = await protectionFloorRouteIds();
-  let routes = records
-    .filter((r) => r.enabled && !r.disabledByUser)
-    .map((r) => toRouteInput(r, envProtected));
+  let routes = await withServiceVips(
+    records.filter((r) => r.enabled && !r.disabledByUser).map((r) => toRouteInput(r, envProtected)),
+  );
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
     // DB-only read (no file writes). Shows the same `tls` lines reconcile
@@ -303,7 +304,7 @@ async function renderDesiredCaddyfile(opts: {
 }): Promise<ProjectCaddyfile> {
   const records = await listEnabledProxyRoutes();
   const envProtected = await protectionFloorRouteIds();
-  let routes = records.map((r) => toRouteInput(r, envProtected));
+  let routes = await withServiceVips(records.map((r) => toRouteInput(r, envProtected)));
   if (opts.dropUnsafeRoutes) routes = routes.filter((r) => routeValidationError(r) === null);
   const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);
   if (customCerts.length > 0) {

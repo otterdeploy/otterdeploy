@@ -9,23 +9,18 @@
  * before it is sent, under a short-lived capability bound to this session.
  */
 
-import { signLease } from "@otterdeploy/otterd-cp";
 import {
   type Command,
   type ControlFrame,
+  type SignedEnvelope,
   DEFAULT_LIMITS,
   controlFrame,
 } from "@otterdeploy/otterd-proto";
 import { Result } from "better-result";
 import { log } from "evlog";
 
-import {
-  applySlotReports,
-  leaseable,
-  sessionDown,
-  sessionUp,
-  touchEvidence,
-} from "../store/reports";
+import { applySlotReports, sessionDown, sessionUp, touchEvidence } from "../store/reports";
+import { acknowledgeAuthority } from "../store/serving-ack";
 import {
   type Answer,
   Connection,
@@ -36,8 +31,9 @@ import {
   type Socket,
 } from "./connection";
 import { authenticate, welcome } from "./handshake";
+import { answerLease } from "./lease";
 import { recover } from "./recovery";
-import { sendRequest } from "./requests";
+import { sendRequest, settleRequest } from "./requests";
 import { telemetrySink } from "./telemetry";
 
 const HANDSHAKE_FRAMES = new Set(["hello", "welcome", "authenticate", "ready", "reject"]);
@@ -199,7 +195,12 @@ export class Hub {
         return;
       }
       case "leaseRequest":
-        return this.lease(conn, s, frame);
+        return answerLease(conn, s, frame, this.cfg);
+      case "authorityAck": {
+        const freed = await acknowledgeAuthority(s.node.nodeId, frame, this.cfg.now());
+        if (freed.isOk() && freed.value > 0) this.cfg.wake();
+        return;
+      }
       case "telemetry": {
         const { type: _, ...batch } = frame;
         const ack = await this.telemetry(batch);
@@ -207,47 +208,25 @@ export class Hub {
         return;
       }
       case "response":
-        conn.waiting.get(frame.id)?.({
-          kind: "outcome",
-          duplicate: frame.duplicate,
-          outcome: frame.outcome,
-        });
-        conn.waiting.delete(frame.id);
-        return;
       case "requestRefused":
-        conn.waiting.get(frame.id)?.({ kind: "refused", error: frame.error });
-        conn.waiting.delete(frame.id);
+        settleRequest(conn, frame);
         return;
       default:
         if (HANDSHAKE_FRAMES.has(frame.type)) this.drop(conn, `${frame.type} after ready`);
     }
   }
 
-  private async lease(
-    conn: Connection,
-    s: Session,
-    frame: Extract<ControlFrame, { type: "leaseRequest" }>,
-  ): Promise<void> {
-    if (
-      frame.nodeEpoch !== s.node.nodeEpoch ||
-      frame.incarnation !== s.incarnation ||
-      frame.bootId !== s.bootId
-    ) {
-      return;
-    }
-    const grants = await leaseable(s.node.nodeId, s.incarnation, frame.grants);
-    if (grants.isErr()) return;
-    const renewal = signLease(this.cfg.signer, {
-      installId: this.cfg.installId,
-      nodeId: s.node.nodeId,
-      nodeEpoch: s.node.nodeEpoch,
-      authorityTerm: this.cfg.authorityTerm(),
-      bootId: s.bootId,
-      incarnation: s.incarnation,
-      nonce: frame.nonce,
-      grants: grants.value,
-    });
-    conn.send({ type: "lease", renewal });
+  /** The live control session of a node, if it has one. */
+  sessionOf(nodeId: string): string | null {
+    return this.sessions.get(nodeId)?.session?.sessionId ?? null;
+  }
+
+  /** Push a signed authority document on the node's session; false if none is up. */
+  pushAuthority(nodeId: string, document: SignedEnvelope): boolean {
+    const conn = this.sessions.get(nodeId);
+    if (!conn?.session) return false;
+    conn.send({ type: "authority", document });
+    return true;
   }
 
   /**

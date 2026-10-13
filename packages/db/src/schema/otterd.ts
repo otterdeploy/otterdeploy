@@ -129,10 +129,16 @@ export const otterdService = pgTable(
     lastSlotUpdatedAt: bigint("last_slot_updated_at", { mode: "number" }),
     /** Highest operation epoch issued for this resource (I2, node high-water). */
     operationEpoch: integer("operation_epoch").notNull().default(0),
+    /** The stable service address of a VIP-mode service with ports; never reused. */
+    vipId: text("vip_id"),
+    vipAddress: text("vip_address"),
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
     updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
-  (t) => [uniqueIndex("otterd_service_name").on(t.serviceName)],
+  (t) => [
+    uniqueIndex("otterd_service_name").on(t.serviceName),
+    uniqueIndex("otterd_service_vip_address").on(t.vipAddress),
+  ],
 );
 
 /** Every normalized specification a service ever had; a rollback is a new revision. */
@@ -159,6 +165,16 @@ export const otterdSlot = pgTable(
   },
   (t) => [primaryKey({ columns: [t.resourceId, t.slotIndex] })],
 );
+
+/** An attempt's scope network, address, resolver, zone and VIP on its node. */
+export interface GrantNetwork {
+  scopeId: string;
+  subnet: string;
+  address: string;
+  resolver: string;
+  zone: string;
+  vip?: { vipId: string; address: string };
+}
 
 /**
  * Start authority for one slot generation on one node epoch and incarnation.
@@ -203,6 +219,10 @@ export const otterdGrant = pgTable(
     heldAttempt: text("held_attempt"),
     /** For an adopting grant: the held attempt it re-binds (same container). */
     adoptsAttempt: text("adopts_attempt"),
+    /** The attempt's place on the node network, as sent in the grant. */
+    network: jsonb("network").$type<GrantNetwork>(),
+    /** When the attempt address went back to the plan (freed, or held for peers). */
+    networkReleasedAt: bigint("network_released_at", { mode: "number" }),
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
   },
   (t) => [

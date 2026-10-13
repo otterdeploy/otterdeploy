@@ -10,6 +10,7 @@ import { type Layout, validateLayout } from "./layout";
 import { type AddressPlan, emptyPlan } from "./state";
 
 export * from "./addr";
+export * from "./attempt";
 export * from "./errors";
 export * from "./layout";
 export * from "./nodes";

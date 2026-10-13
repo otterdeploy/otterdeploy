@@ -194,6 +194,7 @@ function generatedReach(
     ...routes.flatMap((route) => [
       // The route's own upstream, already held to route-validation.ts.
       `${route.upstreamHost}:${route.upstreamPort}`,
+      ...(route.upstreamVip ? [`${route.upstreamVip}:${route.upstreamPort}`] : []),
       ...(route.customCert ? [route.customCert.certPath, route.customCert.keyPath] : []),
     ]),
   ]);

@@ -3,7 +3,7 @@ import { signCapability } from "@otterdeploy/otterd-cp";
  * One command over a live session: record it, sign a capability bound to
  * this session, send it, and wait for the answer or the timeout.
  */
-import { type Command, encodeCommand } from "@otterdeploy/otterd-proto";
+import { type Command, type ControlFrame, encodeCommand } from "@otterdeploy/otterd-proto";
 import { Result } from "better-result";
 
 import type { Answer, Connection, HubConfig, RequestOptions, Session } from "./connection";
@@ -72,4 +72,17 @@ export async function sendRequest(
         : "failed";
   await answerCommand(opts.opId, state, { answer: a }, cfg.now());
   return Result.ok(a);
+}
+
+/** A node's answer to a request settles whoever is waiting for it. */
+export function settleRequest(
+  conn: Connection,
+  frame: Extract<ControlFrame, { type: "response" | "requestRefused" }>,
+): void {
+  conn.waiting.get(frame.id)?.(
+    frame.type === "response"
+      ? { kind: "outcome", duplicate: frame.duplicate, outcome: frame.outcome }
+      : { kind: "refused", error: frame.error },
+  );
+  conn.waiting.delete(frame.id);
 }
