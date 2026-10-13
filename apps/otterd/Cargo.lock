@@ -1229,10 +1229,13 @@ dependencies = [
 name = "otterd-net"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "otterd-proto",
  "proptest",
+ "rustix",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
 ]
 
