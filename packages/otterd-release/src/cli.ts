@@ -1,15 +1,18 @@
 /**
  * otterd release manifests from the command line.
  *
- *   manifest       --version V --binary ARCH=FILE… --protocol MIN-MAX
+ *   manifest       --version V --binary [NAME:]ARCH=FILE… --protocol MIN-MAX
  *                  --journal-format N --min-rollback V [--issued-at MS] --out PAYLOAD
  *   signing-input  --payload PAYLOAD --out FILE      bytes an offline key signs
  *   sign           --payload PAYLOAD --seed-file FILE --out RELEASE
  *                  (FILE holds the base64 32-byte Ed25519 seed)
  *   assemble       --payload PAYLOAD --public-key B64 --signature-file FILE --out RELEASE
  *                  (FILE holds the 64-byte signature, raw or base64)
- *   verify         --release RELEASE --keys KEYS [--binary ARCH=FILE…] [--at MS]
+ *   verify         --release RELEASE --keys KEYS [--binary [NAME:]ARCH=FILE…] [--at MS]
  *                  (KEYS is a release key set, as pinned on nodes)
+ *
+ * NAME defaults to `otterd`; list every binary of the release (otterd,
+ * otterd-guard, otterd-dns, otterd-net, otterd-recover) for each arch.
  *
  * `sign` is the release job's path, with the seed from its secret store;
  * `signing-input` + `assemble` is the offline path, for a key that never
@@ -64,8 +67,10 @@ const write = (path: string, data: string | Uint8Array) => Bun.write(path, data)
 async function binaries() {
   return Promise.all(
     (values.binary ?? []).map(async (spec) => {
-      const [arch = "", file = ""] = spec.split("=", 2);
-      return { arch, bytes: await read(file) };
+      // `name:arch=FILE`, or `arch=FILE` for the otterd binary itself.
+      const [target = "", file = ""] = spec.split("=", 2);
+      const [name, arch = ""] = target.includes(":") ? target.split(":", 2) : [undefined, target];
+      return { ...(name ? { name } : {}), arch, bytes: await read(file) };
     }),
   );
 }
@@ -118,7 +123,8 @@ async function command(name: string | undefined): Promise<Result<string, string>
       const keys = releaseKeySet.parse(await json(need("keys")));
       const at = values.at ? Number(values.at) : Temporal.Now.instant().epochMilliseconds;
       return verifyRelease(release, keys, at, await binaries()).map(
-        (m) => `release ${m.version} verifies (${m.artifacts.map((a) => a.arch).join(", ")})`,
+        (m) =>
+          `release ${m.version} verifies (${m.artifacts.map((a) => `${a.name ?? "otterd"}:${a.arch}`).join(", ")})`,
       );
     }
     default:
