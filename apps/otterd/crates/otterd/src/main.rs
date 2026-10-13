@@ -706,6 +706,12 @@ fn supervise_platform(node: Arc<Node>, platform: Arc<Platform>, recovery: bool) 
                 }
                 Err(e) => {
                     tracing::error!(error = %e, "platform boot blocked; retrying");
+                    if let Ok(mut g) = node.gate.lock() {
+                        *g = TenantGate {
+                            open: false,
+                            reason: format!("platform blocked: {e}"),
+                        };
+                    }
                     tokio::time::sleep(Duration::from_secs(10)).await;
                 }
             }
@@ -827,7 +833,7 @@ async fn start_platform(
             .identity
             .map(|i| i.recovery_key)
             .ok_or_else(|| fail("no node identity".into()))?;
-        let platform = open_platform(
+        let platform = match open_platform(
             &args.paths,
             recovery_key,
             node.engine.boot_id().clone(),
@@ -835,7 +841,22 @@ async fn start_platform(
             false,
         )
         .await
-        .map_err(fail)?;
+        {
+            Ok(p) => p,
+            Err(e) => {
+                // A missing or unreadable bootstrap journal is recovery, not a
+                // reason to restart in a loop: stay up, serve status, keep the
+                // tenant gate closed and say why.
+                tracing::error!(error = %e, "platform cannot boot");
+                if let Ok(mut g) = node.gate.lock() {
+                    *g = TenantGate {
+                        open: false,
+                        reason: format!("platform blocked: {e}"),
+                    };
+                }
+                return Ok(None);
+            }
+        };
         let platform = Arc::new(platform);
         supervise_platform(
             Arc::clone(node),
