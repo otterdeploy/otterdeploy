@@ -115,7 +115,7 @@ export async function ensurePartitionsAhead(now: number): Promise<Result<number,
 const partitionRow = z.object({ name: z.string() });
 
 /** Partitions of `spec` with their start (ms), oldest first; throws on a driver error. */
-async function readPartitions(
+export async function readPartitions(
   executor: Executor,
   spec: PartitionSpec,
 ): Promise<Array<{ name: string; start: number }>> {
