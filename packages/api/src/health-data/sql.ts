@@ -50,6 +50,10 @@ export function toDbError(cause: unknown): HealthDbError {
   return new HealthDbError({ message, code: sqlStateOf(cause) });
 }
 
+/** Serialization failure or deadlock: the transaction may simply be retried. */
+export const isRetryable = (error: HealthDbError): boolean =>
+  error.code === "40001" || error.code === "40P01";
+
 /**
  * Rows of a raw `execute` result, parsed (never cast). bun-sql returns a plain
  * row array; a `{ rows }` shape is tolerated for other drivers.
