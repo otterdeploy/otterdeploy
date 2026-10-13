@@ -2,12 +2,14 @@ import type { NodeEnrollmentId, OrganizationId, UserId } from "@otterdeploy/shar
 
 import { db } from "@otterdeploy/db";
 import { nodeEnrollment } from "@otterdeploy/db/schema";
+import { env } from "@otterdeploy/env/server";
 import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 import { and, desc, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 
 import type { EnrollmentRole } from "./enrollment-credential";
 
+import { otterdJoin } from "../../otterd/join";
 import { hashEnrollmentCredential, parseEnrollmentCredential } from "./enrollment-credential";
 import { rotateSwarmJoinCredential } from "./enrollment-rotation";
 import { getSwarmJoinTokens } from "./join-tokens";
@@ -99,6 +101,13 @@ export async function redeemNodeEnrollment(credential: string) {
     });
   if (!redeemed) return null;
 
+  // otterd runtime: the host joins through the otterd control plane with a
+  // single-use otterd token instead of a Swarm join token.
+  if (env.DEPLOY_RUNTIME === "otterd") {
+    const joined = await otterdJoin(redeemed.role);
+    return joined.isOk() ? { ...redeemed, kind: "otterd" as const, otterd: joined.value } : null;
+  }
+
   const tokens = await getSwarmJoinTokens();
   const joinToken = redeemed.role === "manager" ? tokens.manager : tokens.worker;
   if (joinToken === UNKNOWN || tokens.managerAddr === UNKNOWN) return null;
@@ -119,7 +128,7 @@ export async function redeemNodeEnrollment(credential: string) {
     )
     .limit(1);
   if (!stillActive) return null;
-  return { ...redeemed, joinToken, managerAddr: tokens.managerAddr };
+  return { ...redeemed, kind: "swarm" as const, joinToken, managerAddr: tokens.managerAddr };
 }
 
 export async function revokeNodeEnrollment(input: {
@@ -171,6 +180,8 @@ export async function completeNodeEnrollment(credential: string): Promise<boolea
     )
     .returning({ role: nodeEnrollment.role });
   if (!claimed) return false;
+  // An otterd token is single-use already; there is no shared join secret.
+  if (env.DEPLOY_RUNTIME === "otterd") return true;
 
   try {
     await rotateSwarmJoinCredential(claimed.role);

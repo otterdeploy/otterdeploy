@@ -8,7 +8,7 @@ import {
 import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
 
-import { buildNodeEnrollmentScript } from "./enrollment-script";
+import { buildNodeEnrollmentScript, buildOtterdEnrollmentScript } from "./enrollment-script";
 
 const WINDOW_MS = 60_000;
 const MAX_ATTEMPTS = 10;
@@ -88,12 +88,15 @@ export async function redeemNodeEnrollmentHandler(c: Context): Promise<Response>
   // that credential to an attacker-controlled origin.
   const origin = await resolveCanonicalWebOrigin(env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL);
   const completeUrl = `${origin}/api/node-enrollments/${redeemed.id}/complete`;
-  const script = buildNodeEnrollmentScript({
-    joinToken: redeemed.joinToken,
-    managerAddr: redeemed.managerAddr,
-    completeUrl,
-    credential,
-  });
+  const script =
+    redeemed.kind === "otterd"
+      ? buildOtterdEnrollmentScript({ join: redeemed.otterd, completeUrl, credential })
+      : buildNodeEnrollmentScript({
+          joinToken: redeemed.joinToken,
+          managerAddr: redeemed.managerAddr,
+          completeUrl,
+          credential,
+        });
 
   auditMachineAction(c, pathId, "node-enrollment.redeem", "success");
   return c.text(script, 200, {

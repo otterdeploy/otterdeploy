@@ -363,6 +363,11 @@ export const env = createEnv({
     // Swarm required. `swarm` is opt-in for scaling across nodes (replicas,
     // overlay networking). See docs/designs/runtime.md.
     DEPLOY_RUNTIME: z.enum(["docker", "swarm", "otterd"]).default("docker"),
+    // otterd runtime: where nodes dial the otterd control plane, as written
+    // into .env by the installer. Printed into the node enroll command.
+    OTTERD_CP_CONTROL_URL: z.string().startsWith("wss://").optional(),
+    // The install edge serving install.sh and otterd releases.
+    OTTERDEPLOY_GET_ORIGIN: z.url().default("https://get.otterdeploy.com"),
 
     // ─── Platform self-updater (packages/api/src/routers/system) ────────────
     // The image tag the compose stack booted with — written into .env by the
