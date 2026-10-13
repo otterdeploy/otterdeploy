@@ -306,6 +306,10 @@ async fn run(
             let grace = stop_grace_ms.map(|ms| Duration::from_millis(ms.get()));
             node.stop(grant_id, reason, &cap.op_id, grace).await
         }
+        Command::WorkloadReleaseAdoption {
+            grant_id,
+            restart_policy,
+        } => node.release_adoption(grant_id, restart_policy).await,
         Command::WorkloadInspect { .. } => {
             node.observe().await;
             Ok(CommandResult::Slots {

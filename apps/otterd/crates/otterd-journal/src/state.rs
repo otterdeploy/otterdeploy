@@ -1261,11 +1261,20 @@ impl NodeState {
                 attempt_id,
             } => {
                 // `held` stays: compaction re-records it before the adoption.
+                let mut container = None;
                 if let Some(g) = self.grants.get_mut(grant_id) {
                     g.adopted_by = Some(by_grant.clone());
+                    if g.attempts.first() == Some(attempt_id) {
+                        container.clone_from(&g.adopted_container);
+                    }
                 }
                 if let Some(g) = self.grants.get_mut(by_grant) {
                     g.attempts.push(attempt_id.clone());
+                    // A container adopted in place stays bound to whichever
+                    // grant holds its attempt.
+                    if container.is_some() {
+                        g.adopted_container = container;
+                    }
                 }
                 if let Some(a) = self.attempts.get_mut(attempt_id) {
                     a.grant_id = by_grant.clone();

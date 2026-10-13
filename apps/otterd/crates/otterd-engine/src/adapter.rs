@@ -16,7 +16,7 @@ use otterd_proto::ids::{
     AttemptId, BootId, ContainerRef, GrantId, Incarnation, MutationId, Sha256Hex, SlotRef,
 };
 use otterd_proto::journal::{EngineOutcome, MutationRecord, Record, WorkloadClass};
-use otterd_proto::lifecycle::{EngineVerb, ProcessObservation};
+use otterd_proto::lifecycle::{EngineRestartPolicy, EngineVerb, ProcessObservation};
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 use std::collections::BTreeMap;
@@ -80,6 +80,27 @@ pub enum EngineOp {
         container: ContainerRef,
         name: String,
     },
+    /// `POST /containers/{id}/update` with a `RestartPolicy` body (see
+    /// [`restart_policy_body`]).
+    UpdateRestartPolicy {
+        container: ContainerRef,
+        name: String,
+        body: serde_json::Value,
+    },
+}
+
+/// The Engine's update body for a restart policy.
+#[must_use]
+pub fn restart_policy_body(policy: &EngineRestartPolicy) -> serde_json::Value {
+    let (name, retries) = match policy {
+        EngineRestartPolicy::No => ("no", 0),
+        EngineRestartPolicy::Always => ("always", 0),
+        EngineRestartPolicy::UnlessStopped => ("unless-stopped", 0),
+        EngineRestartPolicy::OnFailure {
+            maximum_retry_count,
+        } => ("on-failure", *maximum_retry_count),
+    };
+    serde_json::json!({"RestartPolicy": {"Name": name, "MaximumRetryCount": retries}})
 }
 
 impl EngineOp {
@@ -94,6 +115,7 @@ impl EngineOp {
             Self::Remove { .. } => EngineVerb::Remove,
             Self::Pause { .. } => EngineVerb::Pause,
             Self::Unpause { .. } => EngineVerb::Unpause,
+            Self::UpdateRestartPolicy { .. } => EngineVerb::UpdateRestartPolicy,
         }
     }
 
@@ -107,7 +129,8 @@ impl EngineOp {
             | Self::Kill { name, .. }
             | Self::Remove { name, .. }
             | Self::Pause { name, .. }
-            | Self::Unpause { name, .. } => name,
+            | Self::Unpause { name, .. }
+            | Self::UpdateRestartPolicy { name, .. } => name,
         }
     }
 
@@ -121,7 +144,8 @@ impl EngineOp {
             | Self::Kill { container, .. }
             | Self::Remove { container, .. }
             | Self::Pause { container, .. }
-            | Self::Unpause { container, .. } => Some(container),
+            | Self::Unpause { container, .. }
+            | Self::UpdateRestartPolicy { container, .. } => Some(container),
         }
     }
 
@@ -174,6 +198,13 @@ impl EngineOp {
                 Method::POST,
                 format!("/containers/{container}/unpause"),
                 None,
+            ),
+            Self::UpdateRestartPolicy {
+                container, body, ..
+            } => (
+                Method::POST,
+                format!("/containers/{container}/update"),
+                Some(body),
             ),
             Self::Remove { container, .. } => (
                 Method::DELETE,
@@ -255,12 +286,13 @@ pub fn classify(verb: EngineVerb, resp: &EngineResponse) -> Classification {
             StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND | StatusCode::CONFLICT,
         )
         | (
-            EngineVerb::Start | EngineVerb::Restart,
+            EngineVerb::Start | EngineVerb::Restart | EngineVerb::UpdateRestartPolicy,
             StatusCode::BAD_REQUEST | StatusCode::CONFLICT,
         )
         | (EngineVerb::Remove | EngineVerb::Pause | EngineVerb::Unpause, StatusCode::CONFLICT) => {
             refused(resp)
         }
+        (EngineVerb::UpdateRestartPolicy, StatusCode::OK) => Terminal(EngineOutcome::Updated),
         (EngineVerb::Pause, StatusCode::NO_CONTENT) => Terminal(EngineOutcome::Paused),
         (EngineVerb::Unpause, StatusCode::NO_CONTENT) => Terminal(EngineOutcome::Unpaused),
         (EngineVerb::Start, StatusCode::NO_CONTENT) => Terminal(EngineOutcome::Started),
