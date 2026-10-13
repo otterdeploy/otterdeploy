@@ -19,6 +19,7 @@ otterd-proto = { path = "crates/otterd-proto" }
 otterd-sys = { path = "crates/otterd-sys" }
 
 base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
 bytes = "1"
 crc32c = "0.6"
 ed25519-dalek = { version = "2", features = ["std"] }
@@ -45,6 +46,7 @@ tokio = { version = "1", features = [
   "io-util",
 ] }
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Test-only.
 proptest = "1"

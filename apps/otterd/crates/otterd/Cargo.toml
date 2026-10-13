@@ -8,8 +8,19 @@ license.workspace = true
 publish.workspace = true
 repository.workspace = true
 
+[[bin]]
+name = "otterd"
+path = "src/main.rs"
+
 [dependencies]
+bytes.workspace = true
+clap.workspace = true
 ed25519-dalek.workspace = true
+hex.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper = { workspace = true, features = ["server"] }
+hyper-util.workspace = true
 otterd-engine.workspace = true
 otterd-journal.workspace = true
 otterd-proto.workspace = true
@@ -17,8 +28,12 @@ otterd-sys.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["signal"] }
 tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true
