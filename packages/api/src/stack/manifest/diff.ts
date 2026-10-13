@@ -88,6 +88,9 @@ export interface CurrentService {
    *  behaviour rather than silently pruning nothing. */
   envSource?: Record<string, string | undefined>;
   publicEnabled: boolean;
+  /** Live public domains (its proxy routes). Optional so a caller that has not
+   *  loaded them diffs no domains rather than staging every declared one. */
+  domains?: string[];
   // Per-service PR-preview opt-in (serviceResource.previewsEnabled). Diffed
   // only when the manifest declares `previews`: see diffGitBinding.
   previewsEnabled: boolean;
