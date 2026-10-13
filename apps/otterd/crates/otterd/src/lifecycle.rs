@@ -11,7 +11,7 @@ use crate::watchdog::Progress;
 use ed25519_dalek::SigningKey;
 use otterd_engine::{
     AdapterError, ContainerView, EngineAdapter, EngineOp, HandleError, MutationSpec, SubmitResult,
-    TransportError, object_name,
+    TransportError, object_name, restart_policy_body,
 };
 use otterd_journal::{Blocker, HoldPhase, NodeState, Submission};
 use otterd_proto::U53;
@@ -25,8 +25,9 @@ use otterd_proto::journal::{
     AttemptReason, BackingIdentity, EngineOutcome, HoldRecord, Record, Retirement, WorkloadClass,
 };
 use otterd_proto::lifecycle::{
-    AttemptReport, BarrierEvidence, ContainerObservation, GrantState, HeldAttempt, MutationReport,
-    ProcessObservation, SlotGrant, SlotReport, StopCertificate, SubmissionState,
+    AttemptReport, BarrierEvidence, ContainerObservation, EngineRestartPolicy, GrantState,
+    HeldAttempt, MutationReport, ProcessObservation, SlotGrant, SlotReport, StopCertificate,
+    SubmissionState,
 };
 use otterd_proto::spec::{MountKind, ServiceSpec};
 use otterd_sys::host::container_cgroup;
@@ -531,10 +532,10 @@ impl Node {
         if let Some(attempt) = &grant.adopts_attempt {
             return self.adopt(grant, attempt, op_id, spec_digest).await;
         }
-        if grant.adopts_container.is_some() {
-            return Err(NodeError::Refused(
-                "adopting a container is not implemented by this daemon yet".into(),
-            ));
+        if let Some(container) = &grant.adopts_container {
+            return self
+                .adopt_container(grant, container, op_id, spec_digest)
+                .await;
         }
         let lock = self.slot_lock(&grant.slot)?;
         let _slot_guard = lock.lock().await;
@@ -610,6 +611,159 @@ impl Node {
             grant_id: grant.grant_id.clone(),
             attempt_id: attempt,
         })
+    }
+
+    /// Take over a running container started outside otterd, in place: its
+    /// process keeps running and otterd never restarts it. The control plane
+    /// already set its restart policy to `no`.
+    async fn adopt_container(
+        &self,
+        grant: &SlotGrant,
+        container: &ContainerRef,
+        op_id: &OpId,
+        spec_digest: Sha256Hex,
+    ) -> Result<CommandResult, NodeError> {
+        let lock = self.slot_lock(&grant.slot)?;
+        let _slot_guard = lock.lock().await;
+        let Some(v) = self.engine.inspect(container.as_str()).await? else {
+            return Err(NodeError::Refused(format!(
+                "container {container} does not exist"
+            )));
+        };
+        if v.id != container.as_str() {
+            return Err(NodeError::Refused(
+                "adoptsContainer must name the full container id".into(),
+            ));
+        }
+        if v.restart_policy != "no" {
+            return Err(NodeError::Refused(format!(
+                "container {container} has restart policy {:?}, not \"no\"",
+                v.restart_policy
+            )));
+        }
+        if v.labels.contains_key(otterd_engine::LABEL_MANAGED) {
+            return Err(NodeError::Refused(
+                "container is managed by otterd; adopt its attempt instead".into(),
+            ));
+        }
+        let attempt = AttemptId::mint().map_err(|e| NodeError::Internal(e.to_string()))?;
+        let journal = self.engine.journal();
+        journal
+            .append(Record::GrantAccepted {
+                grant: grant.clone(),
+                spec_digest,
+                op_id: op_id.clone(),
+            })
+            .await?;
+        journal
+            .append(Record::QuarantineCleared {
+                slot: grant.slot.clone(),
+                grant_id: grant.grant_id.clone(),
+                incarnation: self.incarnation.clone(),
+            })
+            .await?;
+        journal
+            .append(Record::ContainerAdopted {
+                grant_id: grant.grant_id.clone(),
+                attempt_id: attempt.clone(),
+                container: container.clone(),
+            })
+            .await?;
+        let _ = self.observe_container(container).await;
+        tracing::info!(grant = %grant.grant_id, %container, "container adopted in place");
+        Ok(CommandResult::Applied {
+            grant_id: grant.grant_id.clone(),
+            attempt_id: attempt,
+        })
+    }
+
+    /// Give an adopted container back without stopping it: restore its
+    /// restart policy, then release the grant. Idempotent.
+    pub async fn release_adoption(
+        &self,
+        grant_id: &GrantId,
+        policy: &EngineRestartPolicy,
+    ) -> Result<CommandResult, NodeError> {
+        let lock = self.slot_lock(&self.grant_slot(grant_id)?)?;
+        let _slot_guard = lock.lock().await;
+        let state = self.state()?;
+        let g = state
+            .grants
+            .get(grant_id)
+            .ok_or_else(|| NodeError::Refused(format!("unknown grant {grant_id}")))?;
+        let (Some(container), Some(attempt)) = (g.adopted_container.clone(), g.attempts.first())
+        else {
+            return Err(NodeError::Refused(format!(
+                "grant {grant_id} did not adopt a container"
+            )));
+        };
+        let released = CommandResult::AdoptionReleased {
+            grant_id: grant_id.clone(),
+            container: container.clone(),
+        };
+        if g.adoption_released.is_some() {
+            return Ok(released);
+        }
+        if g.is_released() || g.start_revoked() {
+            return Err(NodeError::Refused(format!(
+                "grant {grant_id} is released or being stopped"
+            )));
+        }
+        let still_adopted = |s: &NodeState| {
+            s.grants
+                .get(grant_id)
+                .filter(|g| !g.is_released() && !g.start_revoked())
+                .map(|_| ())
+                .ok_or_else(|| "the adoption ended".to_owned())
+        };
+        let r = self
+            .engine
+            .submit(
+                MutationSpec {
+                    class: WorkloadClass::Tenant,
+                    slot: g.grant.slot.clone(),
+                    grant_id: Some(grant_id.clone()),
+                    attempt_id: attempt.clone(),
+                    op: EngineOp::UpdateRestartPolicy {
+                        container: container.clone(),
+                        name: container.to_string(),
+                        body: restart_policy_body(policy),
+                    },
+                },
+                still_adopted,
+            )
+            .await?;
+        match r {
+            SubmitResult::Settled {
+                outcome: EngineOutcome::Updated,
+                ..
+            } => {}
+            SubmitResult::Settled {
+                outcome: EngineOutcome::Absent,
+                ..
+            } => {
+                return Err(NodeError::Refused(format!(
+                    "container {container} is gone; stop the grant instead"
+                )));
+            }
+            other => {
+                return Err(NodeError::Internal(format!(
+                    "restart policy update unresolved: {other:?}"
+                )));
+            }
+        }
+        self.engine
+            .journal()
+            .append(Record::AdoptionReleased {
+                grant_id: grant_id.clone(),
+                restart_policy: policy.clone(),
+            })
+            .await?;
+        if let Ok(mut map) = self.observations.lock() {
+            map.remove(&container);
+        }
+        tracing::info!(grant = %grant_id, %container, "adopted container given back");
+        Ok(released)
     }
 
     fn check_gate(&self) -> Result<(), NodeError> {
@@ -845,6 +999,11 @@ impl Node {
         // Every container any mutation could have produced, including creates
         // whose answer was lost (found by their immutable attempt name).
         let mut targets: BTreeMap<String, (AttemptId, String)> = BTreeMap::new();
+        if let Some(g) = state.grants.get(grant)
+            && let (Some(c), Some(a)) = (&g.adopted_container, g.attempts.first())
+        {
+            targets.insert(c.to_string(), (a.clone(), c.to_string()));
+        }
         for m in state.mutations_of_grant(grant) {
             let attempt = m.record.attempt_id.clone();
             if let Some(id) = m.container() {
@@ -1149,17 +1308,7 @@ impl Node {
         let Some(attempt) = g.attempts.last().cloned() else {
             return Ok(false);
         };
-        let Some(container) = state.mutations_of_grant(grant).find_map(|m| {
-            match (&m.record.attempt_id, &m.submission) {
-                (
-                    a,
-                    Submission::Settled {
-                        outcome: EngineOutcome::Created { container },
-                    },
-                ) if a == &attempt => Some(container.clone()),
-                _ => None,
-            }
-        }) else {
+        let Some(container) = state.attempt_container(&attempt) else {
             return Ok(false);
         };
         let Some(v) = self.engine.inspect(container.as_ref()).await? else {
@@ -1324,7 +1473,7 @@ impl Node {
                             .mutations_of_grant(&g.grant.grant_id)
                             .filter(|m| &m.record.attempt_id == a)
                             .collect();
-                        let container = mutations.iter().find_map(|m| m.container().cloned());
+                        let container = state.attempt_container(a);
                         let (process, since) =
                             self.attempt_process(g, container.as_ref(), &mutations);
                         AttemptReport {
@@ -1479,6 +1628,7 @@ fn live_containers(state: &NodeState) -> BTreeSet<ContainerRef> {
             state
                 .mutations_of_grant(&g.grant.grant_id)
                 .filter_map(|m| m.container().cloned())
+                .chain(g.adopted_container.clone())
                 .collect::<Vec<_>>()
         })
         .collect()
