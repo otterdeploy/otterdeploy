@@ -353,10 +353,10 @@ async fn scope_networks_resolve_and_forward_inside_one_environment() {
     }
     node.reconcile().await.unwrap();
 
-    // Inside A. The short alias is answered by the Engine's embedded resolver
-    // from the endpoint alias (the container address); the zone name is
-    // forwarded to the environment's resolver and answers the VIP.
-    assert_eq!(resolve(&web, "db").as_deref(), Some(DB_IP));
+    // Inside A. Every name goes to the environment's resolver: the short
+    // name through the search domain, so it means the same on every node and
+    // always answers the VIP, never a container address.
+    assert_eq!(resolve(&web, "db").as_deref(), Some(VIP));
     assert_eq!(resolve(&web, "db.a.otd.internal").as_deref(), Some(VIP));
     assert_eq!(
         resolve(&web, "web.a.otd.internal").as_deref(),

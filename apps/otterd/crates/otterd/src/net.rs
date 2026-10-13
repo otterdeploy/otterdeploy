@@ -8,8 +8,9 @@
 //! - one Docker bridge network per scope, `otd-<scope>` on the Linux bridge
 //!   `otb-<8 hex of sha256(scope)>`, created once and never reused when an
 //!   existing network of that name disagrees;
-//! - the container on it, with its address and aliases, the environment's
-//!   resolver as its only DNS server and the zone as its search domain.
+//! - the container on it, with its address, the environment's resolver as
+//!   its only DNS server and the zone as its search domain. Aliases are
+//!   names in the resolver's view, never Engine aliases.
 //!
 //! After every change, and on every reconcile pass, [`NodeNet::sync`] derives
 //! the rest from the journal and the endpoint book:
@@ -283,9 +284,11 @@ impl Place {
         Ok(())
     }
 
-    /// Put a create body on this network: address, aliases, resolver and
-    /// search domain.
-    pub fn attach(&self, body: &mut Value, aliases: &[String]) {
+    /// Put a create body on this network: address, resolver and search
+    /// domain. No Engine aliases: every name, short or qualified, resolves
+    /// through the environment's resolver, so it means the same on every
+    /// node and always reaches the VIP.
+    pub fn attach(&self, body: &mut Value) {
         let net = self.network();
         let Some(obj) = body.as_object_mut() else {
             return;
@@ -299,7 +302,6 @@ impl Place {
             "NetworkingConfig".into(),
             json!({"EndpointsConfig": {net: {
                 "IPAMConfig": {"IPv4Address": self.address.to_string()},
-                "Aliases": aliases,
             }}}),
         );
     }
@@ -575,10 +577,12 @@ pub fn groups(locals: &[Local]) -> BTreeMap<VipId, Group> {
     out
 }
 
-/// The owner local attempts are published under. Local admission never
-/// leaves this node, so it needs no fleet identity, and a re-enrollment
-/// cannot strand its backends under an old owner.
-const LOCAL: &str = "local";
+/// Who local attempts are published under: this node, as journalled.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Owner {
+    pub install_id: InstallId,
+    pub node_id: NodeId,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -623,10 +627,11 @@ impl Forwarder {
     pub fn advance(
         &mut self,
         groups: &BTreeMap<VipId, Group>,
+        who: &Owner,
         now_ms: u64,
     ) -> Result<bool, vip::Refused> {
-        let owner = NodeId::new(LOCAL).map_err(|_| vip::Refused::Suspended)?;
-        let install = InstallId::new(LOCAL).map_err(|_| vip::Refused::Suspended)?;
+        let owner = who.node_id.clone();
+        let install = who.install_id.clone();
         let ids: BTreeSet<VipId> = groups
             .keys()
             .chain(self.installed.keys())
@@ -972,7 +977,11 @@ impl NodeNet {
         if let Err(e) = self.sync_responder(&mut inner, &locals) {
             errors.push(format!("resolver: {e}"));
         }
-        if let Err(e) = self.sync_vips(&mut inner, &locals, now_ms) {
+        let owner = state.identity.as_ref().map(|i| Owner {
+            install_id: i.install_id.clone(),
+            node_id: i.node_id.clone(),
+        });
+        if let Err(e) = self.sync_vips(&mut inner, &locals, owner.as_ref(), now_ms) {
             errors.push(format!("vip: {e}"));
         }
         if errors.is_empty() {
@@ -1022,14 +1031,21 @@ impl NodeNet {
         Ok(())
     }
 
-    fn sync_vips(&self, inner: &mut Inner, locals: &[Local], now_ms: u64) -> Result<(), String> {
+    fn sync_vips(
+        &self,
+        inner: &mut Inner,
+        locals: &[Local],
+        owner: Option<&Owner>,
+        now_ms: u64,
+    ) -> Result<(), String> {
         let groups = groups(locals);
         if groups.is_empty() && inner.forwarder.is_empty() {
             return Ok(());
         }
+        let owner = owner.ok_or("no node identity to publish attempts under")?;
         let changed = inner
             .forwarder
-            .advance(&groups, now_ms)
+            .advance(&groups, owner, now_ms)
             .map_err(|e| e.to_string())?;
         let drains = inner.forwarder.take_drains(now_ms);
         if changed || !drains.is_empty() {
@@ -1126,12 +1142,22 @@ mod tests {
         other["IPAM"]["Config"][0]["Subnet"] = json!("172.24.0.64/27");
         assert!(p.check_existing(&other).unwrap_err().contains("subnets"));
         let mut c = json!({"HostConfig": {}});
-        p.attach(&mut c, &["db".into()]);
+        p.attach(&mut c);
         assert_eq!(c["HostConfig"]["Dns"], json!(["172.30.228.1"]));
         assert_eq!(c["HostConfig"]["DnsSearch"], json!(["a.otd.internal"]));
         let e = &c["NetworkingConfig"]["EndpointsConfig"]["otd-scope-a"];
         assert_eq!(e["IPAMConfig"]["IPv4Address"], "172.24.0.34");
-        assert_eq!(e["Aliases"], json!(["db"]));
+        assert!(
+            e.get("Aliases").is_none(),
+            "names come from the resolver only"
+        );
+    }
+
+    fn owner() -> Owner {
+        Owner {
+            install_id: "inst".parse().unwrap(),
+            node_id: "node-1".parse().unwrap(),
+        }
     }
 
     fn local(grant: &str, addr: &str, vip: Option<Ipv4Addr>, alias: &str, live: bool) -> Local {
@@ -1188,7 +1214,7 @@ mod tests {
         let mut f = Forwarder::default();
         let db = local("db", "172.24.0.34", Some(VIP), "db", true);
         let live = groups(std::slice::from_ref(&db));
-        assert!(f.advance(&live, 10_000).unwrap());
+        assert!(f.advance(&live, &owner(), 10_000).unwrap());
         let ttl = Duration::from_millis(ELIGIBILITY_TTL_MS);
         assert_eq!(
             (
@@ -1198,7 +1224,7 @@ mod tests {
             (DB, ttl)
         );
         // Unchanged admission installs nothing; freshness is renewed.
-        assert!(!f.advance(&live, 20_000).unwrap());
+        assert!(!f.advance(&live, &owner(), 20_000).unwrap());
         assert_eq!(f.views(20_000)[0].backends[0].remaining, ttl);
         assert!(
             f.views(20_000 + ELIGIBILITY_TTL_MS)[0].backends.is_empty(),
@@ -1206,7 +1232,7 @@ mod tests {
         );
         // Revoked: withdrawn once, the VIP stays and refuses.
         let gone = Local { live: false, ..db };
-        assert!(f.advance(&groups(&[gone]), 30_000).unwrap());
+        assert!(f.advance(&groups(&[gone]), &owner(), 30_000).unwrap());
         assert!(f.views(30_000)[0].backends.is_empty());
         assert_eq!(f.take_drains(30_000), [(VIP, DB)]);
         assert!(f.take_drains(30_000).is_empty());
@@ -1214,7 +1240,7 @@ mod tests {
         let mut back: Forwarder =
             serde_json::from_str(&serde_json::to_string(&f).unwrap()).unwrap();
         back.receiver = back.receiver.restarted(40_000, false);
-        assert!(back.advance(&live, 40_000).is_err());
+        assert!(back.advance(&live, &owner(), 40_000).is_err());
         let nft = render_nft(
             &back.views(50_000),
             &BTreeSet::from(["172.24.0.32/27".parse().unwrap()]),
@@ -1280,6 +1306,21 @@ mod tests {
             rec.calls.lock().unwrap().is_empty(),
             "no network grants, nothing touched"
         );
+        let key = otterd_proto::envelope::PublicKey::from_bytes([1; 32]);
+        state.identity = Some(otterd_journal::IdentityState {
+            install_id: "inst".parse().unwrap(),
+            node_id: "node-1".parse().unwrap(),
+            node_epoch: otterd_proto::U53::ONE,
+            key_epoch: otterd_proto::U53::ONE,
+            identity_key_id: key.key_id(),
+            cp_keys: vec![],
+            recovery_key: key,
+            host: otterd_proto::identity::HostBinding {
+                machine_id: "m".into(),
+                product_uuid: None,
+                provider: None,
+            },
+        });
         let db: GrantId = "db".parse().unwrap();
         n.record(&db, local("db", "172.24.0.34", Some(VIP), "db", true).entry)
             .unwrap();
