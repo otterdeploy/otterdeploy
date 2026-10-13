@@ -26,7 +26,10 @@
 //!   `otterd-net` agent unit, which the daemon installs and keeps running,
 //!   applies it together with the VIP hairpin, guards every container
 //!   interface on a scope bridge and persists the generation that
-//!   `otterd-firewall.service` loads at boot, before Docker.
+//!   `otterd-firewall.service` loads at boot, before Docker. A grant with a
+//!   network is refused while that agent is not active
+//!   ([`NodeNet::require_agent`]): without it nothing isolates the scope, so
+//!   the apply fails closed instead of starting the container.
 //!
 //! Scope bridges run in the Engine's `nat-unprotected` gateway mode: the
 //! Engine adds no filter of its own, so isolation between environments is
@@ -1154,6 +1157,26 @@ impl NodeNet {
         Ok(())
     }
 
+    /// Refuse unless the `otterd-net` agent is active. It applies the packet
+    /// policy that isolates scopes, so no container may join a scope network
+    /// without it. Its unit is `Type=notify`: active means it applied the
+    /// policy and keeps it in place.
+    pub fn require_agent(&self) -> Result<(), String> {
+        let unit = self.cfg.net_unit.as_str();
+        let out = self
+            .host
+            .runner
+            .run("systemctl", &["is-active", unit], None, DEFAULT_TIMEOUT)
+            .map_err(|e| format!("{unit}: {e}"))?;
+        if out.success() {
+            return Ok(());
+        }
+        match out.stdout.trim() {
+            "" => Err(format!("{unit} is not active")),
+            state => Err(format!("{unit} is {state}")),
+        }
+    }
+
     /// Write the packet policy when it differs from the file, the empty one
     /// once the last scope is gone, and keep the agent running while there
     /// is a scope: checked after every change and every refresh period.
@@ -1192,6 +1215,7 @@ mod tests {
     use super::*;
     use otterd_net::cmd::{CmdError, Output};
     use otterd_proto::lifecycle::GrantVip;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
     const VIP: Ipv4Addr = Ipv4Addr::new(172, 31, 0, 10);
@@ -1371,11 +1395,13 @@ mod tests {
         );
     }
 
-    /// A host where every command succeeds; records the calls.
+    /// A host where every command succeeds, except that the agent unit is
+    /// not active unless `agent_active`; records the calls.
     #[derive(Debug, Default)]
     struct Recorder {
         calls: Mutex<Vec<String>>,
         dummy: Mutex<Option<String>>,
+        agent_active: AtomicBool,
     }
 
     impl Runner for Recorder {
@@ -1403,7 +1429,13 @@ mod tests {
                         &["9: otd-dns0 inet ", cidr, " scope global\n"].concat();
                 }
                 ["-o", "-4", "addr", ..] => out.stdout = dummy.clone().unwrap_or_default(),
-                ["is-active", ..] => out.code = Some(3),
+                ["is-active", ..] if self.agent_active.load(Ordering::SeqCst) => {
+                    out.stdout = "active\n".into();
+                }
+                ["is-active", ..] => {
+                    out.code = Some(3);
+                    out.stdout = "failed\n".into();
+                }
                 _ => {}
             }
             Ok(out)
@@ -1521,6 +1553,23 @@ mod tests {
             !inner.forwarder.is_empty() && inner.book.is_empty(),
             "withdrawal kept, book pruned"
         );
+    }
+
+    #[test]
+    fn a_scope_container_waits_for_the_policy_agent() {
+        let dir = tempfile::tempdir().unwrap();
+        let rec = Arc::new(Recorder::default());
+        let n = NodeNet::open(test_config(dir.path()), rec.clone(), 1_000).unwrap();
+        let e = n.require_agent().unwrap_err();
+        assert_eq!(e, "otterd-net.service is failed");
+        assert!(
+            rec.calls
+                .lock()
+                .unwrap()
+                .contains(&"systemctl is-active otterd-net.service".to_owned())
+        );
+        rec.agent_active.store(true, Ordering::SeqCst);
+        n.require_agent().unwrap();
     }
 
     #[test]

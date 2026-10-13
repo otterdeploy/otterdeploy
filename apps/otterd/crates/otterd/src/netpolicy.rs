@@ -19,7 +19,11 @@
 //!   (a DNAT'd flow whose original destination is in the VIP range). Both
 //!   otterd's filter and its chain at the head of `DOCKER-USER` accept it,
 //!   so neither the Engine's isolation nor an installer guard drops it.
-//!   With no edge bridge or no VIP backend, neither rule exists.
+//!   With no edge bridge or no VIP backend, neither rule exists. Edge flows
+//!   reach a backend masqueraded to its scope's gateway address, not the
+//!   proxy's own: a backend that trusts proxies by address must trust its
+//!   scope gateway, and applications take the client address from the
+//!   proxy's `X-Forwarded-For`.
 //!
 //! The scope bridges run in the Engine's `nat-unprotected` gateway mode, so
 //! the Engine's own filter adds nothing: what reaches a scope, its resolver
