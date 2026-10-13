@@ -17,6 +17,8 @@ import { journal } from "./journal";
 
 interface Health {
   attempts: string[];
+  /** The newest attempt's container, when the node reported one. */
+  container: string | null;
   running: boolean;
   failed: boolean;
   /** The attempt a restarted node held for this grant, awaiting adoption or a stop. */
@@ -53,6 +55,7 @@ function healthOf(r: SlotReport): Health {
   const held = r.held?.attemptId ?? null;
   return {
     attempts: r.attempts.map((a) => a.attemptId),
+    container: newest?.container ?? null,
     running: !held && (state === "running" || unobserved),
     failed: !held && (state === "exited" || (newest !== undefined && createRefused(newest))),
     held,
@@ -65,7 +68,7 @@ const isDistinctFromSession = (sessionId: string) =>
   sql`${otterdNode.reportedSession} is distinct from ${sessionId}`;
 type HealthUpdate = Pick<
   GrantRow,
-  "attempts" | "runningSince" | "failed" | "state" | "heldAttempt"
+  "attempts" | "runningSince" | "failed" | "state" | "heldAttempt" | "container"
 >;
 
 /** The grant's new health columns, or null when the report changes nothing. */
@@ -80,7 +83,10 @@ function nextHealth(g: GrantRow, h: Health, now: number): HealthUpdate | null {
     runningSince === g.runningSince &&
     h.failed === g.failed &&
     state === g.state;
-  return same ? null : { attempts, runningSince, failed: h.failed, state, heldAttempt: h.held };
+  const container = h.container ?? g.container;
+  return same && container === g.container
+    ? null
+    : { attempts, runningSince, failed: h.failed, state, heldAttempt: h.held, container };
 }
 
 /** Apply one node's slot reports. Reports for grants of other nodes are ignored. */
