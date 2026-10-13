@@ -49,7 +49,10 @@ vi.mock("@otterdeploy/db", () => ({
     update: () => ({ set: mocks.updateSet.mockReturnValue({ where: () => Promise.resolve() }) }),
   },
 }));
-vi.mock("../manifest-applied-snapshot", () => ({ snapshotAfterApply: mocks.snapshotAfterApply }));
+vi.mock("../manifest-applied-snapshot", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../manifest-applied-snapshot")>()),
+  snapshotAfterApply: mocks.snapshotAfterApply,
+}));
 vi.mock("../queries/resource", () => ({
   resolveProjectEnvironmentScope: () =>
     Promise.resolve({ environmentId: idSchema.environment.parse("env_1"), isMain: true }),
@@ -57,7 +60,6 @@ vi.mock("../queries/resource", () => ({
 vi.mock("../manifest-state", () => ({
   loadCurrentState: () => Promise.resolve({ services: {}, databases: {}, composes: {} }),
 }));
-vi.mock("../manifest", () => ({ loadAppliedSnapshot: () => Promise.resolve(null) }));
 vi.mock("../project-event-bus", () => ({ publishManifestChanged: vi.fn() }));
 vi.mock("../../../lib/escape-hatch", () => ({ writeProjectEscapeHatch: () => Promise.resolve() }));
 vi.mock("../manifest-apply-git", () => ({ enqueueGitBuild: vi.fn() }));
@@ -130,9 +132,16 @@ describe("an apply that throws part-way", () => {
   it("writes the applied snapshot anyway, so phase 1's work is recorded", async () => {
     await expect(apply()).rejects.toThrow();
 
-    expect(mocks.snapshotAfterApply).toHaveBeenCalledOnce();
+    // Once for the project-wide snapshot, once for the environment's own.
+    expect(mocks.snapshotAfterApply).toHaveBeenCalledTimes(2);
     expect(mocks.updateSet).toHaveBeenCalledWith(
       expect.objectContaining({ lastAppliedManifest: expect.anything() }),
+    );
+    expect(mocks.updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appliedManifest: expect.anything(),
+        appliedManifestResolved: expect.anything(),
+      }),
     );
   });
 

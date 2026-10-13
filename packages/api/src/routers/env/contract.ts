@@ -14,8 +14,13 @@ const basePath = "/envs";
 
 const envSchema = createSelectSchema(environment)
   // Claim bookkeeping for standalone rows, not part of what an
-  // environment IS: the client never reads or sets it.
-  .omit({ claimableByOrganizationId: true })
+  // environment IS: the client never reads or sets it. The applied manifests
+  // are the server's own record for diffing, and too large to ride every list.
+  .omit({
+    claimableByOrganizationId: true,
+    appliedManifest: true,
+    appliedManifestResolved: true,
+  })
   .extend({
     id: environmentIdField,
     projectId: projectIdField.nullable(),

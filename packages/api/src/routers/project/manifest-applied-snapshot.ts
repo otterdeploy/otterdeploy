@@ -98,33 +98,6 @@ export function snapshotAfterApply(args: {
 }
 
 /**
- * The manifest a discard should leave behind.
- *
- * Wholesale (no `only`): the manifest becomes the applied snapshot. The
- * original behaviour, "forget every staged edit". Selective: only the named
- * resources revert, so dropping one unwanted change keeps the rest staged.
- */
-export function manifestAfterDiscard(args: {
-  manifest: Manifest | null;
-  applied: Manifest | null;
-  only?: readonly SkippedResource[];
-}): Manifest | null {
-  if (!args.only?.length) return args.applied;
-  const target = args.manifest ?? args.applied;
-  // Both sides null: nothing is staged and nothing was ever applied, so every
-  // revert is a delete on an empty map and the manifest stays absent. This
-  // used to return the bare sections `{ services: {}, databases: {}, composes:
-  // {} }`, which has no `project` and so fails manifestSchema: once stored,
-  // every later read was a ZodError 500.
-  if (!target) return null;
-  return revertEntries({
-    target,
-    source: args.applied,
-    resources: args.only,
-  });
-}
-
-/**
  * For each named resource, replace its entry in `target` with whatever `source`
  * says about it. Deleting the entry when `source` doesn't mention it.
  *
@@ -132,9 +105,8 @@ export function manifestAfterDiscard(args: {
  *
  *   - {@link snapshotAfterApply}: revert the resources an apply skipped, so the
  *     persisted snapshot describes what actually landed.
- *   - selective discard: revert the resources the operator ticked off, so one
- *     unwanted change can be dropped without throwing away the rest of the
- *     pending edits (`discardManifest`'s `only`).
+ *   - `documentAfterApply`: the same, on the unresolved document an
+ *     environment records (manifest-environment-baseline.ts).
  *
  * In both cases `source` is the last successfully-applied manifest, i.e. the
  * deployed truth, and "revert" means "forget I proposed this".

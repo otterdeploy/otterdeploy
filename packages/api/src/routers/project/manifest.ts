@@ -24,7 +24,7 @@ import {
   ManifestVersionConflictError,
   ProjectNotFoundError,
 } from "./errors";
-import { manifestAfterDiscard, type SkippedResource } from "./manifest-applied-snapshot";
+import { forgetAppliedEverywhere } from "./manifest-environment-applied";
 import { publishManifestChanged } from "./project-event-bus";
 
 type OrgId = OrganizationId;
@@ -128,31 +128,6 @@ async function repairPoisonedManifest(scope: ProjectScope, version: number): Pro
   }
 }
 
-/**
- * The last successfully-applied snapshot, or null when this project has never
- * applied one.
- *
- * The diff needs it to tell a DELETE from an unmanaged resource: absent from
- * the manifest AND absent from here means the manifest never owned it, so its
- * disappearance is not something to stage a destructive change from. See
- * `wasDeclaredBefore` in stack/manifest/diff.ts.
- *
- * Safe-parsed, not asserted: a snapshot written by an older schema must read
- * as "no snapshot" (nothing is deletable) rather than throw on the read path
- * of every diff.
- */
-export async function loadAppliedSnapshot(scope: ProjectScope): Promise<Manifest | null> {
-  const [row] = await db
-    .select({ lastApplied: project.lastAppliedManifest })
-    .from(project)
-    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
-    .limit(1)
-    // Fresh, like loadManifest: the diff's notion of "already applied".
-    .$withCache(false);
-  const parsed = manifestSchema.safeParse(row?.lastApplied);
-  return parsed.success ? parsed.data : null;
-}
-
 /** Optimistic-locked write. Bump only when expectedVersion matches. */
 export async function saveManifest(
   scope: ProjectScope,
@@ -204,52 +179,6 @@ export async function saveManifest(
   return Result.err(
     new ManifestProjectMismatchError({ expected: current.slug, received: input.manifest.project }),
   );
-}
-
-/**
- * Discard pending manifest changes. Revert to the last successfully
- * applied snapshot. `lastAppliedManifest` is updated by applyManifest
- * on every successful reconcile; this just copies it back into
- * `manifest`, bumping the version counter so concurrent CLI/UI sessions
- * see a fresh state.
- *
- * If the project has never been applied, the manifest is cleared (null).
- */
-export async function discardManifest(
-  scope: ProjectScope,
-  /** Discard only these; omitted = discard every pending change. */
-  only?: readonly SkippedResource[],
-): Promise<Result<{ version: number }, ProjectNotFoundError>> {
-  const [row] = await db
-    .select({ manifest: project.manifest, lastApplied: project.lastAppliedManifest })
-    .from(project)
-    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
-    .limit(1);
-  if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
-
-  const nextManifest = manifestAfterDiscard({
-    // jsonb columns are typed as free-form JSON; storedManifest is the
-    // boundary that turns them back into Manifest, same as loadManifest (a
-    // poisoned or unreadable value discards as absent instead of throwing).
-    manifest: storedManifest(row.manifest).manifest,
-    applied: storedManifest(row.lastApplied).manifest,
-    only,
-  });
-
-  const [updatedRow] = await db
-    .update(project)
-    .set({
-      manifest: nextManifest,
-      manifestVersion: sql`${project.manifestVersion} + 1`,
-    })
-    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
-    .returning({ version: project.manifestVersion });
-
-  if (!updatedRow) {
-    return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
-  }
-  publishManifestChanged(scope.projectId);
-  return Result.ok({ version: updatedRow.version });
 }
 
 /**
@@ -312,6 +241,7 @@ async function removeFromManifest(
     return { ...m, [collection]: rest };
   };
 
+  await forgetAppliedEverywhere(scope.projectId, collection, name);
   const nextManifest = strip(row.manifest);
   const nextApplied = strip(row.lastApplied);
   // Nothing referenced this resource: leave the version untouched.
@@ -348,8 +278,23 @@ export async function resolvedManifest(
   scope: ProjectScope,
   environment?: string,
 ): Promise<Result<Manifest | null, ProjectNotFoundError | ManifestMergeError>> {
+  const loaded = await documentAndResolved(scope, environment);
+  return loaded.map((value) => value?.resolved ?? null);
+}
+
+/** The saved document and the same document resolved for `environment`. */
+export async function documentAndResolved(
+  scope: ProjectScope,
+  environment?: string,
+): Promise<
+  Result<
+    { document: Manifest; resolved: Manifest } | null,
+    ProjectNotFoundError | ManifestMergeError
+  >
+> {
   const row = await loadManifest(scope);
   if (row.isErr()) return Result.err(row.error);
-  if (!row.value.manifest) return Result.ok(null);
-  return resolveEnvironment(row.value.manifest, environment);
+  const document = row.value.manifest;
+  if (!document) return Result.ok(null);
+  return resolveEnvironment(document, environment).map((resolved) => ({ document, resolved }));
 }

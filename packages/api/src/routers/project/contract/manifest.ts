@@ -147,12 +147,15 @@ const manifestApplyOutput = z.object({
   ),
 });
 
-// discard: undo pending changes. Resets the saved manifest to the
-// most recent successfully-applied snapshot (the `lastAppliedManifest`
-// column on the project row). After discard, manifest == current state
-// and the pending-changes bar disappears.
+// discard: undo the pending changes ONE environment shows. Each resource the
+// environment's diff lists (or each in `only`) goes back to how that
+// environment last applied it. After discard that environment's bar is
+// empty; other environments keep what they applied.
 const manifestDiscardInput = z.object({
   projectId: getProjectInput.shape.id,
+  // The environment whose bar is being discarded, as passed to `diff`.
+  // Omitted = the project's main environment.
+  environment: z.string().min(1).optional(),
   // Discard only these resources, leaving every other staged edit alone.
   // Omitted = discard everything, the original behaviour. Lets the pending-
   // changes bar drop one unwanted change without also throwing away the
@@ -275,6 +278,16 @@ const placementUnsupported = {
   },
 };
 
+/** The plan would delete a resource nothing in the manifest removed from this
+ *  environment. Refused before anything runs: a faulty plan must not be able
+ *  to delete a running service. The message names the resources. */
+const untracedDelete = {
+  UNTRACED_DELETE: {
+    status: 409,
+    message: "Refusing to delete a resource the manifest did not remove" as const,
+  },
+};
+
 const noManifest = {
   NO_MANIFEST: {
     status: 409,
@@ -302,7 +315,13 @@ export const manifestContractSlice = {
     .input(manifestDiffInput)
     .output(manifestDiffOutput),
   apply: oc
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...noManifest, ...invalidOverride })
+    .errors({
+      ...projectNotFoundErrors,
+      ...unknownEnvironment,
+      ...noManifest,
+      ...invalidOverride,
+      ...untracedDelete,
+    })
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
@@ -315,12 +334,13 @@ export const manifestContractSlice = {
       ...placementUnsupported,
       ...invalidOverride,
       ...projectMismatch,
+      ...untracedDelete,
     })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)
     .output(manifestApplyChangeOutput),
   discard: oc
-    .errors(projectNotFoundErrors)
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...invalidOverride })
     .meta({ path: `${basePath}/{projectId}/manifest/discard`, tag, method: "POST" })
     .input(manifestDiscardInput)
     .output(manifestDiscardOutput),

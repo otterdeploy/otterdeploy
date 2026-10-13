@@ -3,12 +3,25 @@ import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { environment, project, resource } from "@otterdeploy/db/schema/project";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, getColumns } from "drizzle-orm";
 
 import { removeEnvDir } from "../../lib/data-dir";
 type OrgId = OrganizationId;
 
-export type EnvironmentRecord = InferSelectModel<typeof environment>;
+/** An environment as the env endpoints read and answer it. The applied
+ *  manifests are the manifest planner's own record (see
+ *  manifest-environment-applied.ts) and can be large, so they are not read
+ *  on every list. */
+export type EnvironmentRecord = Omit<
+  InferSelectModel<typeof environment>,
+  "appliedManifest" | "appliedManifestResolved"
+>;
+
+const {
+  appliedManifest: _document,
+  appliedManifestResolved: _resolved,
+  ...environmentColumns
+} = getColumns(environment);
 
 /**
  * Environments scoped to the active organization. Optionally filter by project.
@@ -22,7 +35,7 @@ export async function listEnvsByOrg(
     : eq(project.organizationId, organizationId);
 
   const rows = await db
-    .select({ environment })
+    .select({ environment: environmentColumns })
     .from(environment)
     .innerJoin(project, eq(project.id, environment.projectId))
     .where(conditions)
@@ -36,7 +49,7 @@ export async function getEnvInOrg(input: {
   organizationId: OrgId;
 }): Promise<EnvironmentRecord | undefined> {
   const [row] = await db
-    .select({ environment })
+    .select({ environment: environmentColumns })
     .from(environment)
     .innerJoin(project, eq(project.id, environment.projectId))
     .where(
@@ -61,7 +74,7 @@ export async function createEnvRecord(input: {
   /** Standalone rows only: the org whose `project.create` may claim it. */
   claimableByOrganizationId?: OrgId;
 }): Promise<EnvironmentRecord | undefined> {
-  const [row] = await db.insert(environment).values(input).returning();
+  const [row] = await db.insert(environment).values(input).returning(environmentColumns);
   return row;
 }
 
@@ -128,7 +141,7 @@ export async function updateEnvRecord(input: {
     .update(environment)
     .set(input.patch)
     .where(eq(environment.id, input.environmentId))
-    .returning();
+    .returning(environmentColumns);
   return row;
 }
 
