@@ -2,9 +2,11 @@
  * get.otterdeploy.com. The install edge.
  *
  * Serves the three files a fresh host needs (`install.sh`, `uninstall.sh`,
- * `docker-compose.yml`) plus the `versions.json` manifest that running
- * instances poll for updates. There is no origin server: artifacts live in R2,
- * written only by the `publish-artifacts` job in .github/workflows/images.yml.
+ * `docker-compose.yml`), the `versions.json` manifest that running
+ * instances poll for updates, and otterd release files
+ * (`/otterd/v<version>/…`, see ./otterd-artifact.ts). There is no origin
+ * server: artifacts live in R2, written only by release jobs (the platform
+ * files by `publish-artifacts` in .github/workflows/images.yml).
  *
  * Why this exists rather than pointing people at raw.githubusercontent.com:
  *   1. A stable, brandable URL that survives repo renames and file moves.
@@ -29,6 +31,7 @@ import { installEdgeDataPoint } from "./analytics";
 import { type ArtifactName, isArtifactName } from "./artifact-name";
 import { artifactCacheKey } from "./cache-key";
 import { publicRedirectFor, withArtifactSecurityHeaders } from "./https-redirect";
+import { type OtterdArtifact, otterdArtifact } from "./otterd-artifact";
 
 interface Env {
   ARTIFACTS: R2Bucket;
@@ -117,7 +120,9 @@ export default {
     const response =
       route.kind === "manifest"
         ? await manifest(env)
-        : await artifact(env, route.version, route.name, route.checksum);
+        : route.kind === "otterd"
+          ? await otterdFile(env, route.artifact)
+          : await artifact(env, route.version, route.name, route.checksum);
 
     if (response.ok && request.method === "GET") {
       ctx.waitUntil(cache.put(cacheKey, response.clone()));
@@ -133,6 +138,7 @@ type Route =
   | { kind: "unknown" }
   | { kind: "manifest" }
   | { kind: "edge-probe" }
+  | { kind: "otterd"; artifact: OtterdArtifact }
   | { kind: "artifact"; version: string | null; name: ArtifactName; checksum: boolean };
 
 /**
@@ -143,6 +149,8 @@ function parse(pathname: string): Route {
   if (pathname === "/" || pathname === "") return { kind: "root" };
   if (pathname === `/${MANIFEST_KEY}`) return { kind: "manifest" };
   if (pathname === "/edge-probe") return { kind: "edge-probe" };
+  const otterd = otterdArtifact(pathname);
+  if (otterd) return { kind: "otterd", artifact: otterd };
 
   const segments = pathname.replace(/^\/+/, "").split("/");
   if (segments.length > 2) return { kind: "unknown" };
@@ -190,6 +198,20 @@ async function artifact(
   if (checksum) return text("Not found\n", 404);
 
   return fallback(env, version, name);
+}
+
+/** An otterd release file, from R2 only: build output has no repo fallback. */
+async function otterdFile(env: Env, a: OtterdArtifact): Promise<Response> {
+  const object = await env.ARTIFACTS.get(a.key);
+  if (!object) return text("Not found\n", 404);
+  return new Response(object.body, {
+    headers: headers({
+      "Content-Type": a.contentType,
+      "Cache-Control": IMMUTABLE_CACHE,
+      ETag: object.httpEtag,
+      "X-Otterdeploy-Version": a.version,
+    }),
+  });
 }
 
 /**
@@ -270,10 +292,20 @@ async function manifest(env: Env): Promise<Response> {
  */
 async function record(request: Request, env: Env, route: Route): Promise<void> {
   if (!env.ANALYTICS || !env.ANALYTICS_HASH_KEY) return;
-  if (route.kind !== "artifact" && route.kind !== "manifest") return;
+  if (route.kind !== "artifact" && route.kind !== "manifest" && route.kind !== "otterd") return;
 
-  const file = route.kind === "manifest" ? MANIFEST_KEY : route.name;
-  const version = route.kind === "manifest" ? "" : (route.version ?? "latest");
+  const file =
+    route.kind === "manifest"
+      ? MANIFEST_KEY
+      : route.kind === "otterd"
+        ? `otterd/${route.artifact.file}`
+        : route.name;
+  const version =
+    route.kind === "manifest"
+      ? ""
+      : route.kind === "otterd"
+        ? route.artifact.version
+        : (route.version ?? "latest");
   const point = await installEdgeDataPoint(request, file, version, env.ANALYTICS_HASH_KEY);
   if (point) env.ANALYTICS.writeDataPoint(point);
 }
