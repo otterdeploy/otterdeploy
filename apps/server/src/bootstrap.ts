@@ -208,12 +208,14 @@ async function bootstrap() {
       }),
   });
 
+  // The otterd runtime schedules through its own control plane; a Swarm on
+  // this host would only be state nothing uses.
   const swarm = await Result.tryPromise({
-    try: () => initializeSwarm(),
+    try: () => (env.DEPLOY_RUNTIME === "otterd" ? Promise.resolve(null) : initializeSwarm()),
     catch: (cause) => new BootstrapError({ step: "swarm", cause }),
   });
   swarm.match({
-    ok: () => log.info({ startup: { step: "swarm", status: "ready" } }),
+    ok: (r) => log.info({ startup: { step: "swarm", status: r === null ? "skipped" : "ready" } }),
     err: (err) =>
       log.error({
         startup: { step: "swarm", status: "failed" },
