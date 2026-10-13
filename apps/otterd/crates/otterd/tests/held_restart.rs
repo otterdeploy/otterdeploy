@@ -314,6 +314,41 @@ async fn held_across_restart_then_adopted_or_stopped() {
         .status()
         .unwrap();
     assert!(ready.success(), "Postgres serves after adoption");
+
+    // A pause the killed process sent lands only now, after the adoption
+    // (modelled by pausing it from outside). The report never calls a
+    // frozen process running, and the next pass unpauses it.
+    Command::new("docker")
+        .args(["pause", &pg_id])
+        .status()
+        .unwrap();
+    b.observe().await;
+    let report = b
+        .slot_reports()
+        .unwrap()
+        .into_iter()
+        .find(|r| r.grant_id == gid("g-pg-2"))
+        .unwrap();
+    assert!(
+        matches!(
+            report.attempts[0].process,
+            otterd_proto::lifecycle::ProcessObservation::Paused { .. }
+        ),
+        "a frozen container is reported paused: {:?}",
+        report.attempts[0].process
+    );
+    b.reconcile().await.unwrap();
+    let (id, started, paused, status) = container("hr-pg").unwrap();
+    assert_eq!(
+        (id.as_str(), started.as_str(), paused, status.as_str()),
+        (pg_id.as_str(), pg_started.as_str(), false, "running"),
+        "a pause nobody holds is undone, without a restart"
+    );
+    let ready = Command::new("docker")
+        .args(["exec", &pg_id, "pg_isready", "-U", "postgres"])
+        .status()
+        .unwrap();
+    assert!(ready.success(), "Postgres serves again");
     // A second adoption of the same attempt is refused.
     let digest = Sha256Hex::digest(b"x");
     assert!(
