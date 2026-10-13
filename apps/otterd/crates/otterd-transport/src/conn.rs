@@ -253,6 +253,7 @@ pub(crate) async fn serve<H: Handler>(
     mut telemetry_rx: mpsc::Receiver<SampleBatch>,
     published: &watch::Sender<Option<SessionInfo>>,
     shutdown: &mut watch::Receiver<bool>,
+    still_current: impl Fn() -> bool,
 ) -> Ended {
     let limits = session.limits;
     let max = usize::try_from(limits.max_frame_bytes).unwrap_or(usize::MAX);
@@ -281,7 +282,17 @@ pub(crate) async fn serve<H: Handler>(
             }
             Some((id, frame)) = done_rx.recv() => {
                 active.remove(&id);
-                out.write(&frame).await
+                match out.write(&frame).await {
+                    // The request changed what the handshake bound (a
+                    // re-enrollment): answer it, then connect again so the
+                    // next session carries the new identity.
+                    Ok(()) if !still_current() => {
+                        tracing::info!("node identity changed; reconnecting");
+                        let _ = out.sink.send(Message::Close(None)).await;
+                        Err(Ended::Reconnect)
+                    }
+                    other => other,
+                }
             }
             Some(queued) = control_rx.recv() => match queued {
                 Outgoing::Frame(frame) => out.write(&frame).await,
