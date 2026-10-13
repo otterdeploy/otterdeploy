@@ -10,6 +10,8 @@
 //! small traits so they can be exercised on real hosts.
 
 pub mod addr;
+pub mod cmd;
+pub mod firewall;
 pub mod ids;
 pub mod ipam;
 pub mod policy;

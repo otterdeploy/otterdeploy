@@ -12,7 +12,10 @@ repository.workspace = true
 otterd-proto.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
 serde_json.workspace = true
+rustix = { workspace = true, features = ["event", "fs", "net"] }
 
 [dev-dependencies]
 proptest.workspace = true
