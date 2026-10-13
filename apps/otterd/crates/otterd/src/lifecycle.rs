@@ -650,8 +650,8 @@ impl Node {
         let attempt = self.begin_attempt(grant, AttemptReason::Initial, 1).await?;
         let staged = self.stage_binds(spec, &grant.slot, &attempt).await?;
         let mut body = container::create_body(spec, &staged)?;
-        if let Some((p, e)) = &place {
-            p.attach(&mut body, &e.aliases);
+        if let Some((p, _)) = &place {
+            p.attach(&mut body);
         }
         let name = object_name(&grant.slot, &attempt);
         let mutation = |op| MutationSpec {
