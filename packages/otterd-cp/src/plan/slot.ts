@@ -27,9 +27,34 @@ function releaseRetired(p: Pass, svc: ServiceView, slotIndex: number): GrantView
 }
 
 /**
- * 2. Stop stale copies where the node can answer. After a node restart, boot
- * quarantine stops and certifies exclusive grants; the stop collects the
- * certificate. Shared grants keep running and are re-bound in `progress`.
+ * After a node restart, the node keeps the paused exclusive attempts of its
+ * earlier incarnation and asks for each (`held`). The slot's newest grant, still
+ * wanted, never revoked and never moved, is adopted: re-bound on the same
+ * node and container under a fresh grant. Anything else held (a revoked or
+ * superseded grant) is stopped in `stopStale` and must certify.
+ */
+function adoptHeld(
+  p: Pass,
+  svc: ServiceView,
+  slotIndex: number,
+  live: readonly GrantView[],
+): boolean {
+  const current = live.filter((g) => !g.orphan);
+  const newest = current.reduce<GrantView | undefined>(
+    (a, b) => (a === undefined || b.generation > a.generation ? b : a),
+    undefined,
+  );
+  if (!newest || newest.held === null || !p.restarted(newest)) return false;
+  if (newest.revoked || newest.stopRequested || p.liveness(newest.nodeId) !== "ready") return false;
+  p.adopt(newest, newest.held.attemptId, "node restarted: adopt the held attempt");
+  p.pending(svc, slotIndex, { code: "adopting", grantId: newest.grantId });
+  return true;
+}
+
+/**
+ * 2. Stop stale copies where the node can answer. After a node restart, an
+ * exclusive grant that was not adopted is stopped and must certify; a shared
+ * one that was not held is re-bound start-first in `progress`.
  */
 function stopStale(p: Pass, live: readonly GrantView[], exclusive: boolean, wanted: boolean): void {
   for (const g of live) {
@@ -86,6 +111,14 @@ export function planSlot(
 ): void {
   const exclusive = svc.spec.lifecycle.exclusive;
   const live = releaseRetired(p, svc, slotIndex);
+  // A restarted node's earlier grants are judged only on its first report
+  // of the new session, which says which of them it holds.
+  const unreported = live.find((g) => p.restarted(g) && !p.nodes.get(g.nodeId)?.reported);
+  if (unreported) {
+    p.pending(svc, slotIndex, { code: "awaiting-report", nodeId: unreported.nodeId });
+    return;
+  }
+  if (wanted && adoptHeld(p, svc, slotIndex, live)) return;
   stopStale(p, live, exclusive, wanted);
   if (!wanted) {
     settleUnwanted(p, svc, slotIndex, live);

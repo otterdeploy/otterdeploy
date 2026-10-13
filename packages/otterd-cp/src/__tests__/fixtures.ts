@@ -25,6 +25,7 @@ export function node(id: string, over: Partial<NodeView> = {}): NodeView {
     allocatable: { nanoCpus: 2_000_000_000, memoryBytes: 4 * GIB },
     lastEvidenceAt: T0,
     connected: true,
+    reported: true,
     fence: null,
     fencing: false,
     peerFreshUntil: null,
@@ -109,6 +110,7 @@ export function grant(
     sentAt: T0 - 60_000,
     runningSince: T0 - 60_000,
     failed: false,
+    held: null,
     ...over,
   };
 }
