@@ -40,6 +40,7 @@ export const VERB_TABLE = {
   "workload.restart": M,
   "workload.stop": M,
   "workload.remove": M,
+  "workload.release-adoption": M,
   "workload.inspect": R,
   "workload.logs": RO,
   "job.run": M,

@@ -10,7 +10,7 @@ import * as z from "zod";
 import { capabilityError, verb } from "./capability";
 import { sha256HexOf, signedEnvelope } from "./envelope";
 import { healthCheck } from "./health";
-import { barrierEvidence, slotGrant, slotReport } from "./lifecycle";
+import { barrierEvidence, engineRestartPolicy, slotGrant, slotReport } from "./lifecycle";
 import { sha256Hex, u16, u32, u53, wireId } from "./primitives";
 import { envVar, serviceSpec } from "./spec";
 
@@ -42,6 +42,7 @@ export const command = z.discriminatedUnion("verb", [
   v("workload.restart", { grantId: wireId, reason: z.string() }),
   v("workload.stop", { grantId: wireId, reason: z.string(), stopGraceMs: u53.optional() }),
   v("workload.remove", { grantId: wireId }),
+  v("workload.release-adoption", { grantId: wireId, restartPolicy: engineRestartPolicy }),
   v("workload.inspect", { resourceId: wireId.optional(), grantIds: z.array(wireId).optional() }),
   v("workload.logs", {
     resourceId: wireId,
@@ -171,6 +172,7 @@ type CommandResultShape =
   | { kind: "slots"; slots: z.infer<typeof slotReport>[] }
   | { kind: "operation"; record: OperationRecordShape }
   | { kind: "stream-opened"; streamId: number }
+  | { kind: "adoption-released"; grantId: string; container: string }
   | { kind: "retired"; mutationCount: number }
   | { kind: "document"; schema: string; body: unknown };
 
@@ -210,6 +212,11 @@ export const commandResult: z.ZodType<CommandResultShape> = z.lazy(() =>
     z.strictObject({ kind: z.literal("slots"), slots: z.array(slotReport) }),
     z.strictObject({ kind: z.literal("operation"), record: operationRecord }),
     z.strictObject({ kind: z.literal("stream-opened"), streamId: u32 }),
+    z.strictObject({
+      kind: z.literal("adoption-released"),
+      grantId: wireId,
+      container: wireId,
+    }),
     z.strictObject({ kind: z.literal("retired"), mutationCount: u32 }),
     z.strictObject({ kind: z.literal("document"), schema: z.string(), body: z.unknown() }),
   ]),

@@ -318,6 +318,8 @@ fn schemas() {
         json!({"verb": "workload.restart", "grantId": "grant_1", "reason": "operator"}),
         json!({"verb": "workload.stop", "grantId": "grant_1", "reason": "rollout", "stopGraceMs": 10000}),
         json!({"verb": "workload.remove", "grantId": "grant_1"}),
+        json!({"verb": "workload.release-adoption", "grantId": "grant_7",
+               "restartPolicy": {"name": "unless-stopped"}}),
         json!({"verb": "workload.inspect", "resourceId": "res_pg"}),
         json!({"verb": "workload.logs", "resourceId": "res_web", "tail": 200, "follow": true,
                "stream": stream(1, "out")}),
@@ -410,6 +412,8 @@ fn schemas() {
                "opId": "op_apply_1", "verb": "workload.apply", "payloadHash": DIGEST,
                "claimedAtUnixMs": 1_791_000_000_000_u64, "outcome": {"status": "accepted"}}}}),
         json!({"status": "completed", "result": {"kind": "stream-opened", "streamId": 4}}),
+        json!({"status": "completed", "result": {"kind": "adoption-released", "grantId": "grant_7",
+               "container": "4f2a9c0d1e3b5a7c9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c5d"}}),
         json!({"status": "completed", "result": {"kind": "retired", "mutationCount": 3}}),
         json!({"status": "completed", "result": {"kind": "done"}}),
         json!({"status": "completed", "result": {"kind": "document", "schema": "otterd.node-details/1",
@@ -527,7 +531,12 @@ fn schemas() {
     adopting["grantId"] = json!("grant_2");
     adopting["generation"] = json!(5);
     adopting["adoptsAttempt"] = json!("att_0123456789abcdef0123456789abcdef");
-    schema_file::<SlotGrant>("SlotGrant", vec![slot_grant(), adopting]);
+    let mut legacy = slot_grant();
+    legacy["grantId"] = json!("grant_7");
+    legacy["generation"] = json!(1);
+    legacy["adoptsContainer"] =
+        json!("4f2a9c0d1e3b5a7c9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c5d");
+    schema_file::<SlotGrant>("SlotGrant", vec![slot_grant(), adopting, legacy]);
     let mut held = slot_report();
     held["held"] = json!({"attemptId": "att_0123456789abcdef0123456789abcdef", "paused": true});
     let mut observed = slot_report();
@@ -893,6 +902,17 @@ fn schemas() {
                 29,
                 json!({"type": "compacted", "throughSeq": 28, "droppedRecords": 1200,
             "priorDigest": DIGEST}),
+            ),
+            entry(
+                30,
+                json!({"type": "containerAdopted", "grantId": "grant_7",
+            "attemptId": "att_00000000000000000000000000000007",
+            "container": "4f2a9c0d1e3b5a7c9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c5d"}),
+            ),
+            entry(
+                31,
+                json!({"type": "adoptionReleased", "grantId": "grant_7",
+            "restartPolicy": {"name": "on-failure", "maximumRetryCount": 5}}),
             ),
         ],
     );

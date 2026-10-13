@@ -126,6 +126,7 @@ fn grant(
         data_claims: vec![],
         probe_only: false,
         adopts_attempt: adopts.cloned(),
+        adopts_container: None,
     }
 }
 

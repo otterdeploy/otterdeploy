@@ -16,7 +16,7 @@ use crate::health::HealthCheck;
 use crate::ids::{
     AttemptId, ContainerRef, DataIdentity, GrantId, OpId, ResourceId, RunId, ScopeId, Sha256Hex,
 };
-use crate::lifecycle::{BarrierEvidence, SlotGrant, SlotReport};
+use crate::lifecycle::{BarrierEvidence, EngineRestartPolicy, SlotGrant, SlotReport};
 use crate::num::{DurationMs, U53, UnixMs};
 use crate::spec::{EnvVar, ServiceSpec};
 use serde::{Deserialize, Serialize};
@@ -106,6 +106,14 @@ pub enum Command {
     },
     #[serde(rename = "workload.remove", rename_all = "camelCase")]
     WorkloadRemove { grant_id: GrantId },
+    /// Give an adopted container back: the grant is released without a stop
+    /// and the container's restart policy is set to `restartPolicy` (its
+    /// value before adoption). The process keeps running.
+    #[serde(rename = "workload.release-adoption", rename_all = "camelCase")]
+    WorkloadReleaseAdoption {
+        grant_id: GrantId,
+        restart_policy: EngineRestartPolicy,
+    },
     #[serde(rename = "workload.inspect", rename_all = "camelCase")]
     WorkloadInspect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -362,6 +370,7 @@ impl Command {
             Self::WorkloadRestart { .. } => Verb::WorkloadRestart,
             Self::WorkloadStop { .. } => Verb::WorkloadStop,
             Self::WorkloadRemove { .. } => Verb::WorkloadRemove,
+            Self::WorkloadReleaseAdoption { .. } => Verb::WorkloadReleaseAdoption,
             Self::WorkloadInspect { .. } => Verb::WorkloadInspect,
             Self::WorkloadLogs { .. } => Verb::WorkloadLogs,
             Self::JobRun { .. } => Verb::JobRun,
@@ -476,6 +485,13 @@ pub enum CommandResult {
     #[serde(rename_all = "camelCase")]
     StreamOpened {
         stream_id: u32,
+    },
+    /// An adopted container was given back, still running, with its
+    /// restart policy restored.
+    #[serde(rename_all = "camelCase")]
+    AdoptionReleased {
+        grant_id: GrantId,
+        container: ContainerRef,
     },
     /// Every earlier Engine submission was retired by the barrier.
     #[serde(rename_all = "camelCase")]

@@ -28,6 +28,11 @@ export const slotGrant = z.strictObject({
   probeOnly: z.boolean(),
   /** Adopt this attempt, held from an earlier node process, instead of starting a new one. */
   adoptsAttempt: wireId.optional(),
+  /**
+   * Adopt this running container (full id), started outside otterd with restart policy `no`,
+   * as the only attempt. Only for a slot that never had a grant on this node.
+   */
+  adoptsContainer: wireId.optional(),
 });
 export type SlotGrant = z.infer<typeof slotGrant>;
 
@@ -50,7 +55,17 @@ export const engineVerb = z.enum([
   "remove",
   "pause",
   "unpause",
+  "update-restart-policy",
 ]);
+
+/** A Docker restart policy, as an adopted container had it before adoption. */
+export const engineRestartPolicy = z.discriminatedUnion("name", [
+  z.strictObject({ name: z.literal("no") }),
+  z.strictObject({ name: z.literal("always") }),
+  z.strictObject({ name: z.literal("unless-stopped") }),
+  z.strictObject({ name: z.literal("on-failure"), maximumRetryCount: u32 }),
+]);
+export type EngineRestartPolicy = z.infer<typeof engineRestartPolicy>;
 
 export const processObservation = z.discriminatedUnion("state", [
   z.strictObject({ state: z.literal("absent") }),

@@ -24,7 +24,7 @@ use crate::ids::{
     AttemptId, BootId, ContainerRef, DataIdentity, GrantId, HoldId, Incarnation, InstallId, KeyId,
     MutationId, NodeId, OpId, ResourceId, SessionId, Sha256Hex, SlotRef, UpdateId,
 };
-use crate::lifecycle::{BarrierEvidence, EngineVerb, SlotGrant};
+use crate::lifecycle::{BarrierEvidence, EngineRestartPolicy, EngineVerb, SlotGrant};
 use crate::num::{U53, UnixMs};
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +86,8 @@ pub enum EngineOutcome {
     Removed,
     Paused,
     Unpaused,
+    /// The restart policy was updated.
+    Updated,
     /// The Engine answered that the object does not exist.
     Absent,
     /// A definitive refusal: the request completed without effect.
@@ -169,6 +171,8 @@ pub enum AttemptReason {
     Restart,
     /// Operator restart through `workload.restart`.
     Manual,
+    /// A running container started outside otterd, adopted in place.
+    AdoptedContainer,
 }
 
 /// Monotonic counters that must survive restarts.
@@ -272,6 +276,21 @@ pub enum Record {
         grant_id: GrantId,
         by_grant: GrantId,
         attempt_id: AttemptId,
+    },
+    /// The grant's only attempt is a running container started outside
+    /// otterd (`SlotGrant::adopts_container`), bound by its immutable id.
+    #[serde(rename_all = "camelCase")]
+    ContainerAdopted {
+        grant_id: GrantId,
+        attempt_id: AttemptId,
+        container: ContainerRef,
+    },
+    /// An adopted container was given back without a stop; the grant is
+    /// released and the container's restart policy restored.
+    #[serde(rename_all = "camelCase")]
+    AdoptionReleased {
+        grant_id: GrantId,
+        restart_policy: EngineRestartPolicy,
     },
     /// Durable start-authority revocation, written before any stop is sent.
     #[serde(rename_all = "camelCase")]

@@ -9,7 +9,7 @@ import { verb } from "./capability";
 import { opOutcome } from "./command";
 import { signedEnvelope } from "./envelope";
 import { hostBinding, trustedKey } from "./identity";
-import { barrierEvidence, engineVerb, slotGrant } from "./lifecycle";
+import { barrierEvidence, engineRestartPolicy, engineVerb, slotGrant } from "./lifecycle";
 import { keyId, publicKey, sha256Hex, slotRef, u16, u32, u53, wireId } from "./primitives";
 
 export const FRAME_HEADER_LEN = 8;
@@ -37,6 +37,7 @@ const engineOutcome = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("removed") }),
   z.strictObject({ kind: z.literal("paused") }),
   z.strictObject({ kind: z.literal("unpaused") }),
+  z.strictObject({ kind: z.literal("updated") }),
   z.strictObject({ kind: z.literal("absent") }),
   z.strictObject({ kind: z.literal("refused"), status: u16, message: z.string() }),
 ]);
@@ -100,12 +101,14 @@ export const journalRecord = z.discriminatedUnion("type", [
     sinceUnixMs: u53,
   }),
   r("grantAdopted", { grantId: wireId, byGrant: wireId, attemptId: wireId }),
+  r("containerAdopted", { grantId: wireId, attemptId: wireId, container: wireId }),
+  r("adoptionReleased", { grantId: wireId, restartPolicy: engineRestartPolicy }),
   r("grantRevoked", { grantId: wireId, reason: z.string() }),
   r("attemptBegun", {
     grantId: wireId,
     attemptId: wireId,
     ordinal: u32,
-    reason: z.enum(["initial", "restart", "manual"]),
+    reason: z.enum(["initial", "restart", "manual", "adopted-container"]),
   }),
   r("mutationIntent", { mutation: mutationRecord }),
   r("mutationSubmitted", {
