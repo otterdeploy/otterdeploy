@@ -1,0 +1,27 @@
+{
+  "name": "@otterdeploy/otterd-release",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "otterd-release": "./src/cli.ts"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/manifest.ts"
+  },
+  "scripts": {
+    "test": "bun test ./src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@otterdeploy/otterd-proto": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
+    "better-result": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

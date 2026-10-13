@@ -459,6 +459,24 @@
         "typescript": "catalog:",
       },
     },
+    "packages/otterd-release": {
+      "name": "@otterdeploy/otterd-release",
+      "version": "0.0.0",
+      "bin": {
+        "otterd-release": "./src/cli.ts",
+      },
+      "dependencies": {
+        "@otterdeploy/otterd-proto": "workspace:*",
+        "@otterdeploy/shared": "workspace:*",
+        "better-result": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@otterdeploy/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/shared": {
       "name": "@otterdeploy/shared",
       "version": "0.0.0",
@@ -1181,6 +1199,8 @@
     "@otterdeploy/otterd-cp": ["@otterdeploy/otterd-cp@workspace:packages/otterd-cp"],
 
     "@otterdeploy/otterd-proto": ["@otterdeploy/otterd-proto@workspace:packages/otterd-proto"],
+
+    "@otterdeploy/otterd-release": ["@otterdeploy/otterd-release@workspace:packages/otterd-release"],
 
     "@otterdeploy/shared": ["@otterdeploy/shared@workspace:packages/shared"],
 
