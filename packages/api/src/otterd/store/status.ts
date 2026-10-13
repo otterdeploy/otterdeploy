@@ -121,6 +121,23 @@ export type Pin = { pinned: false } | { pinned: true; nodeId: string | null; ser
  * node resolves to `nodeId: null`, which the caller refuses rather than
  * running the resource anywhere else.
  */
+/** The newest live node the installer enrolled first: the host the platform and its builder run on. */
+async function primaryNode(): Promise<string | null> {
+  const [primary] = await db
+    .select({ nodeId: otterdNode.nodeId })
+    .from(otterdNode)
+    .where(
+      and(sql`${otterdNode.labels} ->> ${PRIMARY_LABEL} = 'true'`, ne(otterdNode.admin, "retired")),
+    )
+    .orderBy(desc(otterdNode.enrolledAt))
+    .limit(1);
+  return primary?.nodeId ?? null;
+}
+
+/** The node the builder `--load`s images into, which alone holds a registry-less image. */
+export const buildHostNode = (): Promise<Result<string | null, StoreFailure>> =>
+  Result.tryPromise({ try: primaryNode, catch: toStoreFailure });
+
 export function pinOf(resourceId: string): Promise<Result<Pin, StoreFailure>> {
   return Result.tryPromise({
     catch: toStoreFailure,
@@ -145,16 +162,8 @@ export function pinOf(resourceId: string): Promise<Result<Pin, StoreFailure>> {
         .select({ host: server.host })
         .from(server)
         .where(eq(server.id, row.serverId));
-      const [primary] =
-        srv?.host === LOCALHOST
-          ? await db
-              .select({ nodeId: otterdNode.nodeId })
-              .from(otterdNode)
-              .where(and(sql`${otterdNode.labels} ->> ${PRIMARY_LABEL} = 'true'`, live))
-              .orderBy(desc(otterdNode.enrolledAt))
-              .limit(1)
-          : [];
-      return { pinned: true, nodeId: primary?.nodeId ?? null, serverId: row.serverId };
+      const primary = srv?.host === LOCALHOST ? await primaryNode() : null;
+      return { pinned: true, nodeId: primary, serverId: row.serverId };
     },
   });
 }

@@ -75,6 +75,9 @@ export interface SwarmServiceSpec {
   networkScopeSuffix?: string;
 
   image: string;
+  /** The image's content digest (`sha256:…`) when it was pushed to a
+   *  registry. The otterd runtime runs by digest; the others pull by tag. */
+  imageDigest?: string | null;
   command?: string[] | null; // CMD
   entrypoint?: string[] | null; // ENTRYPOINT
   env: Record<string, string>;
