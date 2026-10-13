@@ -6,6 +6,7 @@
 import * as z from "zod";
 
 import { hostBinding } from "./identity";
+import { UPDATE_PHASES } from "./journal";
 import { sha256Hex, u16, u53, wireId } from "./primitives";
 
 export const PLATFORM_MANIFEST_SCHEMA = 1;
@@ -68,3 +69,21 @@ export const platformBootManifest = z.strictObject({
     .optional(),
 });
 export type PlatformBootManifest = z.infer<typeof platformBootManifest>;
+
+/** Where a platform boot or update stands (slot reports, local status). */
+export const platformReport = z.object({
+  phase: z.string(),
+  blocked: z.string().optional(),
+  manifestDigest: sha256Hex.optional(),
+  members: z.record(z.string(), z.string()).optional(),
+  update: z
+    .object({
+      updateId: wireId,
+      phase: z.enum(UPDATE_PHASES),
+      irreversible: z.boolean(),
+      fromManifestDigest: sha256Hex,
+      toManifestDigest: sha256Hex,
+    })
+    .optional(),
+});
+export type PlatformReport = z.infer<typeof platformReport>;

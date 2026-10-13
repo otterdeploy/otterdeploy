@@ -21,6 +21,7 @@ use otterd_proto::journal::{EngineOutcome, Record, Retirement, UpdatePhase, Work
 use otterd_proto::lifecycle::ProcessObservation;
 use otterd_proto::platform::{
     ManifestError, PlatformBootManifest, PlatformMember, PlatformPreflight, PlatformReadiness,
+    PlatformReport, PlatformUpdateReport,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -112,6 +113,41 @@ impl Platform {
     #[must_use]
     pub fn engine(&self) -> &EngineAdapter {
         &self.engine
+    }
+
+    /// The status with the journalled update, as the control plane reads it.
+    #[must_use]
+    pub fn report(&self) -> PlatformReport {
+        let s = self.status();
+        let update = self
+            .state()
+            .ok()
+            .and_then(|st| st.update)
+            .map(|u| PlatformUpdateReport {
+                update_id: u.update_id,
+                phase: u.phase,
+                irreversible: u.irreversible,
+                from_manifest_digest: u.from_manifest_digest,
+                to_manifest_digest: u.to_manifest_digest,
+            });
+        // The journal's active manifest is the truth; the boot status may predate an update.
+        let manifest_digest = self
+            .state()
+            .ok()
+            .and_then(|st| st.manifest)
+            .map(|m| m.manifest_digest)
+            .or(s.manifest_digest);
+        PlatformReport {
+            phase: if s.phase.is_empty() {
+                "not-booted".into()
+            } else {
+                s.phase
+            },
+            blocked: s.blocked,
+            manifest_digest,
+            members: s.members,
+            update,
+        }
     }
 
     #[must_use]
@@ -443,6 +479,7 @@ impl Platform {
                             authority_term: new.authority_term,
                         })
                         .await?;
+                    self.set_status(|s| s.manifest_digest = Some(to.clone()));
                     self.ensure_network(&new).await?;
                     for m in new.preflight()? {
                         self.ensure_member(&new, m, true).await?;

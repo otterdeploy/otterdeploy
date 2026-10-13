@@ -817,15 +817,16 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
         &node,
         &reporter,
         upgrader.clone(),
-        platform,
+        platform.clone(),
         shutdown_rx,
     )
     .map_err(fail)?;
     let api_node = Arc::clone(&node);
     let api_session = control.as_ref().map(|c| Arc::clone(&c.handler));
     let api_socket = args.socket.clone();
+    let api_platform = platform.clone();
     tokio::spawn(async move {
-        if let Err(e) = otterd::api::serve(api_node, api_session, &api_socket).await {
+        if let Err(e) = otterd::api::serve(api_node, api_session, api_platform, &api_socket).await {
             tracing::error!(error = %e, "control socket stopped");
         }
     });
@@ -846,7 +847,7 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
                     commit_update_if_pending(&args.update_root);
                 }
                 if let Some(c) = &control {
-                    reporter.after_pass(&node, &c.outbox);
+                    reporter.after_pass(&node, platform.as_deref(), &c.outbox);
                 }
                 let _ = notifier.status(&format!("passes={} engine={}", progress.snapshot().passes,
                     node.engine_reachable.load(std::sync::atomic::Ordering::SeqCst)));

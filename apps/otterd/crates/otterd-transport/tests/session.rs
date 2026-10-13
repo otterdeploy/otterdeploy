@@ -51,6 +51,7 @@ impl Handler for TestHandler {
             quarantined: true,
             engine_reachable: true,
             slots: vec![],
+            platform: None,
         }]
     }
 
@@ -316,6 +317,7 @@ async fn telemetry_never_exceeds_credit_and_yields_to_control() {
             quarantined: false,
             engine_reachable: true,
             slots: vec![],
+            platform: None,
         })
         .unwrap();
     assert!(matches!(

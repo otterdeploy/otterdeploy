@@ -123,7 +123,7 @@ pub enum SendError {
 /// What the daemon queues on the control channel.
 #[derive(Debug)]
 pub(crate) enum Outgoing {
-    Frame(ControlFrame),
+    Frame(Box<ControlFrame>),
     /// End this session and connect again (the node identity changed).
     Reconnect,
 }
@@ -154,7 +154,7 @@ impl Outbox {
         g.as_ref()
             .ok_or(SendError::NotConnected)?
             .control
-            .send(Outgoing::Frame(frame))
+            .send(Outgoing::Frame(Box::new(frame)))
             .map_err(|_| SendError::NotConnected)
     }
 
