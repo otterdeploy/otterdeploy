@@ -9,6 +9,7 @@ pub mod dispatch;
 pub mod keys;
 pub mod lease;
 pub mod lifecycle;
+pub mod net;
 pub mod platform;
 pub mod session;
 pub mod telemetry;

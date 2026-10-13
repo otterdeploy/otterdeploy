@@ -7,6 +7,7 @@
 //! sent.
 
 use crate::container::{self, TranslateError};
+use crate::net::{self, Entry, NodeNet, Place};
 use crate::watchdog::Progress;
 use ed25519_dalek::SigningKey;
 use otterd_engine::{
@@ -127,6 +128,8 @@ pub struct Node {
     slot_locks: Mutex<BTreeMap<SlotRef, Arc<tokio::sync::Mutex<()>>>>,
     /// The Engine's latest answer per live container, for slot reports.
     observations: Mutex<BTreeMap<ContainerRef, Observation>>,
+    /// Scope networks, names and VIPs; `None` refuses grants with a network.
+    net: Option<Arc<NodeNet>>,
 }
 
 /// One container's latest observation.
@@ -178,6 +181,54 @@ impl Node {
             }),
             slot_locks: Mutex::new(BTreeMap::new()),
             observations: Mutex::new(BTreeMap::new()),
+            net: None,
+        }
+    }
+
+    /// Enable the workload network layer.
+    #[must_use]
+    pub fn with_network(mut self, net: NodeNet) -> Self {
+        self.net = Some(Arc::new(net));
+        self
+    }
+
+    /// The checked network place and endpoint of a grant that has one.
+    fn network_place(
+        &self,
+        grant: &SlotGrant,
+        spec: &ServiceSpec,
+    ) -> Result<Option<(Place, Entry)>, NodeError> {
+        let Some(n) = &grant.network else {
+            return Ok(None);
+        };
+        if self.net.is_none() {
+            return Err(NodeError::Refused(
+                "this node runs without the network layer; a grant with a network cannot run here"
+                    .into(),
+            ));
+        }
+        let place = Place::check(n).map_err(|e| NodeError::Refused(format!("network: {e}")))?;
+        let entry = Entry::of(spec).map_err(|e| NodeError::Refused(format!("endpoint: {e}")))?;
+        Ok(Some((place, entry)))
+    }
+
+    fn record_endpoint(&self, grant: &GrantId, entry: Option<Entry>) -> Result<(), NodeError> {
+        match (&self.net, entry) {
+            (Some(n), Some(e)) => n.record(grant, e).map_err(NodeError::Internal),
+            _ => Ok(()),
+        }
+    }
+
+    /// Bring names, resolver listeners and VIP forwarding in line with the
+    /// journal. Never fails the caller; the next pass retries.
+    fn sync_network(&self) {
+        let Some(net) = &self.net else { return };
+        let r = self
+            .state()
+            .map_err(|e| e.to_string())
+            .and_then(|s| net.sync(&s, now_ms().get()));
+        if let Err(e) = r {
+            tracing::warn!(error = %e, "node network sync incomplete");
         }
     }
 
@@ -276,7 +327,9 @@ impl Node {
             }
         }
         self.observe().await;
-        self.check_holds().await
+        let holds = self.check_holds().await;
+        self.sync_network();
+        holds
     }
 
     // ---------------------------------------------------------- observation
@@ -529,14 +582,36 @@ impl Node {
             ));
         }
         check_tenant_scope(&grant.slot, spec)?;
-        if let Some(attempt) = &grant.adopts_attempt {
-            return self.adopt(grant, attempt, op_id, spec_digest).await;
-        }
-        if let Some(container) = &grant.adopts_container {
-            return self
-                .adopt_container(grant, container, op_id, spec_digest)
-                .await;
-        }
+        let place = self.network_place(grant, spec)?;
+        let result = if let Some(attempt) = &grant.adopts_attempt {
+            self.adopt(grant, attempt, op_id, spec_digest, place).await
+        } else if let Some(container) = &grant.adopts_container {
+            if place.is_some() {
+                return Err(NodeError::Refused(
+                    "a container adopted in place keeps the network, address and resolver it was \
+                     created with; joining a scope network needs a new container, so a grant \
+                     that adopts a container cannot carry a network"
+                        .into(),
+                ));
+            }
+            self.adopt_container(grant, container, op_id, spec_digest)
+                .await
+        } else {
+            self.apply_new(grant, spec, op_id, spec_digest, place).await
+        };
+        self.sync_network();
+        result
+    }
+
+    /// A new first attempt: on the scope network when the grant has one.
+    async fn apply_new(
+        &self,
+        grant: &SlotGrant,
+        spec: &ServiceSpec,
+        op_id: &OpId,
+        spec_digest: Sha256Hex,
+        place: Option<(Place, Entry)>,
+    ) -> Result<CommandResult, NodeError> {
         let lock = self.slot_lock(&grant.slot)?;
         let _slot_guard = lock.lock().await;
         let state = self.state()?;
@@ -553,6 +628,9 @@ impl Node {
             )));
         }
         self.refuse_unknown_inventory(&state, &grant.slot).await?;
+        if let Some((p, _)) = &place {
+            net::ensure_scope_network(self.engine.docker(), p).await?;
+        }
         let journal = self.engine.journal();
         journal
             .append(Record::GrantAccepted {
@@ -561,6 +639,7 @@ impl Node {
                 op_id: op_id.clone(),
             })
             .await?;
+        self.record_endpoint(&grant.grant_id, place.as_ref().map(|(_, e)| e.clone()))?;
         journal
             .append(Record::QuarantineCleared {
                 slot: grant.slot.clone(),
@@ -570,7 +649,10 @@ impl Node {
             .await?;
         let attempt = self.begin_attempt(grant, AttemptReason::Initial, 1).await?;
         let staged = self.stage_binds(spec, &grant.slot, &attempt).await?;
-        let body = container::create_body(spec, &staged)?;
+        let mut body = container::create_body(spec, &staged)?;
+        if let Some((p, e)) = &place {
+            p.attach(&mut body, &e.aliases);
+        }
         let name = object_name(&grant.slot, &attempt);
         let mutation = |op| MutationSpec {
             class: WorkloadClass::Tenant,
@@ -684,6 +766,16 @@ impl Node {
         grant_id: &GrantId,
         policy: &EngineRestartPolicy,
     ) -> Result<CommandResult, NodeError> {
+        let r = self.give_back(grant_id, policy).await;
+        self.sync_network();
+        r
+    }
+
+    async fn give_back(
+        &self,
+        grant_id: &GrantId,
+        policy: &EngineRestartPolicy,
+    ) -> Result<CommandResult, NodeError> {
         let lock = self.slot_lock(&self.grant_slot(grant_id)?)?;
         let _slot_guard = lock.lock().await;
         let state = self.state()?;
@@ -770,6 +862,12 @@ impl Node {
     /// containers. Their processes stay stopped; nothing restarts them.
     /// Idempotent.
     pub async fn remove(&self, grant_id: &GrantId) -> Result<CommandResult, NodeError> {
+        let r = self.remove_retained(grant_id).await;
+        self.sync_network();
+        r
+    }
+
+    async fn remove_retained(&self, grant_id: &GrantId) -> Result<CommandResult, NodeError> {
         let lock = self.slot_lock(&self.grant_slot(grant_id)?)?;
         let _slot_guard = lock.lock().await;
         let state = self.state()?;
@@ -966,8 +1064,11 @@ impl Node {
     ) -> Result<CommandResult, NodeError> {
         let lock = self.slot_lock(&self.grant_slot(grant)?)?;
         let _slot_guard = lock.lock().await;
-        self.stop_locked(grant, reason, op_id, grace.unwrap_or(self.cfg.stop_grace))
-            .await
+        let r = self
+            .stop_locked(grant, reason, op_id, grace.unwrap_or(self.cfg.stop_grace))
+            .await;
+        self.sync_network();
+        r
     }
 
     pub(crate) async fn try_stop_and_certify(
@@ -1444,6 +1545,7 @@ impl Node {
         attempt: &AttemptId,
         op_id: &OpId,
         spec_digest: Sha256Hex,
+        place: Option<(Place, Entry)>,
     ) -> Result<CommandResult, NodeError> {
         let lock = self.slot_lock(&grant.slot)?;
         let _slot_guard = lock.lock().await;
@@ -1457,6 +1559,25 @@ impl Node {
                     .then(|| (o.grant.grant_id.clone(), h.clone()))
             })
             .ok_or_else(|| NodeError::Refused(format!("no held attempt {attempt} to adopt")))?;
+        // The running container keeps its network place: the adopting grant
+        // must carry the same one, and its endpoint stays.
+        let was = state
+            .grants
+            .get(&old)
+            .and_then(|g| g.grant.network.as_ref())
+            .and_then(|n| Place::check(n).ok());
+        let same = match (&place, &was) {
+            (None, None) => true,
+            (Some((p, _)), Some(w)) => p.same_attachment(w),
+            _ => false,
+        };
+        if !same {
+            return Err(NodeError::Refused(
+                "a held attempt keeps the network place it was created with; the adopting \
+                 grant must carry the same scope, subnet, address, resolver and zone"
+                    .into(),
+            ));
+        }
         let Some(v) = self.engine.inspect(held.container.as_ref()).await? else {
             return Err(NodeError::Refused(
                 "the held container is gone; stop the old grant".into(),
@@ -1477,6 +1598,7 @@ impl Node {
                 op_id: op_id.clone(),
             })
             .await?;
+        self.record_endpoint(&grant.grant_id, place.map(|(_, e)| e))?;
         journal
             .append(Record::GrantAdopted {
                 grant_id: old.clone(),

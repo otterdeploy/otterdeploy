@@ -15,6 +15,7 @@ use clap::{Parser, Subcommand};
 use otterd::TenantGate;
 use otterd::keys::KeyRotator;
 use otterd::lease::LeaseKeeper;
+use otterd::net::{NetConfig, NodeNet};
 use otterd::platform::{Platform, PlatformConfig};
 use otterd::session::{ControlHandler, NodeIdentitySource, SlotReporter};
 use otterd::telemetry::Telemetry;
@@ -182,6 +183,23 @@ struct RunArgs {
     /// Start the platform's control plane in recovery mode.
     #[arg(long, env = "OTTERD_PLATFORM_RECOVERY")]
     platform_recovery: bool,
+    /// Where the node network keeps its endpoint book and VIP receiver state.
+    #[arg(long, env = "OTTERD_NET_STATE", default_value = "/var/lib/otterd/net")]
+    net_state: PathBuf,
+    /// The zone file the `otterd-dns` responder serves.
+    #[arg(
+        long,
+        env = "OTTERD_DNS_ZONE",
+        default_value = "/var/lib/otterd/dns/zone.json"
+    )]
+    dns_zone: PathBuf,
+    /// The `otterd-dns` binary its unit runs.
+    #[arg(
+        long,
+        env = "OTTERD_DNS_BINARY",
+        default_value = "/usr/lib/otterd/otterd-dns"
+    )]
+    dns_binary: PathBuf,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -450,6 +468,17 @@ async fn start_node(args: &RunArgs) -> Result<Node, (u8, String)> {
             Ok(Ok(v)) => v.version,
             _ => "unknown".into(),
         };
+    let net = NodeNet::open(
+        NetConfig {
+            state_dir: args.net_state.clone(),
+            zone_file: args.dns_zone.clone(),
+            dns_binary: args.dns_binary.clone(),
+            ..NetConfig::default()
+        },
+        Arc::new(otterd_net::cmd::System),
+        otterd_journal::now_unix_ms().get(),
+    )
+    .map_err(|e| fail(format!("node network state: {e}")))?;
     let engine = EngineAdapter::new(
         docker,
         JournalHandle::new(journal),
@@ -468,7 +497,8 @@ async fn start_node(args: &RunArgs) -> Result<Node, (u8, String)> {
         keys.identity().clone(),
         incarnation,
         Progress::default(),
-    ))
+    )
+    .with_network(net))
 }
 
 /// The platform supervisor on the bootstrap journal, with its own Engine

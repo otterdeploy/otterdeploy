@@ -16,14 +16,17 @@ path = "src/main.rs"
 bytes.workspace = true
 clap.workspace = true
 ed25519-dalek.workspace = true
+hex.workspace = true
 http.workspace = true
 http-body-util.workspace = true
 hyper = { workspace = true, features = ["server"] }
 hyper-util.workspace = true
+otterd-dns.workspace = true
 otterd-engine.workspace = true
 otterd-identity.workspace = true
 otterd-journal.workspace = true
 otterd-metrics.workspace = true
+otterd-net.workspace = true
 otterd-probe.workspace = true
 otterd-proto.workspace = true
 otterd-sys.workspace = true
@@ -32,6 +35,7 @@ otterd-update.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["signal"] }
 tracing.workspace = true
