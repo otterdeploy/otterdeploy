@@ -74,9 +74,25 @@ export async function blockManyIps(
   return { ok: true, blocked };
 }
 
+/** `cscli decisions delete` reports how many decisions it removed. */
+const DELETED = /(\d+) decision\(s\) deleted/;
+
+/** Map an unblock's cscli output to a BlockResult. Like `interpretCscli`, but
+ *  "0 decision(s) deleted" is a failure: the operator asked to lift a ban the
+ *  panel showed, and CrowdSec lifted nothing, so reporting success would leave
+ *  the row reading "blocked" again on the next poll with no reason given. */
+export function interpretUnblock(out: string | null, ip: string): BlockResult {
+  const res = interpretCscli(out, "Unblock failed");
+  if (!res.ok || out === null) return res;
+  if (DELETED.exec(out)?.[1] === "0") {
+    return { ok: false, error: `CrowdSec has no ban on ${ip} to remove.` };
+  }
+  return res;
+}
+
 /** Remove every decision targeting `ip` (undoes a manual block; also clears a
  *  community/blocklist ban on that exact IP). */
 export async function unblockIp(ip: string): Promise<BlockResult> {
   const out = await cscliRun(`cscli decisions delete --ip "$1"`, [ip]);
-  return interpretCscli(out, "Unblock failed");
+  return interpretUnblock(out, ip);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { interpretCscli } from "../decision";
+import { interpretCscli, interpretUnblock } from "../decision";
 
 describe("interpretCscli", () => {
   test("null output ⇒ agent-down error", () => {
@@ -29,5 +29,29 @@ describe("interpretCscli", () => {
   test("empty/whitespace output ⇒ ok (nothing failed)", () => {
     expect(interpretCscli("", "Block failed")).toEqual({ ok: true });
     expect(interpretCscli("   \n ", "Block failed")).toEqual({ ok: true });
+  });
+});
+
+describe("interpretUnblock", () => {
+  test("a removed ban ⇒ ok", () => {
+    expect(interpretUnblock("1 decision(s) deleted", "1.2.3.4")).toEqual({ ok: true });
+    expect(interpretUnblock("3 decision(s) deleted", "1.2.3.4")).toEqual({ ok: true });
+  });
+
+  test("nothing removed ⇒ failure that names the address", () => {
+    const r = interpretUnblock("INFO 0 decision(s) deleted", "1.2.3.4");
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe("CrowdSec has no ban on 1.2.3.4 to remove.");
+  });
+
+  test("agent down and cscli errors keep their own messages", () => {
+    expect(interpretUnblock(null, "1.2.3.4").error).toMatch(/isn't running/i);
+    expect(interpretUnblock("Error: unable to delete", "1.2.3.4").error).toBe(
+      "Error: unable to delete",
+    );
+  });
+
+  test("output without a count ⇒ ok", () => {
+    expect(interpretUnblock("", "1.2.3.4")).toEqual({ ok: true });
   });
 });
