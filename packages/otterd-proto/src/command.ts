@@ -151,6 +151,8 @@ export const command = z.discriminatedUnion("verb", [
   v("proxy.apply", { generation: u53, routes: opaqueDocument }),
   v("proxy.status", {}),
   v("platform.update", { manifest: signedEnvelope }),
+  /** The control plane left recovery mode for the active platform manifest. */
+  v("platform.recovered", { manifestDigest: sha256Hex }),
 ]);
 export type Command = z.infer<typeof command>;
 

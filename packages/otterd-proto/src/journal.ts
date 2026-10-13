@@ -158,6 +158,8 @@ export const journalRecord = z.discriminatedUnion("type", [
     fromManifestDigest: sha256Hex,
     toManifestDigest: sha256Hex,
   }),
+  /** The active manifest's control plane left recovery mode; once per manifest. */
+  r("platformRecoveryLeft", { manifestDigest: sha256Hex }),
   r("highWater", {
     kind: z.enum([
       "slot-generation",

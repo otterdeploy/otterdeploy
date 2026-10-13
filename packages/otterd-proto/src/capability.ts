@@ -94,6 +94,7 @@ export const VERB_TABLE = {
   "proxy.apply": { required: ["platform"], monitor: false },
   "proxy.status": R,
   "platform.update": { required: ["platform", "install-admin"], monitor: false },
+  "platform.recovered": { required: ["platform"], monitor: false },
 } as const satisfies Record<string, VerbSpec>;
 
 export type Verb = keyof typeof VERB_TABLE;

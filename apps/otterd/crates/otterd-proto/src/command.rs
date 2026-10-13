@@ -359,6 +359,11 @@ pub enum Command {
     /// `manifest` is a signed platform boot manifest transition.
     #[serde(rename = "platform.update", rename_all = "camelCase")]
     PlatformUpdate { manifest: SignedEnvelope },
+    /// The control plane restored current operations and authority after
+    /// starting in recovery mode, and asks to leave it. `manifest_digest`
+    /// names the active platform boot manifest; any other is refused.
+    #[serde(rename = "platform.recovered", rename_all = "camelCase")]
+    PlatformRecovered { manifest_digest: Sha256Hex },
 }
 
 impl Command {
@@ -424,6 +429,7 @@ impl Command {
             Self::ProxyApply { .. } => Verb::ProxyApply,
             Self::ProxyStatus {} => Verb::ProxyStatus,
             Self::PlatformUpdate { .. } => Verb::PlatformUpdate,
+            Self::PlatformRecovered { .. } => Verb::PlatformRecovered,
         }
     }
 

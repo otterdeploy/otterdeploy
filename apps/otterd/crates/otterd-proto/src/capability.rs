@@ -199,6 +199,8 @@ verbs! {
     ProxyApply = "proxy.apply" => [Platform];
     ProxyStatus = "proxy.status" => [Read];
     PlatformUpdate = "platform.update" => [Platform, InstallAdmin];
+    /// The control plane left recovery mode for the active platform manifest.
+    PlatformRecovered = "platform.recovered" => [Platform];
 }
 
 impl std::fmt::Display for Verb {

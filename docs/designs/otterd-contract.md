@@ -206,7 +206,7 @@ fixtures hold exactly one case per verb.
 | Node | `node.details`, `node.health`, `node.units`, `node.reclaim`, `node.upgrade {release}`, `node.decommission`, `node.reenroll {certificate}`, `node.retireByBarrier {evidence}`, `metrics.sample {cacheMs, includeDetails}`, `events.subscribe`, `health.configure {revision, checks}` | frozen |
 | Containers, images, networks, volumes, pools, backups | `container.*`, `image.*`, `network.*`, `volume.*`, `pool.*`, `backup.*` | provisional, owned by the storage, image and network work |
 | Interactive | `container.exec`, `db.connect`, `host.shell` | provisional |
-| Platform reconcilers | `firewall.apply {generation, policy}`, `firewall.cscli`, `proxy.apply {generation, routes}`, `proxy.status`, `platform.update {manifest}` | provisional; `policy`/`routes` are `OpaqueDocument {schema, body, digest}` until those components publish schemas |
+| Platform reconcilers | `firewall.apply {generation, policy}`, `firewall.cscli`, `proxy.apply {generation, routes}`, `proxy.status`, `platform.update {manifest}`, `platform.recovered {manifestDigest}` | provisional; `policy`/`routes` are `OpaqueDocument {schema, body, digest}` until those components publish schemas |
 
 "Provisional" means the verb name and permissions are frozen and the
 arguments may still change before release through a contract PR that updates
@@ -431,7 +431,7 @@ elsewhere refuses to open (corruption is recovery, not repair).
 | `stopCertified` | the signed certificate, kept so a duplicate stop returns it |
 | `quarantineCleared` | a fresh grant for this incarnation lifts boot quarantine for a slot |
 | `holdIntent`, `holdStaged`, `holdUnknown`, `holdReleased` | retained-mount staging |
-| `manifestActivated`, `updatePhaseEntered` | platform boot manifest and update phases; `schema-boundary` is the first irreversible phase |
+| `manifestActivated`, `updatePhaseEntered`, `platformRecoveryLeft` | platform boot manifest and update phases; `schema-boundary` is the first irreversible phase; `platformRecoveryLeft` records, once per active manifest, that its control plane left recovery mode |
 | `highWater` | durable monotonic counters (operation epoch, serving revision, membership epoch, publisher sequence, sample sequence, slot report sequence) |
 | `compacted` | heads a compacted file that keeps every record an open obligation still references |
 

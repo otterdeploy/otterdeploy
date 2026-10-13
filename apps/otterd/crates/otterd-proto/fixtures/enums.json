@@ -201,7 +201,8 @@
     "firewall.cscli",
     "proxy.apply",
     "proxy.status",
-    "platform.update"
+    "platform.update",
+    "platform.recovered"
   ],
   "VerbRequired": [
     {
@@ -621,6 +622,13 @@
         "install-admin"
       ],
       "verb": "platform.update"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "platform"
+      ],
+      "verb": "platform.recovered"
     }
   ]
 }

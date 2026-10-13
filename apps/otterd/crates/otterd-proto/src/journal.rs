@@ -386,6 +386,13 @@ pub enum Record {
         from_manifest_digest: Sha256Hex,
         to_manifest_digest: Sha256Hex,
     },
+    /// Platform: the active manifest's control plane restored current
+    /// operations and authority, and leaves recovery mode. Accepted only for
+    /// the active manifest, and only once per manifest.
+    #[serde(rename_all = "camelCase")]
+    PlatformRecoveryLeft {
+        manifest_digest: Sha256Hex,
+    },
     #[serde(rename_all = "camelCase")]
     HighWater {
         kind: HighWaterKind,
