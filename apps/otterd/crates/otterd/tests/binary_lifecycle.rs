@@ -229,6 +229,36 @@ fn keygen_init_run_and_key_epoch_recovery() {
     let first_incarnation = s["incarnation"].clone();
     terminate(child);
 
+    // A platform host whose bootstrap journal is missing stays up, serves
+    // status and keeps the tenant gate closed, instead of a restart loop.
+    let _ = std::fs::remove_file(&d.socket);
+    let child = d
+        .cmd(&["run", "--platform"])
+        .env(
+            "OTTERD_BOOTSTRAP_DIR",
+            d.keys.with_file_name("no-bootstrap"),
+        )
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !d.socket.exists() {
+        assert!(
+            Instant::now() < deadline,
+            "no control socket with a blocked platform"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let blocked = d.status();
+    assert_eq!(blocked["tenantGate"]["open"], false);
+    assert!(
+        blocked["tenantGate"]["reason"]
+            .as_str()
+            .unwrap()
+            .starts_with("platform blocked"),
+        "{blocked}"
+    );
+    terminate(child);
+
     // A rotation interrupted after the journal recorded it but before the key
     // store switched: the next start completes it.
     let store = KeyStore::new(&d.keys);
