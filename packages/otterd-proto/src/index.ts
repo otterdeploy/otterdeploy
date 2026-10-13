@@ -15,6 +15,7 @@ export * from "./journal";
 export * from "./lifecycle";
 export * from "./metrics";
 export * from "./platform";
+export * from "./release";
 export * from "./primitives";
 export * from "./spec";
 export * from "./spec-rules";

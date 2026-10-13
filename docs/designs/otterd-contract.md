@@ -64,7 +64,7 @@ holds envelopes both languages reproduce byte for byte.
 | `otterd/stop-certificate/v1` | node | `StopCertificate` |
 | `otterd/authority-revoke/v1` | offline recovery key | `AuthorityRevocation` |
 | `otterd/platform-boot-manifest/v1` | install recovery key | `PlatformBootManifest` |
-| `otterd/release-manifest/v1` | release key | release manifest (daemon core) |
+| `otterd/release-manifest/v1` | release key | `ReleaseManifest` |
 | `otterd/owner-snapshot/v1` | owner node | `OwnerSnapshot` |
 | `otterd/challenge-answer/v1` | owner node | `ChallengeAnswer` |
 | `otterd/serving-set/v1` | CP | `ServingSet` |
@@ -72,6 +72,7 @@ holds envelopes both languages reproduce byte for byte.
 | `otterd/peer-answer/v1` | target node | `PeerAnswer` |
 | `otterd/anchor/v1` | enrollment / recovery key | off-node anchor records (daemon core) |
 | `otterd/key-rotation-ack/v1` | CP | `KeyRotationAck` |
+| `otterd/release-keys/v1` | a current release key | `ReleaseKeySet` |
 
 ## Channels (`channel.rs`, `bulk.rs`)
 
@@ -339,6 +340,22 @@ control plane whose dependency closure holds Postgres and Redis, a non-digest
 image id, an unsigned connector, and data roots outside
 `/var/lib/otterd/platform` or overlapping another. It returns the start order.
 The TypeScript mirror covers the document's shape.
+
+## Releases (`release.rs`)
+
+The installer pins the release keys on the node in root-only
+`/etc/otterd/release-keys.json` (a `ReleaseKeySet {serial, keys: [{key,
+notBeforeUnixMs?, notAfterUnixMs?}]}`). A replacement set must be signed by a
+key of the current one under `otterd/release-keys/v1` and carry a higher
+`serial`, so release keys rotate without reinstalling. They are not part of
+enrollment.
+
+A `ReleaseManifest {version, artifacts: [{arch, sha256, size}], protocol,
+journalFormat, minRollbackVersion, issuedAtUnixMs}` is signed by a release key
+valid at the time it is checked. The node installs a binary only when its
+architecture's artifact matches it by size and SHA-256, and rolls back only to
+a release at or above `minRollbackVersion` with a compatible journal format.
+`node.upgrade` carries a signed manifest.
 
 ## Discovery (`discovery.rs`)
 

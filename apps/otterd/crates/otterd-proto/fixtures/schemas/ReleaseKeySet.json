@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "keys": [
+        {
+          "key": "Q6cucUQBdi32a2jCbfvfJoKq7J8kdOykYT5CSg+6/Tw=",
+          "notAfterUnixMs": 1822536000000
+        },
+        {
+          "key": "Zr5+Myx6RTMyvZ0Kf32wVfXF7xoGraZtmLOftoEMRzo=",
+          "notBeforeUnixMs": 1791000000000
+        }
+      ],
+      "serial": 2
+    }
+  ],
+  "schema": "ReleaseKeySet"
+}

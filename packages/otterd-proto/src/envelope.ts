@@ -29,6 +29,7 @@ export const SIGN_CONTEXTS = [
   "otterd/peer-answer/v1",
   "otterd/anchor/v1",
   "otterd/key-rotation-ack/v1",
+  "otterd/release-keys/v1",
 ] as const;
 
 export const signContext = z.enum(SIGN_CONTEXTS);

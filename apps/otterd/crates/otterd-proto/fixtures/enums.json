@@ -114,7 +114,8 @@
     "otterd/membership/v1",
     "otterd/peer-answer/v1",
     "otterd/anchor/v1",
-    "otterd/key-rotation-ack/v1"
+    "otterd/key-rotation-ack/v1",
+    "otterd/release-keys/v1"
   ],
   "SignalKind": [
     "firewall-drift",

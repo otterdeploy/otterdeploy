@@ -72,11 +72,14 @@ pub enum SignContext {
     /// Control-plane acceptance of a node key rotation.
     #[serde(rename = "otterd/key-rotation-ack/v1")]
     KeyRotationAck,
+    /// A replacement release key set, signed by a key of the current one.
+    #[serde(rename = "otterd/release-keys/v1")]
+    ReleaseKeys,
 }
 
 impl SignContext {
     /// Every context, for exhaustive fixtures.
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 19] = [
         Self::Session,
         Self::Capability,
         Self::Lease,
@@ -95,6 +98,7 @@ impl SignContext {
         Self::PeerAnswer,
         Self::Anchor,
         Self::KeyRotationAck,
+        Self::ReleaseKeys,
     ];
 
     /// The exact bytes mixed into the signing input.
@@ -119,6 +123,7 @@ impl SignContext {
             Self::PeerAnswer => "otterd/peer-answer/v1",
             Self::Anchor => "otterd/anchor/v1",
             Self::KeyRotationAck => "otterd/key-rotation-ack/v1",
+            Self::ReleaseKeys => "otterd/release-keys/v1",
         }
     }
 }

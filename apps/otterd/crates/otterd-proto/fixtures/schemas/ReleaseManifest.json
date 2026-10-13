@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "artifacts": [
+        {
+          "arch": "x86_64",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 18234112
+        },
+        {
+          "arch": "aarch64",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 17100800
+        }
+      ],
+      "issuedAtUnixMs": 1791000000000,
+      "journalFormat": 1,
+      "minRollbackVersion": "1.3.0",
+      "protocol": {
+        "max": 1,
+        "min": 1
+      },
+      "version": "1.4.0"
+    }
+  ],
+  "schema": "ReleaseManifest"
+}
