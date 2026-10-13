@@ -1,12 +1,14 @@
 //! Workloads join their environment's scope network with the address,
 //! aliases, resolver and search domain their grant names. Names resolve and
 //! the VIP forwards inside the environment; another environment neither
-//! resolves the names nor reaches the backend. Ignored by default; run as
-//! root on a Linux host with Docker, nftables and systemd, after building
-//! the responder:
+//! resolves the names, nor asks the environment's resolver, nor reaches the
+//! backend or the VIP, and the drops are otterd's own policy, applied by the
+//! `otterd-net` agent the daemon starts. Ignored by default; run as root on a
+//! Linux host with Docker, nftables, conntrack and systemd, after building
+//! the responder and the agent:
 //!
 //! ```sh
-//! cargo build -p otterd-dns
+//! cargo build -p otterd-dns -p otterd-net
 //! cargo test -p otterd --test scope_network -- --ignored --test-threads=1
 //! ```
 #![allow(
@@ -38,6 +40,16 @@ use std::time::Duration;
 
 const NODE: [u8; 32] = [2; 32];
 const UNIT: &str = "otterd-dns-scope-network.service";
+const AGENT_UNIT: &str = "otterd-net-scope-network.service";
+/// The edge proxy's bridge, and another bridge that is not the edge's.
+const EDGE_BRIDGE: &str = "br-otd-edge";
+const OTHER_BRIDGE: &str = "br-otd-other";
+/// What the daemon installs for the persisted policy generation.
+const FIREWALL_FILES: [&str; 3] = [
+    "/etc/systemd/system/otterd-firewall.service",
+    "/etc/systemd/system/nftables.service.d/otterd.conf",
+    "/etc/systemd/system/docker.service.d/otterd-firewall.conf",
+];
 const VIP: &str = "172.31.0.10";
 const DB_IP: &str = "172.24.0.34";
 
@@ -52,6 +64,11 @@ fn net_config(dir: &Path) -> NetConfig {
         dns_binary: dir.join("otterd-dns"),
         unit_dir: "/etc/systemd/system".into(),
         dns_unit: UNIT.into(),
+        policy_file: dir.join("net/policy.json"),
+        net_binary: dir.join("otterd-net"),
+        net_unit: AGENT_UNIT.into(),
+        edge_bridges: vec![otterd::netpolicy::edge_bridge(EDGE_BRIDGE).unwrap()],
+        ..NetConfig::default()
     }
 }
 
@@ -244,6 +261,50 @@ fn connects(container: &str, host: &str) -> bool {
     .0
 }
 
+/// Packets counted by the rules of otterd's filter chain with this comment.
+fn otterd_drops(chain: &str, comment: &str) -> u64 {
+    let text = run("nft", &["list", "chain", "inet", "otterd", chain]).1;
+    let tag = format!("comment \"{comment}\"");
+    text.lines()
+        .filter(|l| l.contains(&tag))
+        .filter_map(|l| {
+            let mut w = l.split_whitespace();
+            w.find(|x| *x == "packets")?;
+            w.next()?.parse::<u64>().ok()
+        })
+        .sum()
+}
+
+/// Packets the Engine's own DROP rules counted, in its filter and raw tables.
+fn docker_drops() -> u64 {
+    ["filter", "raw"]
+        .iter()
+        .flat_map(|t| {
+            let text = run("iptables-save", &["-c", "-t", t]).1;
+            text.lines()
+                .filter(|l| l.ends_with("-j DROP"))
+                .filter_map(|l| l.strip_prefix('[')?.split(':').next()?.parse::<u64>().ok())
+                .collect::<Vec<_>>()
+        })
+        .sum()
+}
+
+/// How long until the agent guards every address on its scope bridge.
+fn guarded(addrs: &[&str]) -> Option<Duration> {
+    let start = std::time::Instant::now();
+    while start.elapsed() < Duration::from_secs(30) {
+        let table = run("nft", &["list", "table", "bridge", "otterd_l2"]).1;
+        if addrs
+            .iter()
+            .all(|a| table.contains(&format!("ip saddr {a} ")))
+        {
+            return Some(start.elapsed());
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    None
+}
+
 fn zone(dir: &Path) -> Value {
     serde_json::from_str(&std::fs::read_to_string(dir.join("dns/zone.json")).unwrap()).unwrap()
 }
@@ -256,16 +317,56 @@ fn cleanup() {
     for id in names.lines() {
         let _ = run("docker", &["rm", "-f", id]);
     }
-    for n in ["otd-scope-a", "otd-scope-b", "otd-scope-x"] {
+    for c in ["otd-test-edge", "otd-test-other"] {
+        let _ = run("docker", &["rm", "-f", c]);
+    }
+    for n in [
+        "otd-scope-a",
+        "otd-scope-b",
+        "otd-scope-x",
+        "otd-test-edge",
+        "otd-test-other",
+    ] {
         let _ = run("docker", &["network", "rm", n]);
     }
-    let _ = run("systemctl", &["disable", "--now", UNIT]);
-    let _ = std::fs::remove_file(format!("/etc/systemd/system/{UNIT}"));
+    for u in [UNIT, AGENT_UNIT, "otterd-firewall.service"] {
+        let _ = run("systemctl", &["disable", "--now", u]);
+        let _ = std::fs::remove_file(format!("/etc/systemd/system/{u}"));
+    }
+    for f in FIREWALL_FILES {
+        let _ = std::fs::remove_file(f);
+    }
     let _ = run("systemctl", &["daemon-reload"]);
     let _ = run("ip", &["link", "del", "otd-dns0"]);
-    for t in ["otterd_vip", "otterd_nat"] {
-        let _ = run("nft", &["delete", "table", "ip", t]);
+    for (family, t) in [
+        ("ip", "otterd_vip"),
+        ("ip", "otterd_nat"),
+        ("ip", "otterd_vipbase"),
+        ("inet", "otterd"),
+        ("bridge", "otterd_l2"),
+    ] {
+        let _ = run("nft", &["delete", "table", family, t]);
     }
+    let _ = run("iptables", &["-D", "DOCKER-USER", "-j", "OTTERD-MESH"]);
+    let _ = run("iptables", &["-F", "OTTERD-MESH"]);
+    let _ = run("iptables", &["-X", "OTTERD-MESH"]);
+    let wl = "172.24.0.0/13";
+    let _ = run(
+        "iptables",
+        &[
+            "-t",
+            "nat",
+            "-D",
+            "POSTROUTING",
+            "-s",
+            wl,
+            "-d",
+            wl,
+            "-j",
+            "RETURN",
+        ],
+    );
+    let _ = std::fs::remove_dir_all("/var/lib/otterd/firewall");
 }
 
 #[tokio::test]
@@ -280,6 +381,9 @@ async fn scope_networks_resolve_and_forward_inside_one_environment() {
         .tempdir_in("/var/lib")
         .unwrap();
     std::fs::copy(&responder, dir.path().join("otterd-dns")).unwrap();
+    let agent = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/debug/otterd-net");
+    assert!(agent.exists(), "run `cargo build -p otterd-net` first");
+    std::fs::copy(&agent, dir.path().join("otterd-net")).unwrap();
     let node = start(dir.path()).await;
     node.reconcile().await.unwrap();
 
@@ -352,6 +456,8 @@ async fn scope_networks_resolve_and_forward_inside_one_environment() {
         std::thread::sleep(Duration::from_millis(500));
     }
     node.reconcile().await.unwrap();
+    let took = guarded(&[DB_IP, "172.24.0.35", "172.24.0.66"]);
+    eprintln!("every container interface guarded after {took:?}");
 
     // Inside A. Every name goes to the environment's resolver: the short
     // name through the search domain, so it means the same on every node and
@@ -372,19 +478,118 @@ async fn scope_networks_resolve_and_forward_inside_one_environment() {
         "by VIP, through the same-bridge hairpin"
     );
 
-    // From B: its view has no A names, and the backend is not reachable.
+    // From B: its view has no A names. It cannot ask A's resolver, nor reach
+    // A's container or A's VIP, and each of those drops is otterd's own
+    // policy: its counters move, the Engine's DROP rules see nothing (the
+    // scope bridges run without the Engine's port filter).
     assert_eq!(resolve(&client, "db.a.otd.internal"), None);
     assert_eq!(resolve(&client, "db"), None);
     assert!(nslookup(&client, "db.a.otd.internal", None).is_empty());
-    assert!(!connects(&client, DB_IP), "B reaches A's container");
-    // The VIP from B: the receiver DNATs it, and only the Engine's filter for
-    // a `nat` bridge (no unpublished port from another interface) drops the
-    // forwarded flow. otterd's own pair policy, and the destination check on
-    // resolver listeners, come with the firewall policy; until then B can
-    // still ask A's listener directly, which this records.
-    assert!(!connects(&client, VIP), "B reaches A's VIP");
+    assert_eq!(
+        nslookup(&client, "client.b.otd.internal", Some("172.30.228.2")),
+        ["172.24.0.66"],
+        "B asks its own resolver"
+    );
+    let (to_host, no_pair, engine) = (
+        otterd_drops("input", "tenant to host"),
+        otterd_drops("forward", "managed destination without a pair"),
+        docker_drops(),
+    );
     let direct = nslookup(&client, "db.a.otd.internal", Some("172.30.228.1"));
-    eprintln!("B asking A's listener directly for db.a.otd.internal: {direct:?}");
+    assert!(
+        direct.is_empty(),
+        "B asked A's resolver directly and got {direct:?}"
+    );
+    assert!(!connects(&client, DB_IP), "B reaches A's container");
+    assert!(!connects(&client, VIP), "B reaches A's VIP");
+    let (to_host2, no_pair2, engine2) = (
+        otterd_drops("input", "tenant to host"),
+        otterd_drops("forward", "managed destination without a pair"),
+        docker_drops(),
+    );
+    eprintln!(
+        "drops: otterd input {to_host} -> {to_host2}, otterd forward {no_pair} -> {no_pair2}, engine {engine} -> {engine2}"
+    );
+    assert!(to_host2 > to_host, "A's resolver was not refused by otterd");
+    assert!(
+        no_pair2 >= no_pair + 2,
+        "A's container and VIP were not refused by otterd"
+    );
+    assert_eq!(engine2, engine, "the Engine dropped B's packets itself");
+
+    // The edge proxy's bridge reaches A's VIP, and only through the VIP;
+    // another plain bridge does not.
+    for (name, bridge, subnet) in [
+        ("otd-test-edge", EDGE_BRIDGE, "10.213.0.0/24"),
+        ("otd-test-other", OTHER_BRIDGE, "10.213.1.0/24"),
+    ] {
+        let opt = format!("com.docker.network.bridge.name={bridge}");
+        docker(&["network", "create", "--subnet", subnet, "-o", &opt, name]);
+        docker(&[
+            "run",
+            "-d",
+            "--name",
+            name,
+            "--network",
+            name,
+            "busybox:1.36",
+            "sleep",
+            "3600",
+        ]);
+    }
+    assert!(connects("otd-test-edge", VIP), "the edge reaches A's VIP");
+    assert!(
+        !connects("otd-test-edge", DB_IP),
+        "the edge reaches A's container without the VIP"
+    );
+    assert!(
+        !connects("otd-test-other", VIP),
+        "a bridge that is not the edge's reaches A's VIP"
+    );
+
+    assert!(took.is_some(), "a container interface is never guarded");
+
+    // Where that came from: the bridges' gateway mode, the policy file the
+    // daemon wrote, the agent it runs, and the persisted generation.
+    assert_eq!(
+        network["Options"]["com.docker.network.bridge.gateway_mode_ipv4"],
+        "nat-unprotected"
+    );
+    let policy: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("net/policy.json")).unwrap())
+            .unwrap();
+    let nets: Vec<&str> = policy["localScopes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["network"].as_str().unwrap())
+        .collect();
+    assert_eq!(nets, ["172.24.0.32/27", "172.24.0.64/27"]);
+    assert_eq!(
+        policy["pairs"],
+        json!([
+            ["172.24.0.32/27", "172.24.0.32/27"],
+            ["172.24.0.64/27", "172.24.0.64/27"]
+        ])
+    );
+    assert_eq!(policy["dns"][0]["bridge"], bridge.as_str());
+    assert_eq!(policy["dns"][0]["addr"], "172.30.228.1");
+    assert_eq!(policy["dns"][1]["addr"], "172.30.228.2");
+    assert_eq!(policy["edgeBridges"], json!([EDGE_BRIDGE]));
+    assert_eq!(policy["vipBackends"], json!(["172.24.0.32/27"]));
+    assert!(run("systemctl", &["is-active", "--quiet", AGENT_UNIT]).0);
+    assert!(
+        run(
+            "systemctl",
+            &["is-enabled", "--quiet", "otterd-firewall.service"]
+        )
+        .0
+    );
+    let persisted = std::fs::read_to_string("/var/lib/otterd/firewall/policy.nft").unwrap();
+    assert!(
+        persisted.contains("ct status dnat ip saddr 172.24.0.32/27"),
+        "hairpin owned by the agent"
+    );
 
     // Refused before anything is created: a bad address (the layout checks
     // are unit tested), a network of the scope's name that otterd did not
@@ -458,5 +663,28 @@ async fn scope_networks_resolve_and_forward_inside_one_environment() {
     assert!(!run("systemctl", &["is-active", "--quiet", UNIT]).0);
     let link = run("ip", &["-o", "-4", "addr", "show", "dev", "otd-dns0"]).1;
     assert!(!link.contains("172.30.228."), "{link}");
+    // The policy is emptied, not left behind, and the agent applies it.
+    let policy: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("net/policy.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        (&policy["localScopes"], &policy["pairs"], &policy["dns"]),
+        (&json!([]), &json!([]), &json!([]))
+    );
+    let mut emptied = false;
+    for _ in 0..20 {
+        let table = run("nft", &["list", "table", "inet", "otterd"]).1;
+        emptied = !table.contains("172.30.228.") && !table.contains("172.24.0.32/27");
+        if emptied {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    assert!(emptied, "the agent still enforces a scope that is gone");
+    let chain = run("iptables", &["-S", "OTTERD-MESH"]).1;
+    assert!(
+        !chain.contains(EDGE_BRIDGE),
+        "the edge accept outlives the VIP services: {chain}"
+    );
     cleanup();
 }

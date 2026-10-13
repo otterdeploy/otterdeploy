@@ -279,6 +279,13 @@ pub struct NodePolicy {
     pub dns: Vec<DnsListener>,
     /// Extra routed prefixes that keep their source across the mesh (adopted/reserved ranges).
     pub no_snat_extra: Vec<Ipv4Net>,
+    /// Bridges of the edge proxy (not scope bridges): their flows to a VIP reach the VIP's
+    /// backends, and nothing else of a scope.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub edge_bridges: Vec<IfacePattern>,
+    /// Scope networks that hold VIP backends, the only destinations of an edge flow.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub vip_backends: Vec<Ipv4Net>,
 }
 
 /// Schema of the policy document carried by the `firewall.apply` command.
@@ -370,7 +377,20 @@ fn replace_prologue(out: &mut String, family: &str, name: &str) {
     );
 }
 
+/// The interface pattern in iptables syntax (`+` for a prefix).
+fn iptables_iface(p: &IfacePattern) -> String {
+    match p.as_str().strip_suffix('*') {
+        Some(prefix) => format!("{prefix}+"),
+        None => p.as_str().to_owned(),
+    }
+}
+
 impl NodePolicy {
+    /// Whether edge flows to VIPs are let through: an edge bridge and a VIP backend exist.
+    fn edge_to_vips(&self) -> bool {
+        !self.edge_bridges.is_empty() && !self.vip_backends.is_empty()
+    }
+
     /// The filter table: forward and input policy.
     #[must_use]
     pub fn render_filter(&self) -> String {
@@ -476,6 +496,27 @@ impl NodePolicy {
             "    ip daddr . meta l4proto . th dport @published iifname != {br} iifname != {mesh} ct state {{ new, established, related }} counter accept {}",
             comment("explicit publication, whole flow")
         );
+        if self.edge_to_vips() {
+            let v = self.vip;
+            let nets = self
+                .vip_backends
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ");
+            for e in &self.edge_bridges {
+                let _ = writeln!(
+                    o,
+                    "    iifname {e} ct status dnat ct original ip daddr {v} ip daddr {{ {nets} }} counter accept {}",
+                    comment("edge to a VIP backend")
+                );
+                let _ = writeln!(
+                    o,
+                    "    oifname {e} ct direction reply ct status dnat ct original ip daddr {v} ip saddr {{ {nets} }} counter accept {}",
+                    comment("VIP backend replies to the edge")
+                );
+            }
+        }
         let _ = writeln!(
             o,
             "    oifname {br} iifname != {br} iifname != {mesh} ct state new counter drop {}",
@@ -630,6 +671,21 @@ impl NodePolicy {
                 proto = p.proto.as_str()
             );
         }
+        if self.edge_to_vips() {
+            let v = self.vip;
+            for e in self.edge_bridges.iter().map(iptables_iface) {
+                for n in &self.vip_backends {
+                    let _ = writeln!(
+                        o,
+                        "-A {c} -i {e} -d {n} -m conntrack --ctstate DNAT --ctorigdst {v} -j ACCEPT"
+                    );
+                    let _ = writeln!(
+                        o,
+                        "-A {c} -o {e} -s {n} -m conntrack --ctstate DNAT --ctorigdst {v} -j ACCEPT"
+                    );
+                }
+            }
+        }
         let _ = writeln!(o, "-A {c} -j RETURN\nCOMMIT");
         o
     }
@@ -727,6 +783,8 @@ mod tests {
                 addr: Ipv4Addr::new(172, 30, 228, 1),
             }],
             no_snat_extra: vec![],
+            edge_bridges: vec![],
+            vip_backends: vec![],
         }
     }
 
@@ -884,6 +942,42 @@ mod tests {
             NodePolicy::from_document(&other),
             Err(DocumentError::Schema(_))
         ));
+    }
+
+    #[test]
+    fn edge_bridges_reach_vip_backends_only_through_a_vip() {
+        let mut p = sample();
+        assert!(!p.render_filter().contains("edge to a VIP backend"));
+        p.edge_bridges = vec![IfacePattern::new("br-edge").unwrap()];
+        assert!(
+            !p.render_filter().contains("edge to a VIP backend"),
+            "no VIP backends, no edge accept"
+        );
+        p.vip_backends = vec![net("172.24.0.0/27")];
+        let f = p.render_filter();
+        let accept = position(
+            &f,
+            "iifname \"br-edge\" ct status dnat ct original ip daddr 172.31.0.0/16 ip daddr { 172.24.0.0/27 } counter accept",
+        );
+        let reply = position(
+            &f,
+            "oifname \"br-edge\" ct direction reply ct status dnat ct original ip daddr 172.31.0.0/16 ip saddr { 172.24.0.0/27 } counter accept",
+        );
+        let drop_new = position(&f, "iifname != \"otw*\" ct state new counter drop");
+        let private = position(&f, "tenant to private and metadata ranges");
+        assert!(accept < drop_new && reply < private);
+        let d = p.render_docker_chain();
+        assert!(d.contains(
+            "-A OTTERD-MESH -i br-edge -d 172.24.0.0/27 -m conntrack --ctstate DNAT --ctorigdst 172.31.0.0/16 -j ACCEPT\n"
+        ));
+        assert!(d.contains(
+            "-A OTTERD-MESH -o br-edge -s 172.24.0.0/27 -m conntrack --ctstate DNAT --ctorigdst 172.31.0.0/16 -j ACCEPT\n"
+        ));
+        assert!(d.ends_with("-A OTTERD-MESH -j RETURN\nCOMMIT\n"));
+        p.edge_bridges = vec![IfacePattern::new("br-*").unwrap()];
+        assert!(p.render_docker_chain().contains("-i br-+ -d"));
+        let back: NodePolicy = serde_json::from_str(&serde_json::to_string(&p).unwrap()).unwrap();
+        assert_eq!(back, p);
     }
 
     #[test]

@@ -1,0 +1,38 @@
+# otterd-net: the node's packet policy agent.
+#
+# otterd installs this unit as /etc/systemd/system/otterd-net.service, with
+# the binary and policy file it is configured with (OTTERD_NET_BINARY,
+# OTTERD_NET_POLICY), and starts it once a scope network exists on the node.
+# The agent applies the policy otterd writes (environment isolation, resolver
+# access, published ports, the VIP hairpin), guards every container interface
+# on a scope bridge, keeps its chain first in DOCKER-USER, and re-applies the
+# policy after drift. otterd-firewall.service loads the last applied generation
+# at boot, before Docker.
+
+[Unit]
+Description=otterdeploy packet policy agent
+Documentation=https://otterdeploy.com/docs
+# Ordered after the persisted generation and the Engine, never requiring the
+# Engine: interfaces stay guarded while dockerd is down or restarting.
+After=otterd-firewall.service docker.service
+Wants=otterd-firewall.service
+StartLimitIntervalSec=0
+
+[Service]
+# Ready once the first pass has applied the policy.
+Type=notify
+NotifyAccess=main
+# Petted only after a completed pass: a wedged agent is restarted.
+WatchdogSec=30s
+Restart=always
+RestartSec=1s
+ExecStart=/usr/lib/otterd/otterd-net agent /var/lib/otterd/net/policy.json
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+LockPersonality=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=multi-user.target

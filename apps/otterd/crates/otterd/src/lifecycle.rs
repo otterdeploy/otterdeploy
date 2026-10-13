@@ -696,6 +696,11 @@ impl Node {
             })
             .await?;
         let attempt = self.begin_attempt(grant, AttemptReason::Initial, 1).await?;
+        if place.is_some() {
+            // The packet policy names the scope before its first container
+            // starts, and the agent has applied it once it reports ready.
+            self.sync_network();
+        }
         let staged = self.stage_binds(spec, &grant.slot, &attempt).await?;
         let mut body = container::create_body(spec, &staged)?;
         if let Some((p, _)) = &place {
