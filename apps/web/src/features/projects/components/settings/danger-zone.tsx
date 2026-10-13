@@ -1,20 +1,19 @@
 /**
  * Project danger zone: delete the project, gated by typing the project slug.
  *
- * The server refuses while service/compose resources exist (their runtimes
- * are only reclaimed by the per-resource delete path), so the honest copy
- * here says exactly that: remove services first, databases go down with the
- * project. Transfer-to-another-org is deliberately absent: git providers,
- * registries, and env contexts are org-scoped, so a row-level org swap would
- * silently break every binding, not a safe single update.
+ * The typed confirmation explicitly includes every environment's services,
+ * stacks, databases and volumes. Each resource uses its regular teardown;
+ * any failure keeps the project record available for inspection and retry.
  */
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { idSchema } from "@otterdeploy/shared/id";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { invalidateManifestConsumers } from "@/features/projects/hooks/use-manifest-stage";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -37,12 +36,15 @@ export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) 
 
   const deleteMut = useMutation({
     ...orpc.project.delete.mutationOptions(),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(`Project ${project.name} deleted`);
-      void queryClient.invalidateQueries({ queryKey: orpc.project.list.queryKey() });
-      void navigate({ to: "/$orgSlug", params: { orgSlug } });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: orpc.project.list.queryKey() }),
+        queryClient.invalidateQueries({ queryKey: orpc.env.list.queryKey() }),
+      ]);
+      await navigate({ to: "/$orgSlug", params: { orgSlug } });
     },
-    onError: (err) => {
+    onError: async (err) => {
       const n = serviceCountOf(err);
       toast.error(
         n !== null
@@ -51,6 +53,7 @@ export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) 
             ? err.message
             : "Failed to delete project",
       );
+      await invalidateManifestConsumers(idSchema.project.parse(project.id));
     },
   });
 
@@ -60,7 +63,7 @@ export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) 
         <h2 className="text-[14px] font-semibold text-destructive">Danger zone</h2>
         <p className="text-[12.5px] text-muted-foreground">
           Irreversible. The project's databases and their volumes, stored variables, domains, and
-          deployment history are destroyed. Services must be deleted first.
+          deployment history are destroyed. Services and stacks are torn down with the project.
         </p>
       </header>
 
@@ -83,12 +86,12 @@ export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) 
             </Button>
           }
           title={`Delete ${project.name}?`}
-          description="This tears down the project's databases and their volumes, and removes stored variables, domains, and deployment history. It can't be undone."
+          description="This deletes every service, stack and database in every environment, including their volumes, stored variables, domains and deployment history. It can't be undone."
           confirmPhrase={project.slug}
           confirmLabel="Delete project"
           pendingLabel="Deleting…"
           pending={deleteMut.isPending}
-          onConfirm={() => deleteMut.mutate({ id: project.id })}
+          onConfirm={() => deleteMut.mutate({ id: project.id, deleteContents: true })}
         />
       </div>
     </section>

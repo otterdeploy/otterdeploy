@@ -118,12 +118,13 @@ export const projectRouter = {
     },
   ),
 
-  delete: requirePermission({ project: ["delete"] }).project.delete.handler(
+  delete: requirePermission({ project: ["delete"], service: ["delete"] }).project.delete.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.id } });
       const result = await deleteProject(
         {
           id: input.id,
+          deleteContents: input.deleteContents,
           organizationId: context.activeOrganizationId,
         },
         context.log,
@@ -131,6 +132,11 @@ export const projectRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ProjectResourceDeleteError: (e) =>
+            errors.RESOURCE_DELETE_FAILED({
+              message: e.message,
+              data: { resourceName: e.resourceName },
+            }),
           ProjectHasServicesError: (e) =>
             errors.CONFLICT({ data: { serviceCount: e.serviceCount } }),
         });
