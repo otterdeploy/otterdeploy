@@ -19,45 +19,43 @@ interface Health {
   attempts: string[];
   /** The newest attempt's container, when the node reported one. */
   container: string | null;
+  /** Why the newest attempt could not run, when the node says so. */
+  failure: { code: string; message: string } | null;
   running: boolean;
   failed: boolean;
   /** The attempt a restarted node held for this grant, awaiting adoption or a stop. */
   held: string | null;
 }
 
-/**
- * The Engine refused to create the attempt's container (a missing image, an
- * invalid setting): its create settled, yet there is no container and no
- * process. Nothing will start it, so it counts as failed and rollout and
- * restart policy act on it.
- */
-function createRefused(a: SlotReport["attempts"][number]): boolean {
-  const created = a.mutations.some(
-    (m) => m.verb === "create" && (m.state === "settled" || m.state === "retired"),
-  );
-  return created && a.container === undefined && a.process.state === "absent";
-}
+type Attempt = SlotReport["attempts"][number];
 
-function healthOf(r: SlotReport): Health {
-  const newest = r.attempts.reduce<SlotReport["attempts"][number] | undefined>(
+const newestOf = (r: SlotReport) =>
+  r.attempts.reduce<Attempt | undefined>(
     (a, b) => (a === undefined || b.ordinal > a.ordinal ? b : a),
     undefined,
   );
+
+const startSettled = (a: Attempt | undefined) =>
+  a?.mutations.some((m) => m.verb === "start" && m.state === "settled") ?? false;
+
+function healthOf(r: SlotReport): Health {
+  const newest = newestOf(r);
   // `paused` is a frozen process: live for exclusivity (it is never released
   // without a stop certificate), but not running, healthy or serving.
   const state = newest?.process.state;
   // A node that does not observe processes in its reports says `unknown`;
   // then a running grant whose newest attempt's start settled counts as running.
-  const started =
-    newest?.mutations.some((m) => m.verb === "start" && m.state === "settled") ?? false;
-  const unobserved = state === "unknown" && r.state === "running" && started;
+  const unobserved = state === "unknown" && r.state === "running" && startSettled(newest);
   // Held from an earlier node process: kept (paused) until adopted or stopped.
   const held = r.held?.attemptId ?? null;
   return {
     attempts: r.attempts.map((a) => a.attemptId),
     container: newest?.container ?? null,
     running: !held && (state === "running" || unobserved),
-    failed: !held && (state === "exited" || (newest !== undefined && createRefused(newest))),
+    // An attempt the node could not run (image pull, create or start refused)
+    // is terminal: the node never retries it, so it counts as failed.
+    failed: !held && (state === "exited" || newest?.failure !== undefined),
+    failure: newest?.failure ?? null,
     held,
   };
 }
@@ -68,25 +66,38 @@ const isDistinctFromSession = (sessionId: string) =>
   sql`${otterdNode.reportedSession} is distinct from ${sessionId}`;
 type HealthUpdate = Pick<
   GrantRow,
-  "attempts" | "runningSince" | "failed" | "state" | "heldAttempt" | "container"
+  "attempts" | "runningSince" | "failed" | "state" | "heldAttempt" | "container" | "failure"
 >;
+
+const sameFailure = (a: Health["failure"], b: GrantRow["failure"]) =>
+  a?.code === b?.code && a?.message === b?.message;
+
+/** Whether the computed columns equal the grant's stored ones. */
+function unchanged(g: GrantRow, next: HealthUpdate): boolean {
+  return (
+    next.heldAttempt === g.heldAttempt &&
+    next.attempts.length === g.attempts.length &&
+    next.runningSince === g.runningSince &&
+    next.failed === g.failed &&
+    next.state === g.state &&
+    next.container === g.container &&
+    sameFailure(next.failure, g.failure)
+  );
+}
 
 /** The grant's new health columns, or null when the report changes nothing. */
 function nextHealth(g: GrantRow, h: Health, now: number): HealthUpdate | null {
-  const attempts = [...new Set([...g.attempts, ...h.attempts])];
-  const runningSince = h.running ? (g.runningSince ?? now) : null;
   const live = g.state === "granted" || g.state === "starting" || g.state === "running";
-  const state = live && h.running ? "running" : g.state;
-  const same =
-    h.held === g.heldAttempt &&
-    attempts.length === g.attempts.length &&
-    runningSince === g.runningSince &&
-    h.failed === g.failed &&
-    state === g.state;
-  const container = h.container ?? g.container;
-  return same && container === g.container
-    ? null
-    : { attempts, runningSince, failed: h.failed, state, heldAttempt: h.held, container };
+  const next: HealthUpdate = {
+    attempts: [...new Set([...g.attempts, ...h.attempts])],
+    runningSince: h.running ? (g.runningSince ?? now) : null,
+    failed: h.failed,
+    state: live && h.running ? "running" : g.state,
+    heldAttempt: h.held,
+    container: h.container ?? g.container,
+    failure: h.failure,
+  };
+  return unchanged(g, next) ? null : next;
 }
 
 /** Apply one node's slot reports. Reports for grants of other nodes are ignored. */

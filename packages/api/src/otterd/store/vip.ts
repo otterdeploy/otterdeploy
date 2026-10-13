@@ -14,7 +14,7 @@ import type { LoadedPlan } from "./plan-row";
 
 import { refusal } from "./errors";
 
-export const vipIdOf = (resourceId: string) => `vip.${resourceId}`;
+const vipIdOf = (resourceId: string) => `vip.${resourceId}`;
 
 export async function ensureVip(
   tx: Tx,

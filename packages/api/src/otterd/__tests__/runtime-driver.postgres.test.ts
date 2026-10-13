@@ -15,7 +15,7 @@ import { placementOf } from "../../runtime/otterd-driver";
 import { admitGrant, markSent } from "../store/grants";
 import { applySlotReports } from "../store/reports";
 import { putService, setPaused } from "../store/services";
-import { claimForOtterd, statusByName } from "../store/status";
+import { claimForOtterd, failureText, statusByName } from "../store/status";
 import { serviceToSpec } from "../translate";
 
 const NOW = 1_930_000_000_000;
@@ -134,20 +134,30 @@ describe("otterd runtime driver state", () => {
       running: 0,
     });
 
-    // The Engine refused the create (no such image): failed, not starting forever.
-    const refused = {
+    // The node could not run the attempt (here: the image did not pull). The
+    // grant still says running; the attempt's failure is what fails it, and
+    // the deploy status says why.
+    const unpulled = {
       ...report,
       attempts: [
         {
           attemptId: "att_1",
           ordinal: 1,
           process: { state: "absent" as const },
-          mutations: [{ mutationId: "mut_c", verb: "create" as const, state: "settled" as const }],
+          failure: { code: "image-pull-failed", message: "pull access denied for python" },
+          mutations: [{ mutationId: "mut_c", verb: "create" as const, state: "retired" as const }],
         },
       ],
     };
-    (await applySlotReports(nodeId, `sess-${run}`, [refused], NOW + 3)).unwrap();
-    expect((await statusByName([name])).unwrap().get(name)?.status).toBe("error");
+    (await applySlotReports(nodeId, `sess-${run}`, [unpulled], NOW + 3)).unwrap();
+    const failed = (await statusByName([name])).unwrap().get(name);
+    expect(failed).toMatchObject({
+      status: "error",
+      failure: { code: "image-pull-failed", message: "pull access denied for python" },
+    });
+    expect(failed?.failure && failureText(failed.failure)).toBe(
+      "image pull failed: pull access denied for python",
+    );
 
     (await setPaused(id, true, NOW + 2)).unwrap();
     expect((await statusByName([name])).unwrap().get(name)?.desiredPaused).toBe(true);

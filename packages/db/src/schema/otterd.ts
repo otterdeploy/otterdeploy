@@ -217,6 +217,8 @@ export const otterdGrant = pgTable(
       .default(sql`'[]'::jsonb`),
     runningSince: bigint("running_since", { mode: "number" }),
     failed: boolean("failed").notNull().default(false),
+    /** Why the newest attempt could not run (`image-pull-failed`, …), as the node said. */
+    failure: jsonb("failure").$type<{ code: string; message: string }>(),
     /** The attempt a restarted node kept for this grant, awaiting confirmation. */
     heldAttempt: text("held_attempt"),
     /** For an adopting grant: the held attempt it re-binds (same container). */

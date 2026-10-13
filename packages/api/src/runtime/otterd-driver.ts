@@ -33,6 +33,7 @@ import {
   type ServiceStatus,
   buildHostNode,
   claimForOtterd,
+  failureText,
   pinOf,
   statusByName,
 } from "../otterd/store/status";
@@ -93,7 +94,12 @@ const runtimeStatus = (
   networkName,
   status: s.status,
   health: s.status === "running" ? "healthy" : s.status === "starting" ? "starting" : null,
-  errorMessage: s.status === "error" ? "a new attempt exited; see the service's logs" : null,
+  errorMessage:
+    s.status !== "error"
+      ? null
+      : s.failure
+        ? failureText(s.failure)
+        : "a new attempt exited; see the service's logs",
 });
 
 /** The resource's pinned server as an otterd node; a pin with no enrolled node is refused. */
