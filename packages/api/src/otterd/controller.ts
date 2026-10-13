@@ -55,6 +55,8 @@ export interface ControllerConfig {
   signer: Signer;
   installId: string;
   authorityTerm: () => number;
+  /** In recovery mode after a platform update: leave it once healthy (see recovery-leave.ts). */
+  leaveRecovery?: () => Promise<boolean>;
 }
 
 const STOP_RETRY_MS = 10_000;
@@ -111,6 +113,7 @@ export class Controller {
     const connected = snap.value.nodes.filter((n) => n.connected).map((n) => n.nodeId);
     await publishServing(this.cfg, connected);
     await processMigrations(this.cfg);
+    await this.cfg.leaveRecovery?.();
   }
 
   private async apply(a: Action, issuing: boolean): Promise<void> {
