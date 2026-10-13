@@ -38,6 +38,9 @@ pub struct Behavior {
     pub answer_pings: bool,
     /// Shift the reported wall clock.
     pub clock_offset_ms: i64,
+    /// The node identity key `authenticate` must be signed with, replacing
+    /// the one given at start (after a node key rotation).
+    pub node_key: Option<PublicKey>,
 }
 
 impl Default for Behavior {
@@ -50,6 +53,7 @@ impl Default for Behavior {
             authority_term: U53::ONE,
             answer_pings: true,
             clock_offset_ms: 0,
+            node_key: None,
         }
     }
 }
@@ -287,6 +291,7 @@ async fn handshake(
     else {
         return None;
     };
+    let node_key = behavior.node_key.as_ref().unwrap_or(node_key);
     let got: SessionProof = node_proof
         .verify(std::slice::from_ref(node_key), SignContext::Session)
         .ok()?;

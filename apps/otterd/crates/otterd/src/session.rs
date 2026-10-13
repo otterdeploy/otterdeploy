@@ -6,6 +6,7 @@
 //! journalled and acknowledged; an authority revocation is applied.
 
 use crate::dispatch::{Answer, Dispatcher, Session};
+use crate::keys::KeyRotator;
 use crate::lifecycle::{Node, NodeError};
 use otterd_identity::rotation::apply_cp_transition;
 use otterd_proto::U53;
@@ -17,7 +18,8 @@ use otterd_proto::journal::Record;
 use otterd_proto::lifecycle::SlotReport;
 use otterd_proto::version::Feature;
 use otterd_transport::{Handler, IdentitySource, NodeIdentity, Outbox, RequestAnswer, SessionInfo};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 /// Features this daemon offers.
 pub const FEATURES: &[Feature] = &[Feature::KeyRotation];
@@ -27,6 +29,10 @@ pub struct ControlHandler {
     node: Arc<Node>,
     dispatcher: Mutex<Option<(SessionId, Arc<Dispatcher>)>>,
     reports: SlotReporter,
+    rotator: Option<Arc<KeyRotator>>,
+    outbox: OnceLock<Outbox>,
+    /// The live session negotiated `key-rotation`.
+    rotation_enabled: AtomicBool,
 }
 
 impl ControlHandler {
@@ -36,7 +42,46 @@ impl ControlHandler {
             node,
             dispatcher: Mutex::new(None),
             reports,
+            rotator: None,
+            outbox: OnceLock::new(),
+            rotation_enabled: AtomicBool::new(false),
         }
+    }
+
+    /// Rotate node keys through this handler's sessions.
+    #[must_use]
+    pub fn with_key_rotation(mut self, rotator: Arc<KeyRotator>) -> Self {
+        self.rotator = Some(rotator);
+        self
+    }
+
+    /// The transport's outbox, once the connection manager exists.
+    pub fn attach(&self, outbox: Outbox) {
+        let _ = self.outbox.set(outbox);
+    }
+
+    /// Start a node key rotation now (local operator request). Returns the
+    /// key epoch being offered.
+    pub fn rotate_keys(&self, reason: &str) -> Result<U53, String> {
+        let rotator = self
+            .rotator
+            .as_ref()
+            .ok_or("key rotation is not configured")?;
+        if !self.rotation_enabled.load(Ordering::SeqCst) {
+            return Err(
+                "no control session with key rotation; keys change by re-enrollment".into(),
+            );
+        }
+        let statement = rotator
+            .statement(&self.node, reason)
+            .map_err(|e| e.to_string())?;
+        let epoch = statement_epoch(&statement)?;
+        self.outbox
+            .get()
+            .ok_or("not connected")?
+            .send(ControlFrame::KeyRotation { statement })
+            .map_err(|e| e.to_string())?;
+        Ok(epoch)
     }
 
     fn dispatcher_for(&self, session: &SessionId) -> Arc<Dispatcher> {
@@ -101,7 +146,17 @@ impl Handler for ControlHandler {
     async fn on_ready(&self, session: SessionInfo) -> Vec<ControlFrame> {
         self.dispatcher_for(&session.session_id);
         self.reports.reset();
-        self.reports.frame(&self.node).into_iter().collect()
+        let mut out: Vec<ControlFrame> = self.reports.frame(&self.node).into_iter().collect();
+        let enabled = session.has(Feature::KeyRotation);
+        self.rotation_enabled.store(enabled, Ordering::SeqCst);
+        if let (true, Some(r)) = (enabled, &self.rotator) {
+            match r.to_offer(&self.node) {
+                Ok(Some(statement)) => out.push(ControlFrame::KeyRotation { statement }),
+                Ok(None) => {}
+                Err(e) => tracing::error!(error = %e, "cannot offer the prepared key rotation"),
+            }
+        }
+        out
     }
 
     async fn request(
@@ -142,6 +197,20 @@ impl Handler for ControlHandler {
                     }
                 }
             }
+            ControlFrame::KeyRotationAck { ack } if session.has(Feature::KeyRotation) => {
+                let Some(r) = &self.rotator else {
+                    return vec![];
+                };
+                match r.complete(&self.node, &ack, session.clock_now()).await {
+                    Ok(_) => {
+                        if let Some(o) = self.outbox.get() {
+                            let _ = o.reconnect();
+                        }
+                    }
+                    Err(e) => tracing::error!(error = %e, "key rotation acknowledgement refused"),
+                }
+                vec![]
+            }
             ControlFrame::Authority { document } => {
                 self.authority(&document).await;
                 vec![]
@@ -155,6 +224,15 @@ impl Handler for ControlHandler {
             }
         }
     }
+}
+
+fn statement_epoch(statement: &CrossSigned) -> Result<U53, String> {
+    // Our own statement, already verified when it was built.
+    let r: otterd_proto::identity::KeyRotation = statement
+        .by_new
+        .decode_own_payload()
+        .map_err(|e| e.to_string())?;
+    Ok(r.new_keys.key_epoch)
 }
 
 /// Sends `slotReports` after `ready` and whenever the journalled slot state
@@ -235,7 +313,7 @@ impl IdentitySource for NodeIdentitySource {
             node_id: id.node_id,
             node_epoch: id.node_epoch,
             key_epoch: id.key_epoch,
-            signing: self.node.identity_key().clone(),
+            signing: self.node.identity_key(),
             boot_id: self.node.engine.boot_id().clone(),
             incarnation: self.node.incarnation.clone(),
             cp_keys: id.cp_keys,

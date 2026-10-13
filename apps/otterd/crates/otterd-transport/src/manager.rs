@@ -120,9 +120,17 @@ pub enum SendError {
     TelemetryFull,
 }
 
+/// What the daemon queues on the control channel.
+#[derive(Debug)]
+pub(crate) enum Outgoing {
+    Frame(ControlFrame),
+    /// End this session and connect again (the node identity changed).
+    Reconnect,
+}
+
 #[derive(Debug)]
 pub(crate) struct Channels {
-    pub(crate) control: mpsc::UnboundedSender<ControlFrame>,
+    pub(crate) control: mpsc::UnboundedSender<Outgoing>,
     pub(crate) telemetry: mpsc::Sender<SampleBatch>,
 }
 
@@ -146,7 +154,18 @@ impl Outbox {
         g.as_ref()
             .ok_or(SendError::NotConnected)?
             .control
-            .send(frame)
+            .send(Outgoing::Frame(frame))
+            .map_err(|_| SendError::NotConnected)
+    }
+
+    /// End the current session after the frames already queued, and connect
+    /// again: used when the node's identity key changed.
+    pub fn reconnect(&self) -> Result<(), SendError> {
+        let g = self.inner.lock().map_err(|_| SendError::NotConnected)?;
+        g.as_ref()
+            .ok_or(SendError::NotConnected)?
+            .control
+            .send(Outgoing::Reconnect)
             .map_err(|_| SendError::NotConnected)
     }
 
@@ -249,6 +268,7 @@ impl<H: Handler, I: IdentitySource> ConnectionManager<H, I> {
                         match ended {
                             conn::Ended::Shutdown => return,
                             conn::Ended::GoAway { after: Some(d) } => d,
+                            conn::Ended::Reconnect => Duration::ZERO,
                             _ => self.cfg.backoff_min,
                         }
                     }
