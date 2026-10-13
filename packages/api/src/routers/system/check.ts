@@ -21,7 +21,7 @@ import {
 export interface VersionInfo {
   current: string;
   channel: UpdateChannel;
-  runtime: "docker" | "swarm";
+  runtime: "docker" | "swarm" | "otterd";
   /** Whether apply runs in simulation (dev default / forced). The UI badges it
    *  so a dry-run "update" is never mistaken for the real thing. */
   dryRun: boolean;

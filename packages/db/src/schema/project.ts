@@ -396,6 +396,12 @@ export const resource = pgTable(
     // does not move with it. Cleared (not cascaded) if the server is removed,
     // so the resource falls back to being schedulable rather than unplaceable.
     placementServerId: text("placement_server_id").$type<ServerId>(),
+    /**
+     * Which runtime owns this resource's workloads: `legacy` (the Docker or
+     * Swarm driver) or `otterd`. Expand-only: a migration moves a resource
+     * from one to the other, and only its owner may change what runs.
+     */
+    runtimeOwner: text("runtime_owner").notNull().default("legacy"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

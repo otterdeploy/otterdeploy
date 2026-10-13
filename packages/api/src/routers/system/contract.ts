@@ -20,7 +20,7 @@ const updateChannelSchema = z.enum(["stable", "nightly"]);
 const versionInfoSchema = z.object({
   current: z.string(),
   channel: updateChannelSchema,
-  runtime: z.enum(["docker", "swarm"]),
+  runtime: z.enum(["docker", "swarm", "otterd"]),
   dryRun: z.boolean(),
 });
 
