@@ -23,6 +23,19 @@ interface Health {
   held: string | null;
 }
 
+/**
+ * The Engine refused to create the attempt's container (a missing image, an
+ * invalid setting): its create settled, yet there is no container and no
+ * process. Nothing will start it, so it counts as failed and rollout and
+ * restart policy act on it.
+ */
+function createRefused(a: SlotReport["attempts"][number]): boolean {
+  const created = a.mutations.some(
+    (m) => m.verb === "create" && (m.state === "settled" || m.state === "retired"),
+  );
+  return created && a.container === undefined && a.process.state === "absent";
+}
+
 function healthOf(r: SlotReport): Health {
   const newest = r.attempts.reduce<SlotReport["attempts"][number] | undefined>(
     (a, b) => (a === undefined || b.ordinal > a.ordinal ? b : a),
@@ -41,7 +54,7 @@ function healthOf(r: SlotReport): Health {
   return {
     attempts: r.attempts.map((a) => a.attemptId),
     running: !held && (state === "running" || unobserved),
-    failed: !held && state === "exited",
+    failed: !held && (state === "exited" || (newest !== undefined && createRefused(newest))),
     held,
   };
 }
