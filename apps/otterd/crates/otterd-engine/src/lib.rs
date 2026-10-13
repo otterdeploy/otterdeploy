@@ -9,6 +9,7 @@
 mod adapter;
 mod docker;
 mod handle;
+mod image;
 
 pub use adapter::{
     AdapterError, Classification, ContainerView, EngineAdapter, EngineOp, LABEL_ATTEMPT,
@@ -20,3 +21,4 @@ pub use docker::{
     DockerClient, EngineResponse, MAX_RESPONSE_BYTES, TransportError, VersionInfo, urlencode,
 };
 pub use handle::{HandleError, JournalHandle};
+pub use image::{ImageView, MAX_PULL_LINE_BYTES, PullError, PullProgress, PullReport};

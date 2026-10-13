@@ -645,3 +645,50 @@ fn a_container_started_outside_otterd_is_adopted_in_place_and_released_without_a
     assert!(j.state().grants[&id::<GrantId>("g7")].is_released());
     assert!(j.append(released("g7")).is_err());
 }
+
+#[test]
+fn an_attempt_that_failed_before_running_stays_failed_across_reopen_and_compaction() {
+    use otterd_proto::ids::AttemptId;
+    use otterd_proto::lifecycle::AttemptFailure;
+    let a1: AttemptId = id("a1");
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("node.journal");
+    let mut j = fresh(&dir);
+    let failed = |grant_id: &str, attempt: &str| Record::AttemptFailed {
+        grant_id: id(grant_id),
+        attempt_id: id(attempt),
+        failure: AttemptFailure::new(
+            AttemptFailure::IMAGE_PULL_FAILED,
+            "manifest for busybox:nope not found",
+        ),
+    };
+    j.append(grant("g1", 0, 1, 1, true)).unwrap();
+    j.append(grant("g2", 1, 1, 1, true)).unwrap();
+    // Only an attempt of the named grant.
+    assert!(matches!(
+        transition(j.append(failed("g1", "a1")).unwrap_err()),
+        TransitionError::UnknownAttempt { .. }
+    ));
+    j.append(attempt("g1", "a1", 1)).unwrap();
+    assert!(matches!(
+        transition(j.append(failed("g2", "a1")).unwrap_err()),
+        TransitionError::UnknownAttempt { .. }
+    ));
+    j.append(failed("g1", "a1")).unwrap();
+    // Once.
+    assert!(matches!(
+        transition(j.append(failed("g1", "a1")).unwrap_err()),
+        TransitionError::AttemptAlreadyFailed(_)
+    ));
+    let failure = j.state().attempts[&a1].failure.clone().unwrap();
+    assert_eq!(failure.code, "image-pull-failed");
+    // The grant stays live: the control plane stops it like any other.
+    assert!(!j.state().grants[&id::<GrantId>("g1")].is_released());
+
+    let before = j.state().attempts[&a1].clone();
+    let (j, _) = j.compact(CompactionPolicy::default(), "test").unwrap();
+    assert_eq!(j.state().attempts[&a1], before);
+    drop(j);
+    let (reopened, _) = Journal::open(&path).unwrap();
+    assert_eq!(reopened.state().attempts[&a1], before);
+}

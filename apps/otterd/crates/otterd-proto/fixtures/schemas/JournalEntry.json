@@ -410,6 +410,19 @@
         "type": "adoptionReleased"
       },
       "seq": 31
+    },
+    {
+      "atUnixMs": 1791000000032,
+      "record": {
+        "attemptId": "att_0123456789abcdef0123456789abcdef",
+        "failure": {
+          "code": "image-pull-failed",
+          "message": "pull busybox:does-not-exist: manifest unknown"
+        },
+        "grantId": "grant_1",
+        "type": "attemptFailed"
+      },
+      "seq": 32
     }
   ],
   "schema": "JournalEntry"

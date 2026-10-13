@@ -558,7 +558,38 @@ fn schemas() {
     observed["attempts"][0]["mutations"][1]["state"] = json!("settled");
     let mut frozen = observed.clone();
     frozen["attempts"][0]["process"] = json!({"state": "paused", "pid": 4242});
-    schema_file::<SlotReport>("SlotReport", vec![slot_report(), held, observed, frozen]);
+    let mut pull_failed = observed.clone();
+    pull_failed["attempts"][0] = json!({
+        "attemptId": "att_0123456789abcdef0123456789abcdef", "ordinal": 1,
+        "process": {"state": "absent"}, "mutations": [],
+        "failure": {"code": "image-pull-failed",
+                    "message": "pull registry.invalid/none:1: no such host"}
+    });
+    let mut create_refused = observed.clone();
+    create_refused["attempts"][0]["process"] = json!({"state": "absent"});
+    create_refused["attempts"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("container");
+    create_refused["attempts"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("observedSinceUnixMs");
+    create_refused["attempts"][0]["mutations"] = json!([{"mutationId": "mut_00000000000000000000000000000001",
+        "verb": "create", "state": "settled"}]);
+    create_refused["attempts"][0]["failure"] = json!({"code": "create-refused",
+        "message": "invalid reference format (Engine status 400)"});
+    schema_file::<SlotReport>(
+        "SlotReport",
+        vec![
+            slot_report(),
+            held,
+            observed,
+            frozen,
+            pull_failed,
+            create_refused,
+        ],
+    );
     let mut retained = stop_certificate();
     retained["containers"][0]["retained"] = json!(true);
     schema_file::<StopCertificate>("StopCertificate", vec![stop_certificate(), retained]);
@@ -941,6 +972,13 @@ fn schemas() {
                 31,
                 json!({"type": "adoptionReleased", "grantId": "grant_7",
             "restartPolicy": {"name": "on-failure", "maximumRetryCount": 5}}),
+            ),
+            entry(
+                32,
+                json!({"type": "attemptFailed", "grantId": "grant_1",
+            "attemptId": "att_0123456789abcdef0123456789abcdef",
+            "failure": {"code": "image-pull-failed",
+                        "message": "pull busybox:does-not-exist: manifest unknown"}}),
             ),
         ],
     );

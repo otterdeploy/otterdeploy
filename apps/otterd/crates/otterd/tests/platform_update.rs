@@ -352,6 +352,7 @@ mod session {
                 stop_grace: Duration::from_secs(2),
                 boot_barrier_profile: String::new(),
                 hold_bound: Duration::from_secs(300),
+                pull_timeout: Duration::from_secs(600),
             },
             EngineAdapter::new(
                 d,

@@ -285,6 +285,13 @@ fn retained(state: &NodeState, cutoff: U53) -> Vec<(Record, Option<U53>)> {
                     ordinal: a.ordinal,
                     reason: a.reason,
                 });
+                if let Some(failure) = &a.failure {
+                    push(Record::AttemptFailed {
+                        grant_id: g.grant.grant_id.clone(),
+                        attempt_id: attempt_id.clone(),
+                        failure: failure.clone(),
+                    });
+                }
             }
         }
         // Start-capable intents precede the revocation in the original history;

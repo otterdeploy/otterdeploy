@@ -96,6 +96,29 @@ export const processObservation = z.discriminatedUnion("state", [
 ]);
 export type ProcessObservation = z.infer<typeof processObservation>;
 
+/**
+ * Why an attempt ended before its process ran. Terminal: the node never
+ * retries it; the control plane applies its restart and rollout policy.
+ */
+export const attemptFailure = z.strictObject({
+  /** One of `ATTEMPT_FAILURE_CODES`. */
+  code: z.string(),
+  message: z.string(),
+});
+export type AttemptFailure = z.infer<typeof attemptFailure>;
+
+/** Mirror of the `AttemptFailure::*` codes. */
+export const ATTEMPT_FAILURE_CODES = {
+  /** Absent image that could not be pulled (registry, timeout, or digest mismatch). */
+  imagePullFailed: "image-pull-failed",
+  /** The Engine definitively refused to create the container. */
+  createRefused: "create-refused",
+  /** The container exists but the Engine definitively refused to start it. */
+  startRefused: "start-refused",
+  /** The node refused to go on after accepting the grant. */
+  refused: "refused",
+} as const;
+
 export const slotReport = z.object({
   slot: slotRef,
   grantId: wireId,
@@ -115,6 +138,8 @@ export const slotReport = z.object({
       mutations: z.array(
         z.object({ mutationId: wireId, verb: engineVerb, state: submissionState }),
       ),
+      /** Set when the attempt ended before a process ran; `process` then stays `absent` (or `created`). */
+      failure: attemptFailure.optional(),
     }),
   ),
   unknownHolds: z.array(wireId).optional(),

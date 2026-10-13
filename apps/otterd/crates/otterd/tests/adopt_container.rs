@@ -78,6 +78,7 @@ async fn start(dir: &Path, hold_bound: Duration) -> Node {
             stop_grace: Duration::from_secs(5),
             boot_barrier_profile: String::new(),
             hold_bound,
+            pull_timeout: Duration::from_secs(600),
         },
         EngineAdapter::new(
             d,

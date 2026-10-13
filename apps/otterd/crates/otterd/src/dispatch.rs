@@ -136,20 +136,7 @@ impl Dispatcher {
         if let Err(e) = claim {
             return malformed(format!("claim: {e}"));
         }
-        let outcome = match run(node, &cap, &command, &payload_hash, self, session).await {
-            Ok(result) => OpOutcome::Completed { result },
-            Err(NodeError::Refused(message)) => OpOutcome::Failed {
-                code: "refused".into(),
-                message,
-                side_effects: SideEffects::None,
-            },
-            Err(NodeError::Unauthorized(message)) => OpOutcome::Failed {
-                code: "unauthorized".into(),
-                message,
-                side_effects: SideEffects::None,
-            },
-            Err(NodeError::Internal(message)) => OpOutcome::Unknown { reason: message },
-        };
+        let outcome = outcome_of(run(node, &cap, &command, &payload_hash, self, session).await);
         if let Err(e) = node
             .engine
             .journal()
@@ -244,6 +231,34 @@ struct Admitted {
     command: Command,
     payload_hash: Sha256Hex,
     capability_digest: Sha256Hex,
+}
+
+/// The answer for a command's result. An attempt that ended before its
+/// process ran is a failure, never an `applied`.
+#[must_use]
+pub fn outcome_of(result: Result<CommandResult, NodeError>) -> OpOutcome {
+    match result {
+        Ok(result) => OpOutcome::Completed { result },
+        Err(NodeError::Refused(message)) => OpOutcome::Failed {
+            code: "refused".into(),
+            message,
+            side_effects: SideEffects::None,
+        },
+        Err(NodeError::Unauthorized(message)) => OpOutcome::Failed {
+            code: "unauthorized".into(),
+            message,
+            side_effects: SideEffects::None,
+        },
+        Err(NodeError::AttemptFailed {
+            failure,
+            side_effects,
+        }) => OpOutcome::Failed {
+            code: failure.code,
+            message: failure.message,
+            side_effects,
+        },
+        Err(NodeError::Internal(message)) => OpOutcome::Unknown { reason: message },
+    }
 }
 
 fn malformed(detail: String) -> Answer {
@@ -415,5 +430,35 @@ async fn run_service(
             "{} is not a service command",
             other.verb()
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use otterd_proto::lifecycle::AttemptFailure;
+
+    #[test]
+    fn an_attempt_that_failed_to_start_is_answered_as_failed() {
+        let failed = outcome_of(Err(NodeError::AttemptFailed {
+            failure: AttemptFailure::new(
+                AttemptFailure::IMAGE_PULL_FAILED,
+                "pull registry.invalid/none:1: no such host",
+            ),
+            side_effects: SideEffects::None,
+        }));
+        assert_eq!(
+            failed,
+            OpOutcome::Failed {
+                code: "image-pull-failed".into(),
+                message: "pull registry.invalid/none:1: no such host".into(),
+                side_effects: SideEffects::None,
+            }
+        );
+        assert!(failed.is_terminal());
+        assert!(matches!(
+            outcome_of(Err(NodeError::Internal("journal".into()))),
+            OpOutcome::Unknown { .. }
+        ));
     }
 }
