@@ -457,3 +457,106 @@ fn compaction_keeps_obligations_and_drops_released_history() {
     let (reopened, _) = Journal::open(&path).unwrap();
     assert_eq!(reopened.state(), &expected);
 }
+
+#[test]
+fn a_held_grant_is_adopted_by_a_newer_grant_for_the_same_attempt() {
+    const LATER: &str = "inc_00000000000000000000000000000002";
+    let dir = tempfile::tempdir().unwrap();
+    let mut j = fresh(&dir);
+    j.append(grant("g1", 0, 1, 1, true)).unwrap();
+    j.append(attempt("g1", "att_00000000000000000000000000000001", 1))
+        .unwrap();
+    let held = |incarnation: &str| Record::GrantHeld {
+        grant_id: id("g1"),
+        incarnation: id(incarnation),
+        container: id("c0ffee"),
+        paused: true,
+        since_unix_ms: u(1),
+    };
+    // The process that was granted it cannot hold its own grant.
+    assert!(matches!(
+        transition(j.append(held(INCARNATION)).unwrap_err()),
+        TransitionError::BadHold { .. }
+    ));
+    j.append(started(LATER)).unwrap();
+    j.append(held(LATER)).unwrap();
+    let h = j.state().grants[&id::<GrantId>("g1")].held.clone().unwrap();
+    assert_eq!(
+        (h.attempt_id.as_str(), h.paused),
+        ("att_00000000000000000000000000000001", true)
+    );
+
+    let adopting = |grant_id: &str, generation: u64, attempt: Option<&str>| {
+        let Record::GrantAccepted {
+            mut grant,
+            spec_digest,
+            op_id,
+        } = grant(grant_id, 0, generation, 1, true)
+        else {
+            unreachable!()
+        };
+        grant.incarnation = id(LATER);
+        grant.adopts_attempt = attempt.map(id);
+        Record::GrantAccepted {
+            grant,
+            spec_digest,
+            op_id,
+        }
+    };
+    // A plain grant still cannot join the slot; one adopting another attempt neither.
+    assert!(matches!(
+        transition(j.append(adopting("g2", 2, None)).unwrap_err()),
+        TransitionError::ExclusiveHeld { .. }
+    ));
+    assert!(matches!(
+        transition(
+            j.append(adopting(
+                "g2",
+                2,
+                Some("att_00000000000000000000000000000009")
+            ))
+            .unwrap_err()
+        ),
+        TransitionError::ExclusiveHeld { .. }
+    ));
+    j.append(adopting(
+        "g2",
+        2,
+        Some("att_00000000000000000000000000000001"),
+    ))
+    .unwrap();
+    let adopted = |attempt: &str| Record::GrantAdopted {
+        grant_id: id("g1"),
+        by_grant: id("g2"),
+        attempt_id: id(attempt),
+    };
+    assert!(matches!(
+        transition(
+            j.append(adopted("att_00000000000000000000000000000009"))
+                .unwrap_err()
+        ),
+        TransitionError::BadHold { .. }
+    ));
+    j.append(adopted("att_00000000000000000000000000000001"))
+        .unwrap();
+    let s = j.state();
+    assert!(
+        s.grants[&id::<GrantId>("g1")].is_released(),
+        "released by adoption, without a stop"
+    );
+    assert_eq!(
+        s.grants[&id::<GrantId>("g2")].attempts,
+        vec![id("att_00000000000000000000000000000001")]
+    );
+    assert_eq!(
+        s.attempts[&id("att_00000000000000000000000000000001")].grant_id,
+        id("g2")
+    );
+    // The adopted grant cannot be held or adopted again.
+    assert!(j.append(held(LATER)).is_err());
+    // Compaction keeps the adoption and the attempt's history.
+    let before = j.state().grants[&id::<GrantId>("g2")].clone();
+    let (j, _) = j.compact(CompactionPolicy::default(), "test").unwrap();
+    assert_eq!(j.state().grants[&id::<GrantId>("g2")], before);
+    assert!(j.state().grants[&id::<GrantId>("g1")].is_released());
+}

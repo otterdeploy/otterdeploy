@@ -71,6 +71,15 @@ pub enum EngineOp {
         container: ContainerRef,
         name: String,
     },
+    /// Freeze a held container (cgroup freezer) until it is adopted.
+    Pause {
+        container: ContainerRef,
+        name: String,
+    },
+    Unpause {
+        container: ContainerRef,
+        name: String,
+    },
 }
 
 impl EngineOp {
@@ -83,6 +92,8 @@ impl EngineOp {
             Self::Stop { .. } => EngineVerb::Stop,
             Self::Kill { .. } => EngineVerb::Kill,
             Self::Remove { .. } => EngineVerb::Remove,
+            Self::Pause { .. } => EngineVerb::Pause,
+            Self::Unpause { .. } => EngineVerb::Unpause,
         }
     }
 
@@ -94,7 +105,9 @@ impl EngineOp {
             | Self::Restart { name, .. }
             | Self::Stop { name, .. }
             | Self::Kill { name, .. }
-            | Self::Remove { name, .. } => name,
+            | Self::Remove { name, .. }
+            | Self::Pause { name, .. }
+            | Self::Unpause { name, .. } => name,
         }
     }
 
@@ -106,7 +119,9 @@ impl EngineOp {
             | Self::Restart { container, .. }
             | Self::Stop { container, .. }
             | Self::Kill { container, .. }
-            | Self::Remove { container, .. } => Some(container),
+            | Self::Remove { container, .. }
+            | Self::Pause { container, .. }
+            | Self::Unpause { container, .. } => Some(container),
         }
     }
 
@@ -152,6 +167,14 @@ impl EngineOp {
             Self::Kill { container, .. } => {
                 (Method::POST, format!("/containers/{container}/kill"), None)
             }
+            Self::Pause { container, .. } => {
+                (Method::POST, format!("/containers/{container}/pause"), None)
+            }
+            Self::Unpause { container, .. } => (
+                Method::POST,
+                format!("/containers/{container}/unpause"),
+                None,
+            ),
             Self::Remove { container, .. } => (
                 Method::DELETE,
                 format!("/containers/{container}?force=false&v=false"),
@@ -235,7 +258,11 @@ pub fn classify(verb: EngineVerb, resp: &EngineResponse) -> Classification {
             EngineVerb::Start | EngineVerb::Restart,
             StatusCode::BAD_REQUEST | StatusCode::CONFLICT,
         )
-        | (EngineVerb::Remove, StatusCode::CONFLICT) => refused(resp),
+        | (EngineVerb::Remove | EngineVerb::Pause | EngineVerb::Unpause, StatusCode::CONFLICT) => {
+            refused(resp)
+        }
+        (EngineVerb::Pause, StatusCode::NO_CONTENT) => Terminal(EngineOutcome::Paused),
+        (EngineVerb::Unpause, StatusCode::NO_CONTENT) => Terminal(EngineOutcome::Unpaused),
         (EngineVerb::Start, StatusCode::NO_CONTENT) => Terminal(EngineOutcome::Started),
         (EngineVerb::Start, StatusCode::NOT_MODIFIED) => Terminal(EngineOutcome::AlreadyStarted),
         (EngineVerb::Restart, StatusCode::NO_CONTENT) => Terminal(EngineOutcome::Restarted),

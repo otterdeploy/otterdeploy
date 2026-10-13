@@ -36,6 +36,47 @@
       "unknownHolds": [
         "hold_00000000000000000000000000000001"
       ]
+    },
+    {
+      "attempts": [
+        {
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "container": "otterd-res_pg-0-att_0123",
+          "mutations": [
+            {
+              "mutationId": "mut_00000000000000000000000000000001",
+              "state": "settled",
+              "verb": "create"
+            },
+            {
+              "mutationId": "mut_00000000000000000000000000000002",
+              "state": "submitted",
+              "verb": "start"
+            }
+          ],
+          "ordinal": 1,
+          "process": {
+            "reason": "engine inspect timed out",
+            "state": "unknown"
+          }
+        }
+      ],
+      "generation": 4,
+      "grantId": "grant_1",
+      "held": {
+        "attemptId": "att_0123456789abcdef0123456789abcdef",
+        "paused": true
+      },
+      "quarantined": true,
+      "revoked": true,
+      "slot": {
+        "index": 0,
+        "resourceId": "res_pg"
+      },
+      "state": "unknown",
+      "unknownHolds": [
+        "hold_00000000000000000000000000000001"
+      ]
     }
   ],
   "schema": "SlotReport"

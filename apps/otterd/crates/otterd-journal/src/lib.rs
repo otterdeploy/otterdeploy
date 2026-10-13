@@ -27,7 +27,7 @@ mod state;
 pub use compact::{CompactionPolicy, CompactionReport};
 pub use log::{Journal, JournalError, OpenReport, now_unix_ms};
 pub use state::{
-    ActiveManifest, AttemptState, Blocker, GrantState, HighWaterKey, HoldPhase, HoldState,
+    ActiveManifest, AttemptState, Blocker, GrantState, Held, HighWaterKey, HoldPhase, HoldState,
     IdentityState, MutationState, NodeState, OpState, Revocation, Submission, SubmittedInfo,
     TransitionError, UpdateState,
 };

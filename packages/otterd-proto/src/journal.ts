@@ -35,6 +35,8 @@ const engineOutcome = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("stopped") }),
   z.strictObject({ kind: z.literal("already-stopped") }),
   z.strictObject({ kind: z.literal("removed") }),
+  z.strictObject({ kind: z.literal("paused") }),
+  z.strictObject({ kind: z.literal("unpaused") }),
   z.strictObject({ kind: z.literal("absent") }),
   z.strictObject({ kind: z.literal("refused"), status: u16, message: z.string() }),
 ]);
@@ -90,6 +92,14 @@ export const journalRecord = z.discriminatedUnion("type", [
   }),
   r("opCompleted", { opId: wireId, outcome: opOutcome }),
   r("grantAccepted", { grant: slotGrant, specDigest: sha256Hex, opId: wireId }),
+  r("grantHeld", {
+    grantId: wireId,
+    incarnation: wireId,
+    container: wireId,
+    paused: z.boolean(),
+    sinceUnixMs: u53,
+  }),
+  r("grantAdopted", { grantId: wireId, byGrant: wireId, attemptId: wireId }),
   r("grantRevoked", { grantId: wireId, reason: z.string() }),
   r("attemptBegun", {
     grantId: wireId,

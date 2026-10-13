@@ -25,7 +25,7 @@ use otterd_proto::journal::{
     AttemptReason, BackingIdentity, EngineOutcome, HoldRecord, Record, Retirement, WorkloadClass,
 };
 use otterd_proto::lifecycle::{
-    AttemptReport, BarrierEvidence, ContainerObservation, GrantState, MutationReport,
+    AttemptReport, BarrierEvidence, ContainerObservation, GrantState, HeldAttempt, MutationReport,
     ProcessObservation, SlotGrant, SlotReport, StopCertificate, SubmissionState,
 };
 use otterd_proto::spec::{MountKind, ServiceSpec};
@@ -977,6 +977,10 @@ impl Node {
                         })
                         .map(|h| h.record.hold_id.clone())
                         .collect(),
+                    held: g.held.as_ref().map(|h| HeldAttempt {
+                        attempt_id: h.attempt_id.clone(),
+                        paused: h.paused,
+                    }),
                 }
             })
             .collect())
@@ -1084,6 +1088,7 @@ mod tests {
                 restart: otterd_proto::spec::RestartPolicy::default(),
                 data_claims: vec![],
                 probe_only: false,
+                adopts_attempt: None,
             },
             spec_digest: Sha256Hex::digest(b"s"),
             op_id: "op".parse().unwrap(),
@@ -1091,6 +1096,8 @@ mod tests {
             certificate: None,
             superseded_by_epoch: None,
             attempts: vec![],
+            held: None,
+            adopted_by: None,
         }
     }
 

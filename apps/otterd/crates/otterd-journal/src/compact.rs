@@ -16,7 +16,7 @@
 use crate::log::{Journal, JournalError, io_err, now_unix_ms, sync_dir};
 use crate::state::{GrantState, HoldPhase, MutationState, NodeState, OpState, Submission};
 use otterd_proto::U53;
-use otterd_proto::ids::{AttemptId, Sha256Hex, SlotRef};
+use otterd_proto::ids::{AttemptId, GrantId, Sha256Hex, SlotRef};
 use otterd_proto::journal::{Record, WorkloadClass};
 use otterd_proto::version::JOURNAL_FORMAT;
 use serde_json::{Value, json};
@@ -49,8 +49,28 @@ pub struct CompactionReport {
     pub prior_digest: Sha256Hex,
 }
 
-fn grant_is_live(g: &GrantState) -> bool {
-    !g.is_released()
+/// Grants whose facts a compaction keeps: every unreleased grant, and every
+/// grant whose attempt a kept grant adopted (its history is that attempt's).
+fn kept_grants(state: &NodeState) -> BTreeSet<GrantId> {
+    let mut kept: BTreeSet<GrantId> = state
+        .grants
+        .values()
+        .filter(|g| !g.is_released())
+        .map(|g| g.grant.grant_id.clone())
+        .collect();
+    loop {
+        let more: Vec<GrantId> = state
+            .grants
+            .values()
+            .filter(|g| !kept.contains(&g.grant.grant_id))
+            .filter(|g| g.adopted_by.as_ref().is_some_and(|by| kept.contains(by)))
+            .map(|g| g.grant.grant_id.clone())
+            .collect();
+        if more.is_empty() {
+            return kept;
+        }
+        kept.extend(more);
+    }
 }
 
 /// Platform attempts whose history must survive: the newest per slot, and any
@@ -85,10 +105,11 @@ fn op_is_kept(op: &OpState, cutoff: U53) -> bool {
 /// and per-file counters are deliberately excluded.
 fn projection(state: &NodeState, cutoff: U53) -> Value {
     let platform = live_platform_attempts(state);
+    let kept = kept_grants(state);
     let grants: BTreeMap<_, _> = state
         .grants
         .iter()
-        .filter(|(_, g)| grant_is_live(g))
+        .filter(|(id, _)| kept.contains(*id))
         .collect();
     let keep_mutation = |m: &MutationState| match &m.record.grant_id {
         Some(g) => grants.contains_key(g),
@@ -215,7 +236,12 @@ fn retained(state: &NodeState, cutoff: U53) -> Vec<(Record, Option<U53>)> {
             push(phase(u.phase));
         }
     }
-    let mut live: Vec<&GrantState> = state.grants.values().filter(|g| grant_is_live(g)).collect();
+    let kept = kept_grants(state);
+    let mut live: Vec<&GrantState> = state
+        .grants
+        .values()
+        .filter(|g| kept.contains(&g.grant.grant_id))
+        .collect();
     live.sort_by_key(|g| (g.grant.slot.clone(), g.grant.generation));
     let mut by_seq: Vec<&MutationState> = state.mutations.values().collect();
     by_seq.sort_by_key(|m| m.intent_seq);
@@ -225,7 +251,23 @@ fn retained(state: &NodeState, cutoff: U53) -> Vec<(Record, Option<U53>)> {
             spec_digest: g.spec_digest.clone(),
             op_id: g.op_id.clone(),
         });
+        // An adopting grant takes its first attempt by adoption, not a new start.
+        if let Some(adopted) = &g.grant.adopts_attempt
+            && let Some(old) = state
+                .grants
+                .values()
+                .find(|o| o.adopted_by.as_ref() == Some(&g.grant.grant_id))
+        {
+            push(Record::GrantAdopted {
+                grant_id: old.grant.grant_id.clone(),
+                by_grant: g.grant.grant_id.clone(),
+                attempt_id: adopted.clone(),
+            });
+        }
         for attempt_id in &g.attempts {
+            if g.grant.adopts_attempt.as_ref() == Some(attempt_id) {
+                continue;
+            }
             if let Some(a) = state.attempts.get(attempt_id) {
                 push(Record::AttemptBegun {
                     grant_id: g.grant.grant_id.clone(),
@@ -244,6 +286,15 @@ fn retained(state: &NodeState, cutoff: U53) -> Vec<(Record, Option<U53>)> {
             for r in mutation_records(m) {
                 push(r);
             }
+        }
+        if let Some(h) = &g.held {
+            push(Record::GrantHeld {
+                grant_id: g.grant.grant_id.clone(),
+                incarnation: h.incarnation.clone(),
+                container: h.container.clone(),
+                paused: h.paused,
+                since_unix_ms: h.since_unix_ms,
+            });
         }
         if let Some(reason) = &g.revoked {
             push(Record::GrantRevoked {

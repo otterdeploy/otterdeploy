@@ -81,6 +81,7 @@ async fn adapter(dir: &tempfile::TempDir) -> EngineAdapter {
             restart: RestartPolicy::default(),
             data_claims: vec![],
             probe_only: false,
+            adopts_attempt: None,
         },
         spec_digest: Sha256Hex::digest(b"spec"),
         op_id: id("op-real"),
