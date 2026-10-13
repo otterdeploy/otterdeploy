@@ -292,3 +292,242 @@ async fn update_rollback_and_resume() {
     );
     cleanup();
 }
+
+mod session {
+    use super::*;
+    use otterd::session::{ControlHandler, NodeIdentitySource, SlotReporter};
+    use otterd::{LifecycleConfig, Node, Progress};
+    use otterd_proto::capability::{Capability, Principal, PrincipalKind};
+    use otterd_proto::channel::ControlFrame;
+    use otterd_proto::command::{Command, CommandResult, OpOutcome};
+    use otterd_proto::identity::TrustedKey;
+    use otterd_proto::ids::Nonce;
+    use otterd_transport::testing::{CpSession, FakeCp};
+    use otterd_transport::tls::client_config;
+    use otterd_transport::{ConnectionManager, TransportConfig};
+    use std::sync::Arc;
+    use tokio::sync::watch;
+
+    const CP: [u8; 32] = [1; 32];
+    const NODE: [u8; 32] = [2; 32];
+
+    fn public(seed: [u8; 32]) -> PublicKey {
+        PublicKey::from_verifying_key(&SigningKey::from_bytes(&seed).verifying_key())
+    }
+
+    async fn node(dir: &Path) -> Arc<Node> {
+        let path = dir.join("node.journal");
+        let mut j = Journal::create(&path, "test").unwrap();
+        j.append(Record::Identity {
+            install_id: "inst_pu".parse().unwrap(),
+            node_id: "node-pu".parse().unwrap(),
+            node_epoch: U53::ONE,
+            key_epoch: U53::ONE,
+            identity_key_id: public(NODE).key_id(),
+            cp_keys: vec![TrustedKey {
+                key: public(CP),
+                epoch: U53::ONE,
+                not_after_unix_ms: None,
+            }],
+            recovery_key: public(RECOVERY),
+            host: HostBinding {
+                machine_id: "m".into(),
+                product_uuid: None,
+                provider: None,
+            },
+        })
+        .unwrap();
+        let incarnation = Incarnation::mint().unwrap();
+        let boot = otterd_sys::host::kernel_boot_id().unwrap();
+        j.append(Record::ProcessStarted {
+            incarnation: incarnation.clone(),
+            boot_id: boot.parse().unwrap(),
+        })
+        .unwrap();
+        let mut d = DockerClient::new("/var/run/docker.sock", Duration::from_secs(30));
+        d.negotiate().await.unwrap();
+        Arc::new(Node::new(
+            LifecycleConfig {
+                staging_root: dir.join("stage"),
+                stop_grace: Duration::from_secs(2),
+                boot_barrier_profile: String::new(),
+            },
+            EngineAdapter::new(
+                d,
+                JournalHandle::new(j),
+                boot.parse().unwrap(),
+                incarnation.clone(),
+                "test".into(),
+            ),
+            SigningKey::from_bytes(&NODE),
+            incarnation,
+            Progress::default(),
+        ))
+    }
+
+    fn request(
+        session: &otterd_proto::ids::SessionId,
+        id: u32,
+        op: &str,
+        command: &Command,
+    ) -> ControlFrame {
+        let payload = serde_json::to_string(command).unwrap();
+        let now = otterd_journal::now_unix_ms();
+        let verb = command.verb();
+        let cap = Capability {
+            install_id: "inst_pu".parse().unwrap(),
+            org_id: None,
+            principal: Principal {
+                kind: PrincipalKind::System,
+                id: "platform".into(),
+            },
+            aud: "node-pu".parse().unwrap(),
+            node_epoch: U53::ONE,
+            authority_term: U53::ONE,
+            verb,
+            resource_id: None,
+            binding: None,
+            path_root: None,
+            volume: None,
+            operation_epoch: U53::ONE,
+            op_id: op.parse().unwrap(),
+            payload_hash: Sha256Hex::digest(payload.as_bytes()),
+            nonce: Nonce::random().unwrap(),
+            session_id: session.clone(),
+            not_before_unix_ms: now.saturating_sub(5_000),
+            expires_at_unix_ms: now.saturating_add(30_000),
+            max_bytes: None,
+            permissions: verb.required().to_vec(),
+        };
+        ControlFrame::Request {
+            id,
+            capability: SignedEnvelope::sign(
+                &SigningKey::from_bytes(&CP),
+                SignContext::Capability,
+                &cap,
+            )
+            .unwrap(),
+            payload,
+        }
+    }
+
+    async fn answer(s: &mut CpSession, want: u32) -> OpOutcome {
+        loop {
+            match s
+                .recv_within(Duration::from_secs(30))
+                .await
+                .expect("a frame")
+            {
+                ControlFrame::Response { id, outcome, .. } if id == want => return outcome,
+                _ => {}
+            }
+        }
+    }
+
+    async fn session_with(
+        handler: ControlHandler,
+        node: &Arc<Node>,
+    ) -> (FakeCp, CpSession, watch::Sender<bool>) {
+        let mut cp = FakeCp::start(SigningKey::from_bytes(&CP), public(NODE))
+            .await
+            .unwrap();
+        let cfg = TransportConfig::new(cp.url.clone(), client_config(&cp.trust).unwrap());
+        let manager = Arc::new(ConnectionManager::new(
+            cfg,
+            Arc::new(handler),
+            Arc::new(NodeIdentitySource::new(Arc::clone(node), "test")),
+        ));
+        let (shutdown, rx) = watch::channel(false);
+        tokio::spawn(async move { manager.run(rx).await });
+        let s = cp.session(Duration::from_secs(10)).await.expect("session");
+        (cp, s, shutdown)
+    }
+
+    #[tokio::test]
+    #[ignore = "needs root and Docker on Linux"]
+    async fn the_platform_update_verb_runs_and_reports_progress() {
+        cleanup();
+        let dir = tempfile::tempdir().unwrap();
+        let host = otterd_sys::host::host_binding(None).unwrap();
+        let node = node(dir.path()).await;
+        let p = Arc::new(platform(&dir.path().join("bootstrap")).await);
+        let v1 = manifest(&host, 1, None);
+        p.install(&v1, &host).await.unwrap();
+        p.boot(&host, U53::ZERO, false).await.unwrap();
+
+        // A node without a platform refuses the verb.
+        let v2 = manifest(&host, 2, Some(&v1.payload_digest().unwrap()));
+        let (_cp, mut s, stop) = session_with(
+            ControlHandler::new(Arc::clone(&node), SlotReporter::default()),
+            &node,
+        )
+        .await;
+        let sid = s.session_id.clone();
+        s.send(&request(
+            &sid,
+            1,
+            "op-pu-0",
+            &Command::PlatformUpdate {
+                manifest: v2.clone(),
+            },
+        ))
+        .await;
+        assert!(matches!(answer(&mut s, 1).await, OpOutcome::Failed { .. }));
+        stop.send(true).unwrap();
+
+        // With the platform: answered at once, then the update runs on its own;
+        // the slot reports carry its progress.
+        let reporter = SlotReporter::default();
+        let handler =
+            ControlHandler::new(Arc::clone(&node), reporter.clone()).with_platform(Arc::clone(&p));
+        let (_cp, mut s, stop) = session_with(handler, &node).await;
+        match s.recv_within(Duration::from_secs(5)).await {
+            Some(ControlFrame::SlotReports {
+                platform: Some(r), ..
+            }) => assert_eq!(r.phase, "up"),
+            other => panic!("{other:?}"),
+        }
+        let sid = s.session_id.clone();
+        s.send(&request(
+            &sid,
+            2,
+            "op-pu-1",
+            &Command::PlatformUpdate {
+                manifest: v2.clone(),
+            },
+        ))
+        .await;
+        match answer(&mut s, 2).await {
+            OpOutcome::Completed {
+                result: CommandResult::Document { schema, body },
+            } => {
+                assert_eq!(schema, "otterd/platform-update-started/v1");
+                assert_eq!(
+                    body["manifestDigest"],
+                    serde_json::json!(v2.payload_digest().unwrap())
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+        let deadline = std::time::Instant::now() + Duration::from_secs(240);
+        loop {
+            let r = p.report();
+            if r.update
+                .as_ref()
+                .is_some_and(|u| u.phase == UpdatePhase::Committed)
+            {
+                assert_eq!(r.manifest_digest, Some(v2.payload_digest().unwrap()));
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "update did not commit: {r:?}"
+            );
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+        assert_eq!(cp_revision(), "2");
+        reporter.after_pass(&node, Some(&p), &otterd_transport::Outbox::default());
+        stop.send(true).unwrap();
+        cleanup();
+    }
+}
