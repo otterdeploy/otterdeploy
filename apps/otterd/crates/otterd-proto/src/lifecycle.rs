@@ -239,6 +239,10 @@ pub struct StopCertificate {
 pub struct ContainerObservation {
     pub container: ContainerRef,
     pub process: ProcessObservation,
+    /// Stopped but kept: an adopted container stays so a rollback can start
+    /// it again; only `workload.remove` deletes it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub retained: bool,
 }
 
 /// How an external barrier retired every earlier Engine request on a node.

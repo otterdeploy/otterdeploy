@@ -120,7 +120,8 @@ verbs! {
     WorkloadRestart = "workload.restart" => [Mutate];
     /// Revoke start authority and produce a positive stop certificate.
     WorkloadStop = "workload.stop" => [Mutate];
-    /// Remove stopped attempts and release their holds and claims.
+    /// Remove stopped attempts and release their holds and claims; deletes a
+    /// stopped grant's retained (adopted) containers.
     WorkloadRemove = "workload.remove" => [Mutate];
     /// Release an adopted container without stopping it (migration rollback).
     WorkloadReleaseAdoption = "workload.release-adoption" => [Mutate];

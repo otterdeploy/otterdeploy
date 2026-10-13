@@ -165,6 +165,7 @@ pub fn certificate(state: &NodeState, grant_id: &str) -> Record {
     let containers: Vec<ContainerObservation> = state
         .containers_of_grant(&gid)
         .map(|c: &ContainerRef| ContainerObservation {
+            retained: false,
             container: c.clone(),
             process: ProcessObservation::Exited { exit_code: 0 },
         })

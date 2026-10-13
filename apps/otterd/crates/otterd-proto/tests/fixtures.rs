@@ -548,7 +548,9 @@ fn schemas() {
     observed["attempts"][0]["observedSinceUnixMs"] = json!(1_791_000_000_000_u64);
     observed["attempts"][0]["mutations"][1]["state"] = json!("settled");
     schema_file::<SlotReport>("SlotReport", vec![slot_report(), held, observed]);
-    schema_file::<StopCertificate>("StopCertificate", vec![stop_certificate()]);
+    let mut retained = stop_certificate();
+    retained["containers"][0]["retained"] = json!(true);
+    schema_file::<StopCertificate>("StopCertificate", vec![stop_certificate(), retained]);
     schema_file::<LeaseRenewal>(
         "LeaseRenewal",
         vec![json!({
