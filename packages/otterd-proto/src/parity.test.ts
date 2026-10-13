@@ -45,6 +45,7 @@ import {
 import { journalEntry } from "./journal";
 import { leaseRenewal, slotGrant, slotReport, stopCertificate } from "./lifecycle";
 import { METRIC_NAMES, SIGNAL_KINDS, sampleBatch } from "./metrics";
+import { PLATFORM_ROLES, platformBootManifest } from "./platform";
 import { SPEC_ISSUE_CODES, serviceSpec, serviceSpecInput, specIssue } from "./spec";
 import { normalizeServiceSpec, validateServiceSpec } from "./spec-rules";
 import { FEATURES, negotiate, versionRange } from "./version";
@@ -76,6 +77,7 @@ const SCHEMAS: Record<string, z.ZodType> = {
   Membership: membership,
   OpOutcome: opOutcome,
   OwnerSnapshot: ownerSnapshot,
+  PlatformBootManifest: platformBootManifest,
   PeerAnswer: peerAnswer,
   SampleBatch: sampleBatch,
   ServingSet: servingSet,
@@ -126,6 +128,7 @@ describe("enums", () => {
   same("SignContext", SIGN_CONTEXTS);
   same("Feature", FEATURES);
   same("NodeRole", NODE_ROLES);
+  same("PlatformRole", PLATFORM_ROLES);
   same("MetricName", METRIC_NAMES);
   same("Cause", CAUSES);
   same("Outcome", OUTCOMES);

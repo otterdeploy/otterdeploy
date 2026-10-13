@@ -89,6 +89,13 @@
     "install-admin",
     "platform"
   ],
+  "PlatformRole": [
+    "postgres",
+    "redis",
+    "control-plane",
+    "edge",
+    "connector"
+  ],
   "SignContext": [
     "otterd/session/v1",
     "otterd/capability/v1",

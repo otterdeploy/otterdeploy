@@ -35,6 +35,7 @@ use otterd_proto::identity::{
 use otterd_proto::journal::Entry;
 use otterd_proto::lifecycle::{LeaseRenewal, SlotGrant, SlotReport, StopCertificate};
 use otterd_proto::metrics::{MetricName, SampleBatch, SignalKind};
+use otterd_proto::platform::{PlatformBootManifest, PlatformRole};
 use otterd_proto::spec::{ServiceSpecInput, SpecIssueCode};
 use otterd_proto::version::{Feature, VersionRange, negotiate};
 use serde::Serialize;
@@ -597,6 +598,41 @@ fn schemas() {
     schema_file::<CrossSigned>("CrossSigned", vec![key_rotation_statement()]);
     schema_file::<KeyRotationAck>("KeyRotationAck", vec![key_rotation_ack()]);
     schema_file::<CpKeyTransition>("CpKeyTransition", vec![cp_key_transition()]);
+    schema_file::<PlatformBootManifest>(
+        "PlatformBootManifest",
+        vec![json!({
+            "schema": 1, "installId": "inst_1",
+            "host": {"machineId": "0f5e3c2a9b8d4e1f8a7b6c5d4e3f2a1b",
+                     "provider": {"provider": "hetzner", "serverId": "4711"}},
+            "bootstrapEpoch": 1, "manifestRevision": 3, "authorityTerm": 2,
+            "previousManifestDigest": "1".repeat(64), "compatibleRollback": ["1".repeat(64)],
+            "network": {"name": "otterd-platform", "subnet": "10.250.0.0/24", "gateway": "10.250.0.1"},
+            "members": [
+                {"name": "pg", "role": "postgres", "ip": "10.250.0.2",
+                 "image": {"reference": "postgres:17", "id": format!("sha256:{}", "a".repeat(64)),
+                    "archive": "/var/lib/otterd/platform-images/pg.tar", "archiveSha256": "e".repeat(64)},
+                 "data": [{"root": "/var/lib/otterd/platform/pg", "target": "/var/lib/postgresql/data"}],
+                 "readiness": {"kind": "exec", "argv": ["pg_isready", "-U", "postgres"]}},
+                {"name": "redis", "role": "redis", "ip": "10.250.0.3",
+                 "image": {"reference": "redis:7", "id": format!("sha256:{}", "b".repeat(64)),
+                    "archive": "/var/lib/otterd/platform-images/redis.tar", "archiveSha256": "f".repeat(64)},
+                 "readiness": {"kind": "tcp", "port": 6379}},
+                {"name": "cp", "role": "control-plane", "ip": "10.250.0.4",
+                 "image": {"reference": "otterdeploy/server:1.4.0", "id": format!("sha256:{}", "c".repeat(64)),
+                    "archive": "/var/lib/otterd/platform-images/server.tar", "archiveSha256": "d".repeat(64)},
+                 "env": {"DATABASE_URL": "postgres://pg:5432/otterdeploy"},
+                 "recoveryEnv": {"OTTERDEPLOY_RECOVERY": "1"},
+                 "publish": [{"hostIp": "127.0.0.1", "hostPort": 3000, "containerPort": 3000}],
+                 "dependsOn": ["pg", "redis"], "readiness": {"kind": "http", "port": 3000, "path": "/health"}},
+                {"name": "tunnel", "role": "connector", "ip": "10.250.0.5", "essentialConnector": true,
+                 "image": {"reference": "cloudflare/cloudflared:2026.1", "id": format!("sha256:{}", "9".repeat(64)),
+                    "archive": "/var/lib/otterd/platform-images/tunnel.tar", "archiveSha256": "8".repeat(64)},
+                 "cmd": ["tunnel", "run"], "dependsOn": ["cp"], "readiness": {"kind": "tcp", "port": 20241}}
+            ],
+            "recoveryListener": "127.0.0.1:3900",
+            "preflight": {"requireNftTable": "inet otterd_base", "forbidUnits": ["otterdeploy-compose.service"]}
+        })],
+    );
     schema_file::<AuthorityRevocation>(
         "AuthorityRevocation",
         vec![json!({
@@ -930,6 +966,7 @@ fn enums() {
     out.insert("SignContext", names(&SignContext::ALL));
     out.insert("Feature", names(&Feature::ALL));
     out.insert("NodeRole", names(&NodeRole::ALL));
+    out.insert("PlatformRole", names(&PlatformRole::ALL));
     out.insert(
         "VerbRequired",
         Verb::ALL
@@ -1051,7 +1088,10 @@ fn fixture_keys_are_camel_case() {
                     if k.contains('_') {
                         bad.push(format!("{path}/{k}"));
                     }
-                    walk(child, &format!("{path}/{k}"), bad);
+                    // Labels and environment maps are data: their keys are names.
+                    if !matches!(k.as_str(), "env" | "recoveryEnv" | "labels" | "sysctls") {
+                        walk(child, &format!("{path}/{k}"), bad);
+                    }
                 }
             }
             Value::Array(items) => {
@@ -1072,7 +1112,6 @@ fn fixture_keys_are_camel_case() {
             } else {
                 let v: Value =
                     serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-                // Labels and env names are data, not keys of the contract.
                 walk(&v, &path.display().to_string(), &mut bad);
             }
         }
