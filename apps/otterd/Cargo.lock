@@ -1107,6 +1107,7 @@ dependencies = [
  "otterd-proto",
  "otterd-sys",
  "otterd-transport",
+ "otterd-update",
  "serde",
  "serde_json",
  "tempfile",
@@ -1342,6 +1343,18 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "webpki-roots 1.0.9",
+]
+
+[[package]]
+name = "otterd-update"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "otterd-proto",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
 ]
 
 [[package]]
