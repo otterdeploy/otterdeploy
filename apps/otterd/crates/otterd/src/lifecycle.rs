@@ -724,11 +724,17 @@ impl Node {
         // held meanwhile: a stop of this grant never waits behind it, and the
         // create below still needs the grant to be live.
         drop(slot_guard);
-        let pulled = self.ensure_image(grant, &image).await;
+        let pulled = match self.require_network_agent(place.as_ref()) {
+            Ok(()) => self.ensure_image(grant, &image).await,
+            Err(e) => Err(e),
+        };
         let _slot_guard = lock.lock().await;
-        // A stop may have revoked the grant while the slot was free; nothing
-        // is staged or created for it then.
-        let launched = match pulled.and_then(|()| self.may_start(grant)) {
+        // A stop may have revoked the grant while the slot was free, and the
+        // policy agent may have stopped; nothing is staged or created then.
+        let launched = match pulled
+            .and_then(|()| self.may_start(grant))
+            .and_then(|()| self.require_network_agent(place.as_ref()))
+        {
             Ok(()) => self.launch(grant, spec, &attempt, place.as_ref()).await,
             Err(e) => Err(e),
         };
@@ -867,6 +873,16 @@ impl Node {
         }
         tracing::info!(grant = %grant.grant_id, image = %image.run, elapsed = ?started.elapsed(), "image pulled");
         Ok(())
+    }
+
+    /// A container joins a scope network only while the packet policy agent
+    /// runs: without it nothing isolates the scope, so the apply fails closed.
+    fn require_network_agent(&self, place: Option<&(Place, Entry)>) -> Result<(), NodeError> {
+        let (Some(_), Some(net)) = (place, &self.net) else {
+            return Ok(());
+        };
+        net.require_agent()
+            .map_err(|e| NodeError::Refused(format!("network policy agent is not running: {e}")))
     }
 
     /// The grant may still start something now.
@@ -2117,6 +2133,103 @@ mod tests {
         }))
         .unwrap()
         .normalize()
+    }
+
+    /// A host whose `otterd-net` agent unit is not active.
+    #[derive(Debug)]
+    struct AgentDown;
+
+    impl otterd_net::cmd::Runner for AgentDown {
+        fn run(
+            &self,
+            _: &str,
+            args: &[&str],
+            _: Option<&str>,
+            _: Duration,
+        ) -> Result<otterd_net::cmd::Output, otterd_net::cmd::CmdError> {
+            let down = args.first() == Some(&"is-active");
+            Ok(otterd_net::cmd::Output {
+                code: Some(if down { 3 } else { 0 }),
+                stdout: if down {
+                    "inactive\n".into()
+                } else {
+                    String::new()
+                },
+                stderr: String::new(),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn a_networked_apply_is_refused_while_the_policy_agent_is_down() {
+        let dir = tempfile::tempdir().unwrap();
+        let journal =
+            otterd_journal::Journal::create(&dir.path().join("node.journal"), "test").unwrap();
+        let incarnation = Incarnation::mint().unwrap();
+        let engine = EngineAdapter::new(
+            otterd_engine::DockerClient::new(
+                dir.path().join("docker.sock"),
+                Duration::from_secs(1),
+            ),
+            otterd_engine::JournalHandle::new(journal),
+            "boot-1".parse().unwrap(),
+            incarnation.clone(),
+            "test".into(),
+        );
+        let d = dir.path();
+        let net = NodeNet::open(
+            crate::net::NetConfig {
+                state_dir: d.join("net"),
+                zone_file: d.join("dns/zone.json"),
+                unit_dir: d.join("units"),
+                policy_file: d.join("net/policy.json"),
+                firewall: otterd_net::firewall::Layout {
+                    state_dir: d.join("firewall"),
+                    unit_dir: d.join("units"),
+                    ..otterd_net::firewall::Layout::default()
+                },
+                ..crate::net::NetConfig::default()
+            },
+            Arc::new(AgentDown),
+            0,
+        )
+        .unwrap();
+        let node = Node::new(
+            LifecycleConfig {
+                staging_root: d.join("stage"),
+                stop_grace: Duration::from_secs(1),
+                boot_barrier_profile: String::new(),
+                hold_bound: Duration::from_secs(1),
+                pull_timeout: Duration::from_secs(1),
+            },
+            engine,
+            SigningKey::from_bytes(&[2; 32]),
+            incarnation,
+            Progress::default(),
+        )
+        .with_network(net);
+        let network = otterd_proto::lifecycle::GrantNetwork {
+            scope_id: "scope-a".parse().unwrap(),
+            subnet: "172.24.0.32/27".into(),
+            address: "172.24.0.34".into(),
+            resolver: "172.30.228.1".into(),
+            zone: "a.otd.internal".into(),
+            vip: None,
+        };
+        let mut grant = grant_state(true, &node.incarnation).grant;
+        grant.network = Some(network);
+        let s = spec("svc", "/srv/data");
+        let place = node.network_place(&grant, &s).unwrap();
+        assert!(place.is_some());
+        match node.require_network_agent(place.as_ref()) {
+            Err(NodeError::Refused(m)) => assert_eq!(
+                m,
+                "network policy agent is not running: otterd-net.service is inactive"
+            ),
+            other => panic!("expected a refusal, got {other:?}"),
+        }
+        // A grant without a network does not need the agent.
+        assert!(node.require_network_agent(None).is_ok());
     }
 
     #[test]
