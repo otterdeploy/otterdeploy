@@ -362,7 +362,7 @@ export const env = createEnv({
     // as a plain container on a per-project bridge network — single node, no
     // Swarm required. `swarm` is opt-in for scaling across nodes (replicas,
     // overlay networking). See docs/designs/runtime.md.
-    DEPLOY_RUNTIME: z.enum(["docker", "swarm"]).default("docker"),
+    DEPLOY_RUNTIME: z.enum(["docker", "swarm", "otterd"]).default("docker"),
 
     // ─── Platform self-updater (packages/api/src/routers/system) ────────────
     // The image tag the compose stack booted with — written into .env by the

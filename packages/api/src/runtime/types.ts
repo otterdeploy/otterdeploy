@@ -51,7 +51,7 @@ export type BranchDatabaseSpec = DatabaseSpec & {
   sourceCredentials?: { databaseName: string; username: string; password: string };
 };
 
-export type RuntimeKind = "docker" | "swarm";
+export type RuntimeKind = "docker" | "swarm" | "otterd";
 
 /**
  * One backend that can run containers. Both implementations consume the exact

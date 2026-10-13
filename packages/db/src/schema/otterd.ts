@@ -105,20 +105,26 @@ export const otterdNode = pgTable(
 );
 
 /** A scheduled service: the revision every slot should run. */
-export const otterdService = pgTable("otterd_service", {
-  resourceId: text("resource_id").primaryKey(),
-  revision: integer("revision").notNull(),
-  stableRevision: integer("stable_revision"),
-  paused: boolean("paused").notNull().default(false),
-  /** Node holding a `stay` service's data, set at its first placement. */
-  homeNode: text("home_node"),
-  rolloutPaused: boolean("rollout_paused").notNull().default(false),
-  lastSlotUpdatedAt: bigint("last_slot_updated_at", { mode: "number" }),
-  /** Highest operation epoch issued for this resource (I2, node high-water). */
-  operationEpoch: integer("operation_epoch").notNull().default(0),
-  createdAt: bigint("created_at", { mode: "number" }).notNull(),
-  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
-});
+export const otterdService = pgTable(
+  "otterd_service",
+  {
+    resourceId: text("resource_id").primaryKey(),
+    /** The runtime service name the deploy layer addresses it by (`od-<project>-<name>…`). */
+    serviceName: text("service_name"),
+    revision: integer("revision").notNull(),
+    stableRevision: integer("stable_revision"),
+    paused: boolean("paused").notNull().default(false),
+    /** Node holding a `stay` service's data, set at its first placement. */
+    homeNode: text("home_node"),
+    rolloutPaused: boolean("rollout_paused").notNull().default(false),
+    lastSlotUpdatedAt: bigint("last_slot_updated_at", { mode: "number" }),
+    /** Highest operation epoch issued for this resource (I2, node high-water). */
+    operationEpoch: integer("operation_epoch").notNull().default(0),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (t) => [uniqueIndex("otterd_service_name").on(t.serviceName)],
+);
 
 /** Every normalized specification a service ever had; a rollback is a new revision. */
 export const otterdServiceRevision = pgTable(

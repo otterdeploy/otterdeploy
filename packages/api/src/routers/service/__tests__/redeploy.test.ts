@@ -52,6 +52,7 @@ const fakeRecord: ServiceRecord = {
     previewId: null,
     branchedFromResourceId: null,
     placementServerId: null,
+    runtimeOwner: "legacy",
     createdAt: new Date(0),
     updatedAt: new Date(0),
   },

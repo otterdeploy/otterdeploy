@@ -24,7 +24,11 @@ function canonical(v: unknown): string {
 const same = (a: unknown, b: unknown): boolean => canonical(a) === canonical(b);
 
 /** Create or update a service. Returns its revision; an unchanged spec keeps it. */
-export function putService(spec: ServiceSpec, now: number): Promise<Result<number, StoreFailure>> {
+export function putService(
+  spec: ServiceSpec,
+  now: number,
+  serviceName: string | null = null,
+): Promise<Result<number, StoreFailure>> {
   return run(async (tx) => {
     if (!isAdmissible(spec)) {
       throw refusal("spec-invalid", JSON.stringify(validateServiceSpec(spec)));
@@ -35,9 +39,13 @@ export function putService(spec: ServiceSpec, now: number): Promise<Result<numbe
       .where(eq(otterdService.resourceId, spec.resourceId))
       .for("update");
     if (!svc) {
-      await tx
-        .insert(otterdService)
-        .values({ resourceId: spec.resourceId, revision: 1, createdAt: now, updatedAt: now });
+      await tx.insert(otterdService).values({
+        resourceId: spec.resourceId,
+        serviceName,
+        revision: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
       await tx
         .insert(otterdServiceRevision)
         .values({ resourceId: spec.resourceId, revision: 1, spec, createdAt: now });
