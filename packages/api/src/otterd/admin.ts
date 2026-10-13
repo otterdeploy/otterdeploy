@@ -8,7 +8,8 @@
  *   PUT  /admin/nodes/:id/admin             cordon, drain, activate, retire
  *   PUT  /admin/nodes/:id/fence             fence adapter, machine binding, enabled (shows blast radius in the UI)
  *   POST /admin/nodes/:id/manual-fence      an operator's verified out-of-band fence record
- *   POST /admin/upgrades                    queue nodes for a rolling otterd upgrade
+ *   POST /admin/nodes/:id/reenroll          a fenced node rejoins at a new epoch
+ *   POST /admin/upgrades                    queue nodes for a rolling otterd upgrade to a signed release
  *   GET  /admin/state                       snapshot and the latest decisions
  *
  * Every /admin route needs the bearer token; comparison is constant-time.
@@ -25,6 +26,7 @@ import * as z from "zod";
 import { type RegistryConfig, createEnrollToken, enroll } from "./registry";
 import { beginFence, finishFence } from "./store/evidence";
 import { queueUpgrade, setAdmin, setFence } from "./store/nodes";
+import { beginReenroll } from "./store/reenroll";
 import { putService, setPaused } from "./store/services";
 import { loadSnapshot } from "./store/snapshot";
 
@@ -59,7 +61,7 @@ const bodies = {
     binding: machineBinding,
     enabled: z.boolean(),
   }),
-  upgrades: z.object({ nodes: z.array(z.string()).min(1) }),
+  upgrades: z.object({ nodes: z.array(z.string()).min(1), release: signedEnvelope }),
   enroll: z.object({ request: signedEnvelope }),
 };
 
@@ -114,10 +116,15 @@ const routes: Record<string, Handler> = {
     if (begun.isErr()) return outcome(begun);
     return outcome(await finishFence(begun.value.id, { evidence: b.value }, cfg.now()), cfg.wake);
   },
+  "POST /admin/nodes/:id/reenroll": async (_, id, cfg) =>
+    outcome(await beginReenroll(cfg.registry, id, cfg.now()), cfg.wake),
   "POST /admin/upgrades": async (req, _, cfg) => {
     const b = await body(req, bodies.upgrades);
     if (b.isErr()) return json({ error: b.error.message }, 400);
-    return outcome(await queueUpgrade(b.value.nodes, cfg.now(), by), cfg.wake);
+    if (b.value.release.context !== "otterd/release-manifest/v1") {
+      return json({ error: "release must be a signed otterd release manifest" }, 400);
+    }
+    return outcome(await queueUpgrade(b.value.nodes, b.value.release, cfg.now(), by), cfg.wake);
   },
   "GET /admin/state": async (_, __, cfg) => {
     const snap = await loadSnapshot(cfg.now());

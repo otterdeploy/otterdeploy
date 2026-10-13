@@ -30,7 +30,9 @@ import * as z from "zod";
 import { adminRoutes } from "./admin";
 import { Controller } from "./controller";
 import { type Connection, Hub } from "./hub/hub";
+import { Leadership } from "./leader";
 import { nodeRow } from "./store/nodes";
+import { isFenced } from "./store/reenroll";
 import { clearStaleSessions } from "./store/reports";
 import { type ToolConfig, anchorEnroll, anchorTerm } from "./tools";
 
@@ -39,6 +41,7 @@ const env = process.env;
 
 const config = z
   .object({
+    DATABASE_URL: z.string().min(1),
     OTTERD_CP_LISTEN_PORT: z.coerce.number().int().positive(),
     OTTERD_CP_TLS_CERT: z.string().min(1),
     OTTERD_CP_TLS_KEY: z.string().min(1),
@@ -103,6 +106,8 @@ const hub = new Hub({
   findNode: async (nodeId) => {
     const found = await nodeRow(nodeId);
     const row = found.isOk() ? found.value : null;
+    // An unreadable fence record counts as fenced: refuse rather than guess.
+    const fenced = row ? (await isFenced(row.nodeId, row.nodeEpoch)).unwrapOr(true) : false;
     return row
       ? {
           nodeId: row.nodeId,
@@ -110,6 +115,8 @@ const hub = new Hub({
           identityKey: row.identityKey,
           identityKeyId: row.identityKeyId,
           retired: row.admin === "retired",
+          recoveryEpoch: row.recoveryEpoch,
+          fenced,
         }
       : null;
   },
@@ -117,7 +124,15 @@ const hub = new Hub({
   now,
   wake: () => controller?.wake(),
 });
-controller = new Controller({ hub, tools, now, mayIssue, adoption: true });
+const leadership = new Leadership(config.DATABASE_URL);
+controller = new Controller({
+  hub,
+  tools,
+  now,
+  mayIssue,
+  leader: () => leadership.check(),
+  adoption: true,
+});
 
 const admin = adminRoutes({
   token: config.OTTERD_CP_ADMIN_TOKEN,

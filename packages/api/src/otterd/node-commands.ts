@@ -6,7 +6,9 @@
  */
 import type { ServiceSpec } from "@otterdeploy/otterd-proto";
 
+import { db } from "@otterdeploy/db";
 import { machineBinding } from "@otterdeploy/otterd-cp";
+import { signedEnvelope } from "@otterdeploy/otterd-proto";
 import { log } from "evlog";
 
 import type { ControllerConfig } from "./controller";
@@ -15,6 +17,7 @@ import type { GrantRow } from "./store/rows";
 import { mintId } from "./store/errors";
 import { beginFence, finishFence, recordRefusal, recordStopCertificate } from "./store/evidence";
 import { markGrant } from "./store/grants";
+import { journal } from "./store/journal";
 import { nodeRow } from "./store/nodes";
 import { revisionOf } from "./store/services";
 import { fenceHetzner } from "./tools";
@@ -144,4 +147,28 @@ export async function runFence(
       state: done.isOk() ? done.value.state : done.error.message,
     },
   });
+}
+
+/**
+ * A rolling upgrade's node is empty of exclusive work: send it the signed
+ * release. The node verifies it against its pinned release keys, stages the
+ * binary and restarts into it; the planner then waits for the new incarnation.
+ * A refusal is journalled and the node stays in `upgrading` for the operator.
+ */
+export async function sendUpgrade(cfg: ControllerConfig, nodeId: string): Promise<void> {
+  const node = await nodeRow(nodeId);
+  const row = node.isOk() ? node.value : null;
+  const release = signedEnvelope.safeParse(row?.upgradeRelease);
+  const now = cfg.now();
+  if (!release.success) {
+    await journal(db, { at: now, kind: "upgrade-no-release", nodeId, detail: {} });
+    return;
+  }
+  const answer = await cfg.hub.request(
+    nodeId,
+    { verb: "node.upgrade", release: release.data },
+    { opId: mintId("op"), operationEpoch: 0 },
+  );
+  const detail = answer.isOk() ? { answer: answer.value } : { error: answer.error.message };
+  await journal(db, { at: cfg.now(), kind: "upgrade-sent", nodeId, detail });
 }
