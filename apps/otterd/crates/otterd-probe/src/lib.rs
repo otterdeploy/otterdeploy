@@ -11,11 +11,13 @@
 
 pub mod adapter;
 pub mod admission;
+pub mod executor;
 pub mod outcome;
 pub mod spec;
 pub mod wire;
 
 pub use adapter::{AttemptOutput, CertificateInfo, Resolver, run_attempt};
 pub use admission::{Admission, Admitted, Pool, Profile, RoundSpec};
+pub use executor::{Check, Command, Executor, ExecutorStats, Probe, Prober, RoundRecord};
 pub use outcome::{Attempt, HealthState, RoundOutcome, fold};
 pub use spec::ProbeSpec;

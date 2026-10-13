@@ -9,8 +9,8 @@
 use crate::admission::RoundSpec;
 use crate::outcome::{Attempt, ConfigCause, Phase, RoundOutcome, TargetCause, UnknownCause};
 use otterd_proto::health::{
-    AttemptResult, Cause, FailureDomain, HealthCheck, Outcome, ProtocolPhase, Qualification,
-    ROUND_OVERHEAD_MS,
+    AttemptResult, Cause, FailureDomain, HealthCheck, LatencyPhases, ObservationIdentity, Outcome,
+    ProbeResult, ProtocolPhase, Qualification, ROUND_OVERHEAD_MS,
 };
 use otterd_proto::num::U53;
 use std::time::Duration;
@@ -188,6 +188,55 @@ pub fn round_spec(check: &HealthCheck) -> Result<RoundSpec, TimingError> {
     })
 }
 
+/// How long a round's state stands: two intervals plus the round budget,
+/// so one late or missed round does not make the check Unknown, and two do.
+pub fn result_ttl(spec: &RoundSpec) -> Duration {
+    spec.interval * 2 + spec.budget
+}
+
+/// One executed (or missed) round as the contract's probe result.
+///
+/// The caller supplies what the executor does not know: the observation
+/// identity (check, revision, subject, vantage, node, epoch, boot and the
+/// sequence number it persists), the check's outcome-policy revision and the
+/// clock's uncertainty.
+pub fn probe_result<K>(
+    record: &crate::executor::RoundRecord<K>,
+    identity: ObservationIdentity,
+    spec: &RoundSpec,
+    outcome_policy_revision: U53,
+    clock_uncertainty: Duration,
+) -> ProbeResult {
+    let vote = round(&record.outcome, &record.attempts);
+    let total_us = match record.outcome {
+        RoundOutcome::Success { latency } => Some(wire_us(latency)),
+        _ => None,
+    };
+    ProbeResult {
+        identity,
+        scheduled_round: U53::new(record.round_seq).unwrap_or(U53::MAX),
+        attempts: record.attempts.iter().map(attempt).collect(),
+        final_outcome: vote.outcome,
+        cause: vote.cause,
+        failure_domain: vote.failure_domain,
+        phase: vote.phase,
+        outcome_policy_revision,
+        qualification: vote.qualification,
+        observed_at_unix_ms: U53::new(record.observed_at_ms).unwrap_or(U53::MAX),
+        elapsed_monotonic_ms: wire_ms(record.elapsed),
+        clock_uncertainty_ms: wire_ms(clock_uncertainty),
+        ttl_ms: wire_ms(result_ttl(spec)),
+        latency: LatencyPhases {
+            total_us,
+            ..LatencyPhases::default()
+        },
+        certificate_expiry_unix_ms: record
+            .certificate
+            .and_then(|c| u64::try_from(c.not_after).ok())
+            .and_then(|secs| U53::new(secs.saturating_mul(1_000))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,5 +345,68 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(round_spec(&check).unwrap(), RoundSpec::UPTIME_DEFAULT);
+    }
+
+    #[test]
+    fn a_round_record_becomes_a_contract_probe_result() {
+        use crate::admission::Pool;
+        use crate::executor::RoundRecord;
+        use crate::outcome::HealthState;
+        let record = RoundRecord {
+            key: 1u32,
+            pool: Pool::User,
+            round_seq: 41,
+            observed_at_ms: 1_791_810_374_922,
+            started_late: Duration::ZERO,
+            attempts: vec![
+                Attempt::TargetFailure {
+                    cause: TargetCause::TargetTimeout,
+                    phase: Phase::Connect,
+                    elapsed: Duration::from_secs(5),
+                },
+                Attempt::Success {
+                    latency: Duration::from_millis(42),
+                },
+            ],
+            elapsed: Duration::from_millis(6_050),
+            outcome: RoundOutcome::Success {
+                latency: Duration::from_millis(42),
+            },
+            state: HealthState::Healthy,
+            certificate: None,
+        };
+        let identity: ObservationIdentity = serde_json::from_value(serde_json::json!({
+            "installId": "i", "orgId": "o", "checkId": "c", "checkRevision": 3,
+            "subjectId": "s", "vantage": "outside", "observerNodeId": "m1",
+            "nodeEpoch": 1, "bootId": "b", "sampleSeq": 9
+        }))
+        .unwrap();
+        let r = probe_result(
+            &record,
+            identity,
+            &RoundSpec::UPTIME_DEFAULT,
+            U53::ONE,
+            Duration::from_millis(5),
+        );
+        assert_eq!(r.final_outcome, Outcome::Success);
+        assert_eq!(r.qualification, Qualification::Qualified);
+        assert_eq!(
+            r.attempts.len(),
+            2,
+            "the failed first attempt stays as a diagnostic"
+        );
+        assert_eq!(r.attempts[0].cause, Cause::TargetTimeout);
+        assert_eq!(r.latency.total_us, Some(U53::from_const(42_000)));
+        assert_eq!(r.ttl_ms, U53::from_const(135_000));
+        assert_eq!(r.scheduled_round, U53::from_const(41));
+        // the contract's own fold agrees with the vote we report
+        assert_eq!(
+            otterd_proto::health::round_outcome(&r.attempts, 2),
+            r.final_outcome
+        );
+        // and it is valid on the wire
+        let json = serde_json::to_value(&r).unwrap();
+        let back: ProbeResult = serde_json::from_value(json).unwrap();
+        assert_eq!(back, r);
     }
 }
