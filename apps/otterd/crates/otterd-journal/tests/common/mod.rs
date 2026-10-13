@@ -97,6 +97,7 @@ pub fn grant(
             data_claims: vec![],
             probe_only: false,
             adopts_attempt: None,
+            adopts_container: None,
         },
         spec_digest: digest(),
         op_id: id(&format!("op-{grant_id}")),

@@ -159,6 +159,7 @@ fn grant(node: &Node, id: &str, resource: &str) -> SlotGrant {
         data_claims: vec![],
         probe_only: false,
         adopts_attempt: None,
+        adopts_container: None,
     }
 }
 

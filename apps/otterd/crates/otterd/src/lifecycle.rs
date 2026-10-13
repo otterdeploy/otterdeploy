@@ -521,18 +521,7 @@ impl Node {
         op_id: &OpId,
         spec_digest: Sha256Hex,
     ) -> Result<CommandResult, NodeError> {
-        {
-            let gate = self
-                .gate
-                .lock()
-                .map_err(|_| NodeError::Internal("gate poisoned".into()))?;
-            if !gate.open {
-                return Err(NodeError::Refused(format!(
-                    "tenant gate closed: {}",
-                    gate.reason
-                )));
-            }
-        }
+        self.check_gate()?;
         if grant.slot.resource_id != spec.resource_id {
             return Err(NodeError::Refused(
                 "grant and spec name different resources".into(),
@@ -541,6 +530,11 @@ impl Node {
         check_tenant_scope(&grant.slot, spec)?;
         if let Some(attempt) = &grant.adopts_attempt {
             return self.adopt(grant, attempt, op_id, spec_digest).await;
+        }
+        if grant.adopts_container.is_some() {
+            return Err(NodeError::Refused(
+                "adopting a container is not implemented by this daemon yet".into(),
+            ));
         }
         let lock = self.slot_lock(&grant.slot)?;
         let _slot_guard = lock.lock().await;
@@ -616,6 +610,21 @@ impl Node {
             grant_id: grant.grant_id.clone(),
             attempt_id: attempt,
         })
+    }
+
+    fn check_gate(&self) -> Result<(), NodeError> {
+        let gate = self
+            .gate
+            .lock()
+            .map_err(|_| NodeError::Internal("gate poisoned".into()))?;
+        if gate.open {
+            Ok(())
+        } else {
+            Err(NodeError::Refused(format!(
+                "tenant gate closed: {}",
+                gate.reason
+            )))
+        }
     }
 
     async fn begin_attempt(
@@ -1499,6 +1508,7 @@ mod tests {
                 data_claims: vec![],
                 probe_only: false,
                 adopts_attempt: None,
+                adopts_container: None,
             },
             spec_digest: Sha256Hex::digest(b"s"),
             op_id: "op".parse().unwrap(),
@@ -1508,6 +1518,8 @@ mod tests {
             attempts: vec![],
             held: None,
             adopted_by: None,
+            adopted_container: None,
+            adoption_released: None,
         }
     }
 

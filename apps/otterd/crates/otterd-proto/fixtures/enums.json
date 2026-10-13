@@ -148,6 +148,7 @@
     "workload.restart",
     "workload.stop",
     "workload.remove",
+    "workload.release-adoption",
     "workload.inspect",
     "workload.logs",
     "job.run",
@@ -230,6 +231,13 @@
         "mutate"
       ],
       "verb": "workload.remove"
+    },
+    {
+      "monitor": false,
+      "required": [
+        "mutate"
+      ],
+      "verb": "workload.release-adoption"
     },
     {
       "monitor": false,

@@ -122,6 +122,8 @@ verbs! {
     WorkloadStop = "workload.stop" => [Mutate];
     /// Remove stopped attempts and release their holds and claims.
     WorkloadRemove = "workload.remove" => [Mutate];
+    /// Release an adopted container without stopping it (migration rollback).
+    WorkloadReleaseAdoption = "workload.release-adoption" => [Mutate];
     WorkloadInspect = "workload.inspect" => [Read];
     WorkloadLogs = "workload.logs" => [Read, StreamOut];
     /// Run one job attempt under a run grant.

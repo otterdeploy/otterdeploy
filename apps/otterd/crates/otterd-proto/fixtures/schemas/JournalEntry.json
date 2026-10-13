@@ -388,6 +388,28 @@
         "type": "compacted"
       },
       "seq": 29
+    },
+    {
+      "atUnixMs": 1791000000030,
+      "record": {
+        "attemptId": "att_00000000000000000000000000000007",
+        "container": "4f2a9c0d1e3b5a7c9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c5d",
+        "grantId": "grant_7",
+        "type": "containerAdopted"
+      },
+      "seq": 30
+    },
+    {
+      "atUnixMs": 1791000000031,
+      "record": {
+        "grantId": "grant_7",
+        "restartPolicy": {
+          "maximumRetryCount": 5,
+          "name": "on-failure"
+        },
+        "type": "adoptionReleased"
+      },
+      "seq": 31
     }
   ],
   "schema": "JournalEntry"

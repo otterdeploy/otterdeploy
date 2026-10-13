@@ -175,6 +175,7 @@ fn grant(node: &Node, grant_id: &str, generation: u64) -> SlotGrant {
         data_claims: vec![],
         probe_only: false,
         adopts_attempt: None,
+        adopts_container: None,
     }
 }
 

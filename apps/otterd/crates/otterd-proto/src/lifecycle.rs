@@ -48,6 +48,13 @@ pub struct SlotGrant {
     /// starting a new one: the container keeps running under this grant.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub adopts_attempt: Option<AttemptId>,
+    /// Adopt this running container, started outside otterd (plain Docker),
+    /// as the grant's only attempt instead of starting one. Full container id;
+    /// the control plane already set its restart policy to `no`. Only for a
+    /// slot that never had a grant on this node; the container is never
+    /// restarted by otterd.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adopts_container: Option<ContainerRef>,
 }
 
 /// CP grant states.
@@ -88,17 +95,34 @@ pub enum EngineVerb {
     Pause,
     /// Resume them once the control plane adopted the attempt.
     Unpause,
+    /// Set an adopted container's restart policy back when the adoption is
+    /// released.
+    UpdateRestartPolicy,
 }
 
 impl EngineVerb {
     /// Can this verb make a process run, now or later?
     #[must_use]
     pub fn can_start_process(self) -> bool {
+        // A restart policy other than `no` lets the Engine start it later.
         matches!(
             self,
-            Self::Create | Self::Start | Self::Restart | Self::Unpause
+            Self::Create | Self::Start | Self::Restart | Self::Unpause | Self::UpdateRestartPolicy
         )
     }
+}
+
+/// A Docker restart policy, as an adopted container had it before adoption.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "name", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum EngineRestartPolicy {
+    No,
+    Always,
+    UnlessStopped,
+    #[serde(rename_all = "camelCase")]
+    OnFailure {
+        maximum_retry_count: u32,
+    },
 }
 
 /// Process observation of one container, independent of submission state.

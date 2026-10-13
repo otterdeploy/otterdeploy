@@ -560,3 +560,88 @@ fn a_held_grant_is_adopted_by_a_newer_grant_for_the_same_attempt() {
     assert_eq!(j.state().grants[&id::<GrantId>("g2")], before);
     assert!(j.state().grants[&id::<GrantId>("g1")].is_released());
 }
+
+#[test]
+fn a_container_started_outside_otterd_is_adopted_in_place_and_released_without_a_stop() {
+    const C: &str = "4f2a9c0d1e3b5a7c9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c5d";
+    const A: &str = "att_00000000000000000000000000000007";
+    let dir = tempfile::tempdir().unwrap();
+    let mut j = fresh(&dir);
+    let adopting = |grant_id: &str, slot_index: u32, generation: u64, container: &str| {
+        let Record::GrantAccepted {
+            mut grant,
+            spec_digest,
+            op_id,
+        } = grant(grant_id, slot_index, generation, 1, true)
+        else {
+            unreachable!()
+        };
+        grant.adopts_container = Some(id(container));
+        Record::GrantAccepted {
+            grant,
+            spec_digest,
+            op_id,
+        }
+    };
+    let bound = |grant_id: &str, attempt: &str, container: &str| Record::ContainerAdopted {
+        grant_id: id(grant_id),
+        attempt_id: id(attempt),
+        container: id(container),
+    };
+
+    // Only into a slot that never had a grant on this node.
+    j.append(grant("g0", 1, 1, 1, true)).unwrap();
+    assert!(matches!(
+        transition(j.append(adopting("g-late", 1, 2, C)).unwrap_err()),
+        TransitionError::BadAdoption { .. }
+    ));
+
+    j.append(adopting("g7", 0, 1, C)).unwrap();
+    // The attempt binds exactly the named container, once; no other attempt.
+    assert!(matches!(
+        transition(j.append(bound("g7", A, "c0ffee")).unwrap_err()),
+        TransitionError::BadAdoption { .. }
+    ));
+    assert!(matches!(
+        transition(
+            j.append(attempt("g7", "att_00000000000000000000000000000008", 1))
+                .unwrap_err()
+        ),
+        TransitionError::BadAdoption { .. }
+    ));
+    j.append(bound("g7", A, C)).unwrap();
+    assert!(
+        j.append(bound("g7", "att_00000000000000000000000000000009", C))
+            .is_err()
+    );
+    let s = j.state();
+    let g = &s.grants[&id::<GrantId>("g7")];
+    assert_eq!(g.attempts, vec![id(A)]);
+    assert_eq!(s.attempt_container(&id(A)), Some(id(C)));
+    assert!(!g.is_released());
+
+    // No other grant may adopt the same container while it is held.
+    assert!(matches!(
+        transition(j.append(adopting("g8", 2, 1, C)).unwrap_err()),
+        TransitionError::BadAdoption { .. }
+    ));
+
+    // Compaction keeps the binding.
+    let before = j.state().grants[&id::<GrantId>("g7")].clone();
+    let (mut j, _) = j.compact(CompactionPolicy::default(), "test").unwrap();
+    assert_eq!(j.state().grants[&id::<GrantId>("g7")], before);
+    assert_eq!(j.state().attempt_container(&id(A)), Some(id(C)));
+
+    // Released without a stop: only a grant that adopted a container.
+    let released = |grant_id: &str| Record::AdoptionReleased {
+        grant_id: id(grant_id),
+        restart_policy: otterd_proto::lifecycle::EngineRestartPolicy::UnlessStopped,
+    };
+    assert!(matches!(
+        transition(j.append(released("g0")).unwrap_err()),
+        TransitionError::BadAdoption { .. }
+    ));
+    j.append(released("g7")).unwrap();
+    assert!(j.state().grants[&id::<GrantId>("g7")].is_released());
+    assert!(j.append(released("g7")).is_err());
+}

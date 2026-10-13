@@ -20,7 +20,7 @@ use otterd_proto::journal::{
     AttemptReason, BackingIdentity, EngineOutcome, Entry, HighWaterKind, HoldRecord,
     MutationRecord, Record, Retirement, UpdatePhase, WorkloadClass,
 };
-use otterd_proto::lifecycle::{SlotGrant, StopCertificate};
+use otterd_proto::lifecycle::{EngineRestartPolicy, SlotGrant, StopCertificate};
 use otterd_proto::version::JOURNAL_FORMAT;
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
@@ -78,6 +78,8 @@ pub enum TransitionError {
     UnknownGrant(GrantId),
     #[error("grant {grant} cannot be held or adopted: {reason}")]
     BadHold { grant: GrantId, reason: String },
+    #[error("container adoption for grant {grant}: {reason}")]
+    BadAdoption { grant: GrantId, reason: String },
     #[error("grant {0} is revoked or superseded; nothing may start under it")]
     GrantRevoked(GrantId),
     #[error("attempt {0} already recorded")]
@@ -247,6 +249,13 @@ pub struct GrantState {
     /// A newer grant adopted this grant's attempt: released without a stop.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub adopted_by: Option<GrantId>,
+    /// The container started outside otterd that this grant adopted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adopted_container: Option<ContainerRef>,
+    /// The adopted container was given back with this restart policy:
+    /// released without a stop.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adoption_released: Option<EngineRestartPolicy>,
 }
 
 /// A grant held across a node restart.
@@ -269,6 +278,7 @@ impl GrantState {
         (self.revoked.is_some() && self.certificate.is_some())
             || self.superseded_by_epoch.is_some()
             || self.adopted_by.is_some()
+            || self.adoption_released.is_some()
     }
 
     /// Nothing may start under this grant any more.
@@ -594,6 +604,25 @@ impl NodeState {
                 by_grant,
                 attempt_id,
             } => self.check_adoption(grant_id, by_grant, attempt_id),
+            Record::ContainerAdopted {
+                grant_id,
+                attempt_id,
+                container,
+            } => self.check_container_adoption(grant_id, attempt_id, container),
+            Record::AdoptionReleased { grant_id, .. } => {
+                let g = self.grant(grant_id)?;
+                let bad = |why: &str| TransitionError::BadAdoption {
+                    grant: grant_id.clone(),
+                    reason: why.to_owned(),
+                };
+                if g.adopted_container.is_none() {
+                    return Err(bad("the grant adopted no container"));
+                }
+                if g.is_released() || g.start_revoked() {
+                    return Err(bad("released or revoked"));
+                }
+                Ok(())
+            }
             Record::AttemptBegun {
                 grant_id,
                 attempt_id,
@@ -764,6 +793,9 @@ impl NodeState {
                 got: grant.generation,
             });
         }
+        if let Some(container) = &grant.adopts_container {
+            self.check_adopts_container(grant, container)?;
+        }
         // An exclusive slot admits one non-released grant, and an exclusive
         // grant cannot join a slot that still holds a non-exclusive one either.
         if let Some(holder) = self.grants.values().find(|g| {
@@ -836,6 +868,65 @@ impl NodeState {
         Ok(())
     }
 
+    /// A grant may adopt a container started outside otterd only as the
+    /// first grant of its slot on this node, and only a container no other
+    /// grant has.
+    fn check_adopts_container(
+        &self,
+        grant: &SlotGrant,
+        container: &ContainerRef,
+    ) -> Result<(), TransitionError> {
+        let bad = |why: &str| TransitionError::BadAdoption {
+            grant: grant.grant_id.clone(),
+            reason: why.to_owned(),
+        };
+        if grant.adopts_attempt.is_some() {
+            return Err(bad("a grant adopts an attempt or a container, not both"));
+        }
+        if self.generation_high_water(&grant.slot) != U53::ZERO {
+            return Err(bad("the slot already had a grant on this node"));
+        }
+        let taken = self
+            .grants
+            .values()
+            .any(|g| !g.is_released() && g.adopted_container.as_ref() == Some(container))
+            || self
+                .mutations
+                .values()
+                .any(|m| m.container() == Some(container));
+        if taken {
+            return Err(bad("the container already belongs to a grant"));
+        }
+        Ok(())
+    }
+
+    /// Binds the adopting grant's only attempt to the container it names.
+    fn check_container_adoption(
+        &self,
+        grant_id: &GrantId,
+        attempt_id: &AttemptId,
+        container: &ContainerRef,
+    ) -> Result<(), TransitionError> {
+        let g = self.grant(grant_id)?;
+        let bad = |why: &str| TransitionError::BadAdoption {
+            grant: grant_id.clone(),
+            reason: why.to_owned(),
+        };
+        if g.grant.adopts_container.as_ref() != Some(container) {
+            return Err(bad("the grant names another container"));
+        }
+        if !g.attempts.is_empty() || g.adopted_container.is_some() {
+            return Err(bad("the grant already has an attempt"));
+        }
+        if g.start_revoked() {
+            return Err(TransitionError::GrantRevoked(grant_id.clone()));
+        }
+        if self.attempts.contains_key(attempt_id) {
+            return Err(TransitionError::DuplicateAttempt(attempt_id.clone()));
+        }
+        Ok(())
+    }
+
     fn check_attempt(
         &self,
         grant_id: &GrantId,
@@ -845,6 +936,14 @@ impl NodeState {
         let g = self.grant(grant_id)?;
         if g.start_revoked() {
             return Err(TransitionError::GrantRevoked(grant_id.clone()));
+        }
+        if g.grant.adopts_container.is_some() {
+            // Its only attempt is the adopted container; otterd never
+            // starts another under it.
+            return Err(TransitionError::BadAdoption {
+                grant: grant_id.clone(),
+                reason: "no new attempt under a grant that adopted a container".into(),
+            });
         }
         if self.attempts.contains_key(attempt_id) {
             return Err(TransitionError::DuplicateAttempt(attempt_id.clone()));
@@ -1106,8 +1205,36 @@ impl NodeState {
                         attempts: Vec::new(),
                         held: None,
                         adopted_by: None,
+                        adopted_container: None,
+                        adoption_released: None,
                     },
                 );
+            }
+            Record::ContainerAdopted {
+                grant_id,
+                attempt_id,
+                container,
+            } => {
+                if let Some(g) = self.grants.get_mut(grant_id) {
+                    g.attempts.push(attempt_id.clone());
+                    g.adopted_container = Some(container.clone());
+                }
+                self.attempts.insert(
+                    attempt_id.clone(),
+                    AttemptState {
+                        grant_id: grant_id.clone(),
+                        ordinal: 1,
+                        reason: AttemptReason::AdoptedContainer,
+                    },
+                );
+            }
+            Record::AdoptionReleased {
+                grant_id,
+                restart_policy,
+            } => {
+                if let Some(g) = self.grants.get_mut(grant_id) {
+                    g.adoption_released = Some(restart_policy.clone());
+                }
             }
             Record::GrantHeld {
                 grant_id,
@@ -1361,6 +1488,24 @@ impl NodeState {
             .get(&HighWaterKey::new(kind, scope))
             .copied()
             .unwrap_or(U53::ZERO)
+    }
+
+    /// The container of one attempt: the one its create returned, or the
+    /// container its grant adopted.
+    #[must_use]
+    pub fn attempt_container(&self, attempt: &AttemptId) -> Option<ContainerRef> {
+        let a = self.attempts.get(attempt)?;
+        if a.reason == AttemptReason::AdoptedContainer {
+            return self
+                .grants
+                .values()
+                .find(|g| g.attempts.first() == Some(attempt))
+                .and_then(|g| g.adopted_container.clone());
+        }
+        self.mutations
+            .values()
+            .filter(|m| &m.record.attempt_id == attempt)
+            .find_map(|m| m.container().cloned())
     }
 
     pub fn mutations_of_grant<'a>(

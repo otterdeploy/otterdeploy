@@ -17,7 +17,7 @@ use crate::log::{Journal, JournalError, io_err, now_unix_ms, sync_dir};
 use crate::state::{GrantState, HoldPhase, MutationState, NodeState, OpState, Submission};
 use otterd_proto::U53;
 use otterd_proto::ids::{AttemptId, GrantId, Sha256Hex, SlotRef};
-use otterd_proto::journal::{Record, WorkloadClass};
+use otterd_proto::journal::{AttemptReason, Record, WorkloadClass};
 use otterd_proto::version::JOURNAL_FORMAT;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -269,6 +269,16 @@ fn retained(state: &NodeState, cutoff: U53) -> Vec<(Record, Option<U53>)> {
                 continue;
             }
             if let Some(a) = state.attempts.get(attempt_id) {
+                if a.reason == AttemptReason::AdoptedContainer
+                    && let Some(container) = &g.adopted_container
+                {
+                    push(Record::ContainerAdopted {
+                        grant_id: g.grant.grant_id.clone(),
+                        attempt_id: attempt_id.clone(),
+                        container: container.clone(),
+                    });
+                    continue;
+                }
                 push(Record::AttemptBegun {
                     grant_id: g.grant.grant_id.clone(),
                     attempt_id: attempt_id.clone(),
