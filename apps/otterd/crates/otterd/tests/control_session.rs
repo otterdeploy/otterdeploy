@@ -14,15 +14,19 @@
 )]
 
 use ed25519_dalek::SigningKey;
+use otterd::keys::KeyRotator;
 use otterd::session::{ControlHandler, NodeIdentitySource, SlotReporter};
 use otterd::{LifecycleConfig, Node, Progress};
 use otterd_engine::{DockerClient, EngineAdapter, JournalHandle};
+use otterd_identity::KeyStore;
+use otterd_identity::rotation::{Enrolled, verify_rotation};
 use otterd_journal::Journal;
 use otterd_proto::U53;
 use otterd_proto::capability::{Capability, CapabilityError, Principal, PrincipalKind};
 use otterd_proto::channel::{ControlFrame, RequestRefusal};
 use otterd_proto::command::{Command, CommandResult, OpOutcome};
 use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
+use otterd_proto::identity::KeyRotationAck;
 use otterd_proto::identity::{
     AuthorityRevocation, CpKeyTransition, CrossSigned, HostBinding, TrustedKey,
 };
@@ -55,7 +59,7 @@ fn public(seed: [u8; 32]) -> PublicKey {
     PublicKey::from_verifying_key(&SigningKey::from_bytes(&seed).verifying_key())
 }
 
-async fn start_node(dir: &Path) -> Arc<Node> {
+async fn start_node(dir: &Path, key: SigningKey) -> Arc<Node> {
     let path = dir.join("node.journal");
     let mut j = Journal::create(&path, "test").unwrap();
     j.append(Record::Identity {
@@ -63,7 +67,7 @@ async fn start_node(dir: &Path) -> Arc<Node> {
         node_id: id("node-sess"),
         node_epoch: U53::ONE,
         key_epoch: U53::ONE,
-        identity_key_id: public(NODE).key_id(),
+        identity_key_id: PublicKey::from_verifying_key(&key.verifying_key()).key_id(),
         cp_keys: vec![TrustedKey {
             key: public(CP),
             epoch: U53::ONE,
@@ -100,7 +104,7 @@ async fn start_node(dir: &Path) -> Arc<Node> {
             boot_barrier_profile: String::new(),
         },
         engine,
-        SigningKey::from_bytes(&NODE),
+        key,
         incarnation,
         Progress::default(),
     ))
@@ -231,7 +235,7 @@ fn completed(f: ControlFrame) -> CommandResult {
 async fn commands_reports_key_transition_and_revocation_over_a_session() {
     remove_leftovers();
     let dir = tempfile::tempdir().unwrap();
-    let node = start_node(dir.path()).await;
+    let node = start_node(dir.path(), SigningKey::from_bytes(&NODE)).await;
     let mut cp = FakeCp::start(SigningKey::from_bytes(&CP), public(NODE))
         .await
         .unwrap();
@@ -444,4 +448,135 @@ async fn commands_reports_key_transition_and_revocation_over_a_session() {
     shutdown.send(true).unwrap();
     tokio::time::timeout(5 * SEC, task).await.unwrap().unwrap();
     remove_leftovers();
+}
+
+#[tokio::test]
+#[ignore = "needs root and Docker on Linux"]
+async fn node_keys_rotate_over_the_session() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = KeyStore::new(dir.path().join("keys"));
+    let one = store.create().unwrap();
+    let node = start_node(dir.path(), one.identity().clone()).await;
+    let mut cp = FakeCp::start(SigningKey::from_bytes(&CP), one.identity_public())
+        .await
+        .unwrap();
+    cp.set(|b| b.features = vec![otterd_proto::version::Feature::KeyRotation]);
+    let mut cfg = TransportConfig::new(cp.url.clone(), client_config(&cp.trust).unwrap());
+    cfg.backoff_min = Duration::from_millis(50);
+    cfg.backoff_max = Duration::from_millis(200);
+    let handler = Arc::new(
+        ControlHandler::new(Arc::clone(&node), SlotReporter::default())
+            .with_key_rotation(Arc::new(KeyRotator::new(store.clone()))),
+    );
+    let manager = Arc::new(ConnectionManager::new(
+        cfg,
+        Arc::clone(&handler),
+        Arc::new(NodeIdentitySource::new(Arc::clone(&node), "test")),
+    ));
+    handler.attach(manager.outbox());
+    let (shutdown, rx) = watch::channel(false);
+    let m = Arc::clone(&manager);
+    let task = tokio::spawn(async move { m.run(rx).await });
+
+    let mut s = cp.session(10 * SEC).await.expect("session");
+    assert!(matches!(
+        s.recv_within(SEC).await,
+        Some(ControlFrame::SlotReports { .. })
+    ));
+    assert_eq!(s.hello.key_epoch, U53::ONE);
+
+    // The operator asks for a rotation: the node offers epoch 2, cross-signed.
+    assert_eq!(
+        handler.rotate_keys("scheduled").unwrap(),
+        U53::from_const(2)
+    );
+    let Some(ControlFrame::KeyRotation { statement }) = s.recv_within(5 * SEC).await else {
+        panic!("no rotation offered")
+    };
+    let one_pub = one.identity_public();
+    let rotation = verify_rotation(
+        &statement,
+        Enrolled {
+            install_id: &id("inst"),
+            node_id: &id("node-sess"),
+            identity: &one_pub,
+            key_epoch: U53::ONE,
+        },
+    )
+    .unwrap();
+    let new_key = rotation.new_keys.identity.clone();
+    assert_eq!(
+        handler.rotate_keys("again").unwrap(),
+        U53::from_const(2),
+        "the same epoch is re-offered"
+    );
+    assert!(
+        matches!(s.recv_within(5 * SEC).await, Some(ControlFrame::KeyRotation { statement: again }) if again == statement)
+    );
+
+    // After a restart before the acknowledgement, the same prepared keys are
+    // offered again (never a fresh set the control plane has not seen).
+    let resumed = KeyRotator::new(store.clone())
+        .to_offer(&node)
+        .unwrap()
+        .expect("the prepared epoch is offered again");
+    let resumed = verify_rotation(
+        &resumed,
+        Enrolled {
+            install_id: &id("inst"),
+            node_id: &id("node-sess"),
+            identity: &one_pub,
+            key_epoch: U53::ONE,
+        },
+    )
+    .unwrap();
+    assert_eq!(resumed.new_keys, rotation.new_keys);
+
+    // An acknowledgement for another key changes nothing.
+    let ack = |key: &PublicKey| ControlFrame::KeyRotationAck {
+        ack: SignedEnvelope::sign(
+            &SigningKey::from_bytes(&CP),
+            SignContext::KeyRotationAck,
+            &KeyRotationAck {
+                install_id: id("inst"),
+                node_id: id("node-sess"),
+                node_epoch: U53::ONE,
+                key_epoch: U53::from_const(2),
+                identity_key_id: key.key_id(),
+                accepted_at_unix_ms: otterd_journal::now_unix_ms(),
+            },
+        )
+        .unwrap(),
+    };
+    s.send(&ack(&one_pub)).await;
+    assert!(
+        s.recv_within(Duration::from_millis(700)).await.is_none(),
+        "session kept, no switch"
+    );
+    assert_eq!(store.current_epoch().unwrap(), Some(U53::ONE));
+
+    // The real acknowledgement: journalled, activated, and the node comes back
+    // proving the new key.
+    cp.set(|b| b.node_key = Some(new_key.clone()));
+    s.send(&ack(&new_key)).await;
+    assert!(
+        s.recv_within(5 * SEC).await.is_none(),
+        "the old session is closed"
+    );
+    let s2 = cp
+        .session(10 * SEC)
+        .await
+        .expect("a session with the new key");
+    assert_eq!(s2.hello.key_epoch, U53::from_const(2));
+    assert_eq!(s2.hello.identity_key_id, new_key.key_id());
+    assert_eq!(store.current_epoch().unwrap(), Some(U53::from_const(2)));
+    let journalled = node.engine.journal().snapshot().unwrap().identity.unwrap();
+    assert_eq!(
+        (journalled.key_epoch, journalled.identity_key_id),
+        (U53::from_const(2), new_key.key_id())
+    );
+    assert_eq!(node.identity_public(), new_key);
+
+    shutdown.send(true).unwrap();
+    tokio::time::timeout(5 * SEC, task).await.unwrap().unwrap();
 }

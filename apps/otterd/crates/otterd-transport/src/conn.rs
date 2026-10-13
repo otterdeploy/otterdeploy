@@ -4,7 +4,7 @@ use crate::TransportError;
 use crate::clock::SessionClock;
 use crate::credit::{TelemetryCredit, batch_items};
 use crate::handshake::{HandshakeError, NodeIdentity};
-use crate::manager::{Handler, RequestAnswer, SessionInfo, TransportConfig};
+use crate::manager::{Handler, Outgoing, RequestAnswer, SessionInfo, TransportConfig};
 use futures_util::{SinkExt as _, StreamExt as _};
 use otterd_proto::U53;
 use otterd_proto::channel::{ChannelKind, ControlFrame, RequestRefusal};
@@ -31,6 +31,7 @@ const SOCKET_MAX_BYTES: usize = 4 * 1024 * 1024;
 #[derive(Debug)]
 pub(crate) enum Ended {
     Shutdown,
+    Reconnect,
     GoAway { after: Option<Duration> },
     Closed(String),
     PongTimeout,
@@ -41,6 +42,7 @@ impl fmt::Display for Ended {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Shutdown => write!(f, "shutdown"),
+            Self::Reconnect => write!(f, "reconnecting with a new identity"),
             Self::GoAway { after } => write!(f, "goAway (reconnect after {after:?})"),
             Self::Closed(why) => write!(f, "closed: {why}"),
             Self::PongTimeout => write!(f, "no pong within the timeout"),
@@ -247,7 +249,7 @@ pub(crate) async fn serve<H: Handler>(
     mut session: SessionInfo,
     handler: &Arc<H>,
     cfg: &TransportConfig,
-    mut control_rx: mpsc::UnboundedReceiver<ControlFrame>,
+    mut control_rx: mpsc::UnboundedReceiver<Outgoing>,
     mut telemetry_rx: mpsc::Receiver<SampleBatch>,
     published: &watch::Sender<Option<SessionInfo>>,
     shutdown: &mut watch::Receiver<bool>,
@@ -281,7 +283,13 @@ pub(crate) async fn serve<H: Handler>(
                 active.remove(&id);
                 out.write(&frame).await
             }
-            Some(frame) = control_rx.recv() => out.write(&frame).await,
+            Some(queued) = control_rx.recv() => match queued {
+                Outgoing::Frame(frame) => out.write(&frame).await,
+                Outgoing::Reconnect => {
+                    let _ = out.sink.send(Message::Close(None)).await;
+                    Err(Ended::Reconnect)
+                }
+            },
             msg = stream.next() => match msg {
                 None => Err(Ended::Closed("connection closed".into())),
                 Some(Err(e)) => Err(Ended::Closed(e.to_string())),

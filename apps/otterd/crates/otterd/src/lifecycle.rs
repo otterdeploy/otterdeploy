@@ -113,7 +113,8 @@ pub struct TenantGate {
 pub struct Node {
     pub cfg: LifecycleConfig,
     pub engine: EngineAdapter,
-    identity_key: SigningKey,
+    /// Replaced in place when a key rotation completes.
+    identity_key: std::sync::RwLock<SigningKey>,
     pub incarnation: Incarnation,
     pub progress: Progress,
     pub engine_reachable: AtomicBool,
@@ -149,7 +150,7 @@ impl Node {
         Self {
             cfg,
             engine,
-            identity_key,
+            identity_key: std::sync::RwLock::new(identity_key),
             incarnation,
             progress,
             engine_reachable: AtomicBool::new(false),
@@ -180,15 +181,26 @@ impl Node {
             .ok_or_else(|| NodeError::Refused(format!("unknown grant {grant}")))
     }
 
-    /// The identity key, for session proofs.
-    pub(crate) fn identity_key(&self) -> &SigningKey {
-        &self.identity_key
+    /// The identity key, for session proofs and certificates.
+    pub(crate) fn identity_key(&self) -> SigningKey {
+        match self.identity_key.read() {
+            Ok(k) => k.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        }
+    }
+
+    /// Switch to a rotated identity key (already journalled and activated).
+    pub(crate) fn set_identity_key(&self, key: SigningKey) {
+        match self.identity_key.write() {
+            Ok(mut k) => *k = key,
+            Err(poisoned) => *poisoned.into_inner() = key,
+        }
     }
 
     /// The node's public identity key.
     #[must_use]
     pub fn identity_public(&self) -> PublicKey {
-        PublicKey::from_verifying_key(&self.identity_key.verifying_key())
+        PublicKey::from_verifying_key(&self.identity_key().verifying_key())
     }
 
     // ---------------------------------------------------------------- reconcile
@@ -735,7 +747,7 @@ impl Node {
             issued_at_unix_ms: now_ms(),
         };
         let envelope =
-            SignedEnvelope::sign(&self.identity_key, SignContext::StopCertificate, &cert)
+            SignedEnvelope::sign(&self.identity_key(), SignContext::StopCertificate, &cert)
                 .map_err(|e| NodeError::Internal(e.to_string()))?;
         self.engine
             .journal()

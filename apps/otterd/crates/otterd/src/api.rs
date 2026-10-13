@@ -2,11 +2,13 @@
 //!
 //! It works with the control plane down and the Engine hung: `GET /status`
 //! reads only the journal and in-memory state, and `POST /authority/revoke`
-//! applies a recovery-key-signed revocation. Workload commands never come
+//! applies a recovery-key-signed revocation. `POST /keys/rotate` offers the
+//! next node key epoch to the control plane. Workload commands never come
 //! through here; they need a control-plane capability on an authenticated
 //! session.
 
 use crate::lifecycle::{Node, NodeError};
+use crate::session::ControlHandler;
 use bytes::Bytes;
 use http::{Method, Request, Response, StatusCode};
 use http_body_util::{BodyExt as _, Full, Limited};
@@ -53,7 +55,11 @@ pub fn status(node: &Node) -> Result<serde_json::Value, NodeError> {
     }))
 }
 
-async fn route(node: Arc<Node>, req: Request<Incoming>) -> Response<Full<Bytes>> {
+async fn route(
+    node: Arc<Node>,
+    session: Option<Arc<ControlHandler>>,
+    req: Request<Incoming>,
+) -> Response<Full<Bytes>> {
     match (req.method().clone(), req.uri().path()) {
         (Method::GET, "/status") => match status(&node) {
             Ok(v) => json(StatusCode::OK, &v),
@@ -95,6 +101,16 @@ async fn route(node: Arc<Node>, req: Request<Incoming>) -> Response<Full<Bytes>>
                 ),
             }
         }
+        (Method::POST, "/keys/rotate") => match session
+            .ok_or_else(|| "no control plane configured".to_owned())
+            .and_then(|h| h.rotate_keys("operator request"))
+        {
+            Ok(epoch) => json(
+                StatusCode::ACCEPTED,
+                &serde_json::json!({"offeredKeyEpoch": epoch}),
+            ),
+            Err(e) => json(StatusCode::CONFLICT, &serde_json::json!({"error": e})),
+        },
         _ => json(
             StatusCode::NOT_FOUND,
             &serde_json::json!({"error": "not found"}),
@@ -103,7 +119,11 @@ async fn route(node: Arc<Node>, req: Request<Incoming>) -> Response<Full<Bytes>>
 }
 
 /// Serve the control socket until the task is dropped.
-pub async fn serve(node: Arc<Node>, socket: &Path) -> std::io::Result<()> {
+pub async fn serve(
+    node: Arc<Node>,
+    session: Option<Arc<ControlHandler>>,
+    socket: &Path,
+) -> std::io::Result<()> {
     if let Some(dir) = socket.parent() {
         std::fs::create_dir_all(dir)?;
         std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
@@ -116,10 +136,12 @@ pub async fn serve(node: Arc<Node>, socket: &Path) -> std::io::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;
         let node = Arc::clone(&node);
+        let session = session.clone();
         tokio::spawn(async move {
             let svc = hyper::service::service_fn(move |req| {
                 let node = Arc::clone(&node);
-                async move { Ok::<_, std::convert::Infallible>(route(node, req).await) }
+                let session = session.clone();
+                async move { Ok::<_, std::convert::Infallible>(route(node, session, req).await) }
             });
             if let Err(e) = hyper::server::conn::http1::Builder::new()
                 .serve_connection(TokioIo::new(stream), svc)

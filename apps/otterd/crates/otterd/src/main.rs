@@ -12,6 +12,7 @@
 //!   passes.
 
 use clap::{Parser, Subcommand};
+use otterd::keys::KeyRotator;
 use otterd::session::{ControlHandler, NodeIdentitySource, SlotReporter};
 use otterd::{LifecycleConfig, Node, Progress};
 use otterd_engine::{DockerClient, EngineAdapter, JournalHandle, engine_incarnation};
@@ -289,13 +290,19 @@ async fn start_node(args: &RunArgs) -> Result<Node, (u8, String)> {
     ))
 }
 
+/// The control-plane connection, if one is configured.
+struct Control {
+    outbox: Outbox,
+    handler: Arc<ControlHandler>,
+}
+
 /// Start the control-plane connection, if one is configured.
 fn connect(
     args: &RunArgs,
     node: &Arc<Node>,
     reporter: &SlotReporter,
     shutdown: watch::Receiver<bool>,
-) -> Result<Option<Outbox>, String> {
+) -> Result<Option<Control>, String> {
     let Some(url) = &args.control_url else {
         tracing::warn!("no control URL: running disconnected; no command can arrive");
         return Ok(None);
@@ -307,17 +314,23 @@ fn connect(
         (None, false) => Trust::PublicRoots,
     };
     let tls = client_config(&trust).map_err(|e| e.to_string())?;
+    let handler = Arc::new(
+        ControlHandler::new(Arc::clone(node), reporter.clone()).with_key_rotation(Arc::new(
+            KeyRotator::new(KeyStore::new(&args.paths.keys_dir)),
+        )),
+    );
     let manager = Arc::new(ConnectionManager::new(
         TransportConfig::new(url.clone(), tls),
-        Arc::new(ControlHandler::new(Arc::clone(node), reporter.clone())),
+        Arc::clone(&handler),
         Arc::new(NodeIdentitySource::new(
             Arc::clone(node),
             env!("CARGO_PKG_VERSION"),
         )),
     ));
     let outbox = manager.outbox();
+    handler.attach(outbox.clone());
     tokio::spawn(async move { manager.run(shutdown).await });
-    Ok(Some(outbox))
+    Ok(Some(Control { outbox, handler }))
 }
 
 async fn run(args: RunArgs) -> Result<(), (u8, String)> {
@@ -326,16 +339,17 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
     let progress = node.progress.clone();
     let notifier = Notifier::from_env();
     tokio::spawn(otterd::watchdog::run(progress.clone(), notifier.clone()));
+    let reporter = SlotReporter::default();
+    let (shutdown, shutdown_rx) = watch::channel(false);
+    let control = connect(&args, &node, &reporter, shutdown_rx).map_err(fail)?;
     let api_node = Arc::clone(&node);
+    let api_session = control.as_ref().map(|c| Arc::clone(&c.handler));
     let api_socket = args.socket.clone();
     tokio::spawn(async move {
-        if let Err(e) = otterd::api::serve(api_node, &api_socket).await {
+        if let Err(e) = otterd::api::serve(api_node, api_session, &api_socket).await {
             tracing::error!(error = %e, "control socket stopped");
         }
     });
-    let reporter = SlotReporter::default();
-    let (shutdown, shutdown_rx) = watch::channel(false);
-    let outbox = connect(&args, &node, &reporter, shutdown_rx).map_err(fail)?;
     if let Err(e) = notifier.ready() {
         tracing::warn!(error = %e, "sd_notify READY failed");
     }
@@ -349,8 +363,8 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
                     tracing::warn!(error = %e, "reconcile pass finished with errors");
                 }
                 progress.pass_completed();
-                if let Some(o) = &outbox {
-                    reporter.after_pass(&node, o);
+                if let Some(c) = &control {
+                    reporter.after_pass(&node, &c.outbox);
                 }
                 let _ = notifier.status(&format!("passes={} engine={}", progress.snapshot().passes,
                     node.engine_reachable.load(std::sync::atomic::Ordering::SeqCst)));
