@@ -11,6 +11,7 @@ publish = false
 repository = "https://github.com/otterdeploy/otterdeploy"
 
 [workspace.dependencies]
+otterd-anchor = { path = "crates/otterd-anchor" }
 otterd-engine = { path = "crates/otterd-engine" }
 otterd-fence = { path = "crates/otterd-fence" }
 otterd-journal = { path = "crates/otterd-journal" }
@@ -23,6 +24,7 @@ crc32c = "0.6"
 ed25519-dalek = { version = "2", features = ["std"] }
 getrandom = "0.3"
 hex = "0.4"
+hmac = "0.12"
 http = "1"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
