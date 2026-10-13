@@ -144,7 +144,16 @@ pub struct AttemptReport {
     pub ordinal: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub container: Option<ContainerRef>,
+    /// What the Engine last said about the attempt's container. A reconcile
+    /// pass observes every live attempt; a pass that cannot ask the Engine
+    /// turns this `Unknown`, so `Running` here means the latest pass saw it
+    /// running.
     pub process: ProcessObservation,
+    /// Wall-clock time of the first observation that saw `process` as it is
+    /// now; every observation since agreed. Absent when the value comes from
+    /// the journal rather than the Engine.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_since_unix_ms: Option<UnixMs>,
     pub mutations: Vec<MutationReport>,
 }
 

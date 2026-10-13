@@ -306,9 +306,12 @@ async fn run(
             let grace = stop_grace_ms.map(|ms| Duration::from_millis(ms.get()));
             node.stop(grant_id, reason, &cap.op_id, grace).await
         }
-        Command::WorkloadInspect { .. } => Ok(CommandResult::Slots {
-            slots: node.slot_reports()?,
-        }),
+        Command::WorkloadInspect { .. } => {
+            node.observe().await;
+            Ok(CommandResult::Slots {
+                slots: node.slot_reports()?,
+            })
+        }
         Command::NodeRetireByBarrier { evidence } => node.retire_by_barrier(evidence).await,
         Command::NodeReenroll { certificate } => node.reenroll(certificate).await,
         Command::OpStatus { op_id } => {
