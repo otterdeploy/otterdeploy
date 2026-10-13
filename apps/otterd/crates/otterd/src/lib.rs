@@ -10,6 +10,7 @@ pub mod keys;
 pub mod lifecycle;
 pub mod platform;
 pub mod session;
+pub mod upgrade;
 pub mod watchdog;
 
 pub use dispatch::{Answer, Dispatcher, Session};

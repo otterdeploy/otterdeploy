@@ -8,6 +8,7 @@
 use crate::dispatch::{Answer, Dispatcher, Session};
 use crate::keys::KeyRotator;
 use crate::lifecycle::{Node, NodeError};
+use crate::upgrade::Upgrader;
 use otterd_identity::rotation::apply_cp_transition;
 use otterd_proto::U53;
 use otterd_proto::channel::ControlFrame;
@@ -30,6 +31,7 @@ pub struct ControlHandler {
     dispatcher: Mutex<Option<(SessionId, Arc<Dispatcher>)>>,
     reports: SlotReporter,
     rotator: Option<Arc<KeyRotator>>,
+    upgrader: Option<Arc<Upgrader>>,
     outbox: OnceLock<Outbox>,
     /// The live session negotiated `key-rotation`.
     rotation_enabled: AtomicBool,
@@ -43,6 +45,7 @@ impl ControlHandler {
             dispatcher: Mutex::new(None),
             reports,
             rotator: None,
+            upgrader: None,
             outbox: OnceLock::new(),
             rotation_enabled: AtomicBool::new(false),
         }
@@ -53,6 +56,19 @@ impl ControlHandler {
     pub fn with_key_rotation(mut self, rotator: Arc<KeyRotator>) -> Self {
         self.rotator = Some(rotator);
         self
+    }
+
+    /// Run `node.upgrade` through this upgrader.
+    #[must_use]
+    pub fn with_upgrader(mut self, upgrader: Arc<Upgrader>) -> Self {
+        self.upgrader = Some(upgrader);
+        self
+    }
+
+    fn new_dispatcher(&self) -> Dispatcher {
+        self.upgrader
+            .clone()
+            .map_or_else(Dispatcher::new, Dispatcher::with_upgrader)
     }
 
     /// The transport's outbox, once the connection manager exists.
@@ -86,12 +102,12 @@ impl ControlHandler {
 
     fn dispatcher_for(&self, session: &SessionId) -> Arc<Dispatcher> {
         let Ok(mut g) = self.dispatcher.lock() else {
-            return Arc::new(Dispatcher::new());
+            return Arc::new(self.new_dispatcher());
         };
         match &*g {
             Some((id, d)) if id == session => Arc::clone(d),
             _ => {
-                let d = Arc::new(Dispatcher::new());
+                let d = Arc::new(self.new_dispatcher());
                 *g = Some((session.clone(), Arc::clone(&d)));
                 d
             }
@@ -171,6 +187,7 @@ impl Handler for ControlHandler {
             authority_term: session.authority_term,
             clock: session.clock_now(),
             monitor_only: false,
+            protocol: session.protocol,
         };
         match d.handle(&self.node, &s, &capability, &payload).await {
             Answer::Refused(r) => RequestAnswer::Refused(r),
