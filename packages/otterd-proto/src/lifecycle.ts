@@ -26,6 +26,8 @@ export const slotGrant = z.strictObject({
   restart: restartPolicy,
   dataClaims: z.array(dataClaim),
   probeOnly: z.boolean(),
+  /** Adopt this attempt, held from an earlier node process, instead of starting a new one. */
+  adoptsAttempt: wireId.optional(),
 });
 export type SlotGrant = z.infer<typeof slotGrant>;
 
@@ -39,7 +41,16 @@ export const grantState = z.enum([
   "unknown",
 ]);
 export const submissionState = z.enum(["not-submitted", "submitted", "settled", "retired"]);
-export const engineVerb = z.enum(["create", "start", "restart", "stop", "kill", "remove"]);
+export const engineVerb = z.enum([
+  "create",
+  "start",
+  "restart",
+  "stop",
+  "kill",
+  "remove",
+  "pause",
+  "unpause",
+]);
 
 export const processObservation = z.discriminatedUnion("state", [
   z.strictObject({ state: z.literal("absent") }),
@@ -69,6 +80,8 @@ export const slotReport = z.object({
     }),
   ),
   unknownHolds: z.array(wireId).optional(),
+  /** Held from an earlier node process, waiting to be adopted or stopped. */
+  held: z.object({ attemptId: wireId, paused: z.boolean() }).optional(),
 });
 export type SlotReport = z.infer<typeof slotReport>;
 

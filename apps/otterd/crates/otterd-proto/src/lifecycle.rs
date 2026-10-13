@@ -44,6 +44,10 @@ pub struct SlotGrant {
     pub data_claims: Vec<DataClaim>,
     /// New attempts stay probe-only until the CP admits them to a serving set.
     pub probe_only: bool,
+    /// Adopt this attempt, held from an earlier node process, instead of
+    /// starting a new one: the container keeps running under this grant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adopts_attempt: Option<AttemptId>,
 }
 
 /// CP grant states.
@@ -80,13 +84,20 @@ pub enum EngineVerb {
     Stop,
     Kill,
     Remove,
+    /// Freeze a held container's processes after a daemon restart.
+    Pause,
+    /// Resume them once the control plane adopted the attempt.
+    Unpause,
 }
 
 impl EngineVerb {
     /// Can this verb make a process run, now or later?
     #[must_use]
     pub fn can_start_process(self) -> bool {
-        matches!(self, Self::Create | Self::Start | Self::Restart)
+        matches!(
+            self,
+            Self::Create | Self::Start | Self::Restart | Self::Unpause
+        )
     }
 }
 
@@ -153,6 +164,19 @@ pub struct SlotReport {
     /// Holds that are Unknown keep the claim and block replacement.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unknown_holds: Vec<HoldId>,
+    /// Held from an earlier node process: no new starts, waiting for the
+    /// control plane to adopt it (a grant whose `adoptsAttempt` names this
+    /// attempt) or to stop it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<HeldAttempt>,
+}
+
+/// The attempt a held grant keeps, and whether its container is paused.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeldAttempt {
+    pub attempt_id: AttemptId,
+    pub paused: bool,
 }
 
 /// Responsive-node positive stop certificate, signed by

@@ -523,8 +523,14 @@ fn schemas() {
         ],
     );
 
-    schema_file::<SlotGrant>("SlotGrant", vec![slot_grant()]);
-    schema_file::<SlotReport>("SlotReport", vec![slot_report()]);
+    let mut adopting = slot_grant();
+    adopting["grantId"] = json!("grant_2");
+    adopting["generation"] = json!(5);
+    adopting["adoptsAttempt"] = json!("att_0123456789abcdef0123456789abcdef");
+    schema_file::<SlotGrant>("SlotGrant", vec![slot_grant(), adopting]);
+    let mut held = slot_report();
+    held["held"] = json!({"attemptId": "att_0123456789abcdef0123456789abcdef", "paused": true});
+    schema_file::<SlotReport>("SlotReport", vec![slot_report(), held]);
     schema_file::<StopCertificate>("StopCertificate", vec![stop_certificate()]);
     schema_file::<LeaseRenewal>(
         "LeaseRenewal",

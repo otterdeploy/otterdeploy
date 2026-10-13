@@ -76,6 +76,8 @@ pub enum TransitionError {
     ExclusiveHeld { slot: SlotRef, holder: GrantId },
     #[error("unknown grant {0}")]
     UnknownGrant(GrantId),
+    #[error("grant {grant} cannot be held or adopted: {reason}")]
+    BadHold { grant: GrantId, reason: String },
     #[error("grant {0} is revoked or superseded; nothing may start under it")]
     GrantRevoked(GrantId),
     #[error("attempt {0} already recorded")]
@@ -239,6 +241,24 @@ pub struct GrantState {
     pub superseded_by_epoch: Option<U53>,
     /// Attempts in ordinal order.
     pub attempts: Vec<AttemptId>,
+    /// Held by a later node process instead of stopped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<Held>,
+    /// A newer grant adopted this grant's attempt: released without a stop.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adopted_by: Option<GrantId>,
+}
+
+/// A grant held across a node restart.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Held {
+    pub incarnation: Incarnation,
+    pub container: ContainerRef,
+    pub attempt_id: AttemptId,
+    pub paused: bool,
+    /// When the holding process first held it (node wall clock).
+    pub since_unix_ms: U53,
 }
 
 impl GrantState {
@@ -246,7 +266,9 @@ impl GrantState {
     /// whole node epoch superseded by a re-enrollment.
     #[must_use]
     pub fn is_released(&self) -> bool {
-        (self.revoked.is_some() && self.certificate.is_some()) || self.superseded_by_epoch.is_some()
+        (self.revoked.is_some() && self.certificate.is_some())
+            || self.superseded_by_epoch.is_some()
+            || self.adopted_by.is_some()
     }
 
     /// Nothing may start under this grant any more.
@@ -562,6 +584,16 @@ impl NodeState {
             }
             Record::GrantAccepted { grant, .. } => self.check_grant(grant),
             Record::GrantRevoked { grant_id, .. } => self.grant(grant_id).map(|_| ()),
+            Record::GrantHeld {
+                grant_id,
+                incarnation,
+                ..
+            } => self.check_hold_grant(grant_id, incarnation),
+            Record::GrantAdopted {
+                grant_id,
+                by_grant,
+                attempt_id,
+            } => self.check_adoption(grant_id, by_grant, attempt_id),
             Record::AttemptBegun {
                 grant_id,
                 attempt_id,
@@ -735,12 +767,71 @@ impl NodeState {
         // An exclusive slot admits one non-released grant, and an exclusive
         // grant cannot join a slot that still holds a non-exclusive one either.
         if let Some(holder) = self.grants.values().find(|g| {
-            g.grant.slot == grant.slot && !g.is_released() && (grant.exclusive || g.grant.exclusive)
+            g.grant.slot == grant.slot
+                && !g.is_released()
+                && (grant.exclusive || g.grant.exclusive)
+                // The grant that adopts a held attempt replaces its holder.
+                && !(grant.adopts_attempt.is_some()
+                    && g.held.as_ref().map(|h| &h.attempt_id) == grant.adopts_attempt.as_ref())
         }) {
             return Err(TransitionError::ExclusiveHeld {
                 slot: grant.slot.clone(),
                 holder: holder.grant.grant_id.clone(),
             });
+        }
+        Ok(())
+    }
+
+    /// Only an unreleased, unrevoked exclusive grant of an earlier process,
+    /// with an attempt, can be held.
+    fn check_hold_grant(
+        &self,
+        grant_id: &GrantId,
+        holder: &Incarnation,
+    ) -> Result<(), TransitionError> {
+        let g = self.grant(grant_id)?;
+        let bad = |why: &str| TransitionError::BadHold {
+            grant: grant_id.clone(),
+            reason: why.to_owned(),
+        };
+        if g.is_released() || g.start_revoked() {
+            return Err(bad("released or revoked"));
+        }
+        if !g.grant.exclusive {
+            return Err(bad("not exclusive"));
+        }
+        if &g.grant.incarnation == holder {
+            return Err(bad("granted to the holding process itself"));
+        }
+        if g.attempts.is_empty() {
+            return Err(bad("no attempt"));
+        }
+        Ok(())
+    }
+
+    /// A new grant adopts a held attempt: same slot, higher generation, it
+    /// names the attempt, and the old grant is held with that attempt.
+    fn check_adoption(
+        &self,
+        old: &GrantId,
+        new: &GrantId,
+        attempt: &AttemptId,
+    ) -> Result<(), TransitionError> {
+        let bad = |why: &str| TransitionError::BadHold {
+            grant: old.clone(),
+            reason: why.to_owned(),
+        };
+        let o = self.grant(old)?;
+        let n = self.grant(new)?;
+        let held = o.held.as_ref().ok_or_else(|| bad("not held"))?;
+        if &held.attempt_id != attempt || n.grant.adopts_attempt.as_ref() != Some(attempt) {
+            return Err(bad("adoption names another attempt"));
+        }
+        if n.grant.slot != o.grant.slot || n.grant.generation <= o.grant.generation {
+            return Err(bad("adoption must be the same slot at a higher generation"));
+        }
+        if o.start_revoked() || n.start_revoked() {
+            return Err(bad("revoked"));
         }
         Ok(())
     }
@@ -1013,8 +1104,45 @@ impl NodeState {
                         certificate: None,
                         superseded_by_epoch: None,
                         attempts: Vec::new(),
+                        held: None,
+                        adopted_by: None,
                     },
                 );
+            }
+            Record::GrantHeld {
+                grant_id,
+                incarnation,
+                container,
+                paused,
+                since_unix_ms,
+            } => {
+                if let Some(g) = self.grants.get_mut(grant_id)
+                    && let Some(attempt) = g.attempts.last().cloned()
+                {
+                    g.held = Some(Held {
+                        incarnation: incarnation.clone(),
+                        container: container.clone(),
+                        attempt_id: attempt,
+                        paused: *paused,
+                        since_unix_ms: *since_unix_ms,
+                    });
+                }
+            }
+            Record::GrantAdopted {
+                grant_id,
+                by_grant,
+                attempt_id,
+            } => {
+                // `held` stays: compaction re-records it before the adoption.
+                if let Some(g) = self.grants.get_mut(grant_id) {
+                    g.adopted_by = Some(by_grant.clone());
+                }
+                if let Some(g) = self.grants.get_mut(by_grant) {
+                    g.attempts.push(attempt_id.clone());
+                }
+                if let Some(a) = self.attempts.get_mut(attempt_id) {
+                    a.grant_id = by_grant.clone();
+                }
             }
             Record::GrantRevoked { grant_id, reason } => {
                 if let Some(g) = self.grants.get_mut(grant_id) {

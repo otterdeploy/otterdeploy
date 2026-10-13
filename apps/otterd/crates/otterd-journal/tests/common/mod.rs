@@ -96,6 +96,7 @@ pub fn grant(
             restart: RestartPolicy::default(),
             data_claims: vec![],
             probe_only: false,
+            adopts_attempt: None,
         },
         spec_digest: digest(),
         op_id: id(&format!("op-{grant_id}")),

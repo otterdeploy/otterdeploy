@@ -26,6 +26,34 @@
         "index": 0,
         "resourceId": "res_pg"
       }
+    },
+    {
+      "adoptsAttempt": "att_0123456789abcdef0123456789abcdef",
+      "authorityTerm": 2,
+      "dataClaims": [
+        {
+          "access": "rw",
+          "claimEpoch": 1,
+          "dataIdentity": "vol:inst_1:6f1c"
+        }
+      ],
+      "disconnectAction": "continue-existing",
+      "exclusive": true,
+      "generation": 5,
+      "grantId": "grant_2",
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "nodeEpoch": 3,
+      "probeOnly": false,
+      "restart": {
+        "condition": "on-failure",
+        "delayMs": 5000,
+        "maxAttempts": 3,
+        "windowMs": 60000
+      },
+      "slot": {
+        "index": 0,
+        "resourceId": "res_pg"
+      }
     }
   ],
   "schema": "SlotGrant"

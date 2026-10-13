@@ -84,6 +84,8 @@ pub enum EngineOutcome {
     Stopped,
     AlreadyStopped,
     Removed,
+    Paused,
+    Unpaused,
     /// The Engine answered that the object does not exist.
     Absent,
     /// A definitive refusal: the request completed without effect.
@@ -249,6 +251,27 @@ pub enum Record {
         grant: SlotGrant,
         spec_digest: Sha256Hex,
         op_id: OpId,
+    },
+    /// After a node restart: an earlier process's exclusive grant is held
+    /// (no new starts) instead of stopped, its container paused, until the
+    /// control plane adopts or stops it.
+    #[serde(rename_all = "camelCase")]
+    GrantHeld {
+        grant_id: GrantId,
+        /// The node process holding it.
+        incarnation: Incarnation,
+        container: ContainerRef,
+        paused: bool,
+        /// When this process first held it (node wall clock).
+        since_unix_ms: U53,
+    },
+    /// A new grant adopted a held grant's attempt; the old grant is released
+    /// without a stop because its process now belongs to the new one.
+    #[serde(rename_all = "camelCase")]
+    GrantAdopted {
+        grant_id: GrantId,
+        by_grant: GrantId,
+        attempt_id: AttemptId,
     },
     /// Durable start-authority revocation, written before any stop is sent.
     #[serde(rename_all = "camelCase")]

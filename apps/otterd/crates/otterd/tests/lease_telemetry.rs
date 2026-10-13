@@ -117,6 +117,7 @@ async fn apply(node: &Node, grant: &str, resource: &str, action: DisconnectActio
         restart: RestartPolicy::default(),
         data_claims: vec![],
         probe_only: false,
+        adopts_attempt: None,
     };
     let s = spec(resource);
     node.apply(

@@ -120,6 +120,7 @@ fn grant(
         restart: RestartPolicy::default(),
         data_claims: vec![],
         probe_only: false,
+        adopts_attempt: None,
     }
 }
 
