@@ -1138,6 +1138,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "otterd-dns"
+version = "0.1.0"
+dependencies = [
+ "otterd-sys",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "otterd-engine"
 version = "0.1.0"
 dependencies = [
