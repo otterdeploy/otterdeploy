@@ -32,9 +32,17 @@
 #                             URL before you own a domain.
 #   OTTERDEPLOY_ADVERTISE_ADDR  swarm advertise-addr  (default: primary source IP)
 #   OTTERDEPLOY_BRANCHING     auto | on | off         (default auto) — ZFS branching pool
+#   OTTERDEPLOY_RUNTIME       docker | otterd         (default docker) — otterd runs workloads
+#                             under the otterd node daemon instead of Docker Swarm. Needs
+#                             an installer with embedded release keys (published releases).
+#   OTTERDEPLOY_OTTERD_VERSION      otterd release (default: the one this installer pins)
+#   OTTERDEPLOY_OTTERD_RELEASE_URL  where otterd releases live (default $GET_ORIGIN/otterd)
+#   OTTERDEPLOY_OTTERD_CP_PORT      node control sessions (default 7443)
 #
 # Subcommand:  install.sh update   → just pull the new image tag and restart
 #              (skips host setup; preserves all secrets).
+#              install.sh node --control-url … --ca-sha256 … --cp-key … --token …
+#                → join an otterd install as a node (the dashboard prints it).
 #   OTTERDEPLOY_ZFS_POOL      pool name               (default otter)
 #   OTTERDEPLOY_ZFS_SIZE      file-backed pool size   (default: ¼ of free disk, 5G–40G)
 #   OTTERDEPLOY_FIREWALL      true | false            (default true — od-5j8.11) — CrowdSec
@@ -79,6 +87,22 @@ COMPOSE_URL="${OTTERDEPLOY_COMPOSE_URL:-https://get.otterdeploy.com/docker-compo
 # or self-hosted mirror can point it somewhere reachable — or nowhere, which
 # simply makes the check silent.
 GET_ORIGIN="${OTTERDEPLOY_GET_ORIGIN:-https://get.otterdeploy.com}"
+# docker (default, unchanged) | otterd: workloads under the otterd node daemon
+# instead of Docker Swarm. A re-run or `update` keeps the runtime the install
+# was made with (OTTERDEPLOY_RUNTIME in .env).
+RUNTIME="${OTTERDEPLOY_RUNTIME:-}"
+# The otterd release keys and version, filled in by the release process.
+# OTTERD_RELEASE_KEYS: space-separated base64 Ed25519 public keys; while it
+# is empty the otterd runtime refuses to install (see otterd_require_release).
+OTTERD_RELEASE_KEYS=""
+OTTERD_PINNED_VERSION=""
+OTTERD_VERSION="${OTTERDEPLOY_OTTERD_VERSION:-$OTTERD_PINNED_VERSION}"
+OTTERD_RELEASE_URL="${OTTERDEPLOY_OTTERD_RELEASE_URL:-$GET_ORIGIN/otterd}"
+OTTERD_CP_PORT="${OTTERDEPLOY_OTTERD_CP_PORT:-7443}"   # node control sessions (otterd runtime)
+OTTERD_MESH_UDP="51820-51899"                            # node mesh, WireGuard (otterd runtime)
+# `install.sh node …`: the enroll command a joining host runs.
+NODE_URL="" NODE_CA_PIN="" NODE_CP_KEY="" NODE_TOKEN=""
+NODE_ROLES=()
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 ENV_FILE="$INSTALL_DIR/.env"
 EDGE_NETWORK="${OTTERDEPLOY_NETWORK:-otterdeploy}"
@@ -876,6 +900,18 @@ CROWDSEC_FIREWALL_BOUNCER_KEY=$crowdsec_firewall_bouncer_key"
   # ignored (packages/api/src/security/trusted-proxy.ts).
   trusted_proxies="$(keep_or TRUSTED_PROXIES "$(detect_trusted_proxies)")"
   pool_line="$(env_value BRANCH_ZFS_POOL)"   # set later by provision_branching
+  local deploy_runtime=docker otterd_env_lines="OTTERDEPLOY_RUNTIME=docker"
+  if otterd_mode; then
+    deploy_runtime=otterd
+    otterd_env_lines="OTTERDEPLOY_RUNTIME=otterd
+# The otterd control plane (compose profile 'otterd'): nodes dial it on
+# :$OTTERD_CP_PORT under the private CA in $OTTERD_CP_DIR.
+OTTERD_CP_PORT=$OTTERD_CP_PORT
+OTTERD_CP_INSTALL_ID=$(keep_or OTTERD_CP_INSTALL_ID "inst-$(random_secret | cut -c1-20)")
+OTTERD_CP_CONTROL_URL=wss://$(otterd_advertise_addr):$OTTERD_CP_PORT/api/otterd/connect
+OTTERD_CP_RECOVERY_KEY=$(read_file "$OTTERD_CP_DIR/recovery.pub")
+OTTERD_CP_ADMIN_TOKEN=$(keep_or OTTERD_CP_ADMIN_TOKEN "$(random_secret)")"
+  fi
 
   if dry; then
     say "   + write $ENV_FILE (secrets redacted):"
@@ -887,7 +923,8 @@ CROWDSEC_FIREWALL_BOUNCER_KEY=$crowdsec_firewall_bouncer_key"
     say "       SERVER_IP=$server_ip  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
     say "       CONTROL_PLANE_BIND=$control_plane_bind"
     say "       BETTER_AUTH_URL=$public_url  CORS_ORIGIN=$cors_origin  NODE_ENV=production"
-    say "       TRUSTED_PROXIES=$trusted_proxies"
+    say "       TRUSTED_PROXIES=$trusted_proxies  DEPLOY_RUNTIME=$deploy_runtime"
+    otterd_mode && say "       OTTERD_CP_* (install id, control URL, recovery key, admin token ********)"
     if [ "$FIREWALL" = "true" ]; then
       say "       CROWDSEC_BOUNCER_KEY=********  CROWDSEC_LAPI_URL=http://crowdsec:8080"
       say "       CROWDSEC_FIREWALL_BOUNCER_KEY=********"
@@ -905,7 +942,8 @@ OTTERDEPLOY_DATA_DIR=$DATA_DIR
 # Where this stack (compose + .env) lives on the host. The in-app updater
 # bind-mounts this path to pull + recreate, so it must be the real location.
 OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR
-DEPLOY_RUNTIME=docker
+DEPLOY_RUNTIME=$deploy_runtime
+$otterd_env_lines
 CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT
 # Which host address the dashboard is published on. 0.0.0.0 = reachable at this
 # machine's addresses (http://$server_ip:$CONTROL_PLANE_PORT); set 127.0.0.1 to
@@ -1140,6 +1178,10 @@ edge_tcp_ports() {
     127.0.0.1|localhost) printf '80, 443' ;;
     *) printf '80, 443, %s' "$CONTROL_PLANE_PORT" ;;
   esac
+  # Node control sessions are mutually authenticated (private CA, signed
+  # session proof), so :7443 is open wherever nodes may connect from.
+  if otterd_mode; then printf ', %s' "$OTTERD_CP_PORT"; fi
+  return 0
 }
 
 # The CURRENT sshd port — never assumed to be 22, so a customized install
@@ -1257,6 +1299,7 @@ provision_host_firewall() {
     say "   + would install nftables (if missing) and load a default-deny table 'otterdeploy':"
     say "     allow loopback, established/related, SSH ($ssh_port/tcp), 80/443/tcp"
     say "     swarm ports 2377/7946/4789 stay peer-scoped (current swarm members, if any joined already)"
+    otterd_mode && say "     otterd runtime: $OTTERD_CP_PORT/tcp (node sessions) and $OTTERD_MESH_UDP/udp (node mesh)"
     say "   + would insert a DOCKER-USER guard dropping inbound traffic to published ports outside { $(edge_tcp_ports) }"
     say "   + would skip entirely if ufw/firewalld is already active"
     return
@@ -1264,13 +1307,13 @@ provision_host_firewall() {
   if ufw_active; then
     say " - ufw is active — leaving it in place (otterdeploy will not install nftables alongside it)"
     phase_skip; chip "ufw left in place"
-    warn "ufw was already managing this host's firewall, so the nftables baseline was not applied — otterdeploy does not fight an existing firewall. Open the ports it needs: sudo ufw allow 80,443/tcp. CrowdSec IP-reputation blocking is unaffected."
+    warn "ufw was already managing this host's firewall, so the nftables baseline was not applied — otterdeploy does not fight an existing firewall. Open the ports it needs: sudo ufw allow 80,443/tcp.$(otterd_mode && printf ' For the otterd runtime also: sudo ufw allow %s/tcp; sudo ufw allow %s/udp.' "$OTTERD_CP_PORT" "${OTTERD_MESH_UDP/-/:}") CrowdSec IP-reputation blocking is unaffected."
     return
   fi
   if firewalld_active; then
     say " - firewalld is active — leaving it in place"
     phase_skip; chip "firewalld left in place"
-    warn "firewalld was already managing this host's firewall, so the nftables baseline was not applied. Make sure 80/tcp and 443/tcp are open. CrowdSec IP-reputation blocking is unaffected."
+    warn "firewalld was already managing this host's firewall, so the nftables baseline was not applied. Make sure 80/tcp and 443/tcp are open$(otterd_mode && printf ', and for the otterd runtime %s/tcp and %s/udp' "$OTTERD_CP_PORT" "$OTTERD_MESH_UDP"). CrowdSec IP-reputation blocking is unaffected."
     return
   fi
   # od-yg9: refresh the package lists first. `apt-get update` runs exactly once
@@ -1320,6 +1363,8 @@ provision_host_firewall() {
     printf '\t\ttcp dport { %s } accept\n' "$(edge_tcp_ports)"
     printf '\t\ttcp dport { 2377, 7946 } ip saddr @otterdeploy_peers accept\n'
     printf '\t\tudp dport { 7946, 4789 } ip saddr @otterdeploy_peers accept\n'
+    # otterd runtime: the node mesh (WireGuard) is authenticated per peer key.
+    if otterd_mode; then printf '\t\tudp dport %s accept\n' "$OTTERD_MESH_UDP"; fi
     printf '\t}\n}\n'
   } | $SUDO tee "$OTTERDEPLOY_NFT_RULESET" >/dev/null
   if ! $SUDO nft -c -f "$OTTERDEPLOY_NFT_RULESET"; then
@@ -1472,6 +1517,7 @@ start_stack() {
   step "Starting otterdeploy"
   local profile_args=""
   [ "$FIREWALL" = "true" ] && profile_args="--profile firewall"
+  otterd_mode && profile_args="$profile_args --profile otterd"
   compose_f_args
   # shellcheck disable=SC2086
   if dry; then
@@ -1736,6 +1782,329 @@ report_access() {
   tsay "             80/443. Wrong address? Edit SERVER_IP in $ENV_FILE and re-run,"
   tsay "             or change it in Instance settings."
   return 0
+}
+
+# ── otterd runtime (opt-in: OTTERDEPLOY_RUNTIME=otterd) ─────────────────────
+# Workloads run under otterd, a per-node daemon, instead of Docker Swarm: the
+# control plane schedules, and each node starts only what it holds a grant
+# for. Nothing here runs unless OTTERDEPLOY_RUNTIME=otterd; the default
+# (docker) is unchanged.
+#
+# Every binary is verified before it is executed: the release manifest's
+# Ed25519 signature against the release keys embedded below, then each
+# binary's size and SHA-256 against its manifest entry. With no key embedded
+# (OTTERD_RELEASE_KEYS, in the config section) the otterd path refuses to
+# run; it never skips verification.
+OTTERD_SIGN_CONTEXT="otterd/release-manifest/v1"
+OTTERD_LIB="/usr/lib/otterd"
+OTTERD_ETC="/etc/otterd"
+OTTERD_CP_DIR="$DATA_DIR/otterd-cp"
+
+otterd_mode() { [ "$RUNTIME" = "otterd" ]; }
+
+otterd_require_release() {
+  [ -n "$(printf '%s' "$OTTERD_RELEASE_KEYS" | tr -d '[:space:]')" ] \
+    || fail "no release key embedded in this installer: the otterd runtime cannot verify what it would install. Use a published release's install.sh, or OTTERDEPLOY_RUNTIME=docker."
+  [ -n "$OTTERD_VERSION" ] \
+    || fail "no otterd release pinned in this installer (set OTTERDEPLOY_OTTERD_VERSION, or use OTTERDEPLOY_RUNTIME=docker)."
+  openssl pkeyutl -help 2>&1 | grep -q -- '-rawin' \
+    || fail "OpenSSL 3 is needed to verify otterd releases (Ed25519 -rawin); this host has $(openssl version 2>/dev/null)."
+}
+
+otterd_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) printf 'x86_64' ;;
+    aarch64|arm64) printf 'aarch64' ;;
+    *) fail "otterd has no build for $(uname -m)" ;;
+  esac
+}
+
+# The envelope key id: hex of the first 16 bytes of SHA-256(raw public key).
+otterd_key_id() {
+  printf '%s' "$1" | openssl base64 -d -A | openssl dgst -sha256 -hex | awk '{print $NF}' | cut -c1-32
+}
+
+# otterd_verify_release RELEASE_JSON MANIFEST_OUT: the signature must verify
+# under an embedded key; the verified payload is written to MANIFEST_OUT.
+otterd_verify_release() {
+  local release="$1" out="$2" tmp key kid ok=1
+  [ "$(jq -r .context "$release")" = "$OTTERD_SIGN_CONTEXT" ] || return 1
+  kid="$(jq -r .keyId "$release")"
+  tmp="$(mktemp -d)"
+  jq -r .payload "$release" | openssl base64 -d -A > "$tmp/payload"
+  jq -r .signature "$release" | openssl base64 -d -A > "$tmp/sig"
+  { printf '%s\0' "$OTTERD_SIGN_CONTEXT"; cat "$tmp/payload"; } > "$tmp/input"
+  for key in $OTTERD_RELEASE_KEYS; do
+    [ "$(otterd_key_id "$key")" = "$kid" ] || continue
+    { printf '\x30\x2a\x30\x05\x06\x03\x2b\x65\x70\x03\x21\x00'; printf '%s' "$key" | openssl base64 -d -A; } > "$tmp/pub.der"
+    openssl pkey -pubin -inform DER -in "$tmp/pub.der" -out "$tmp/pub.pem" 2>/dev/null || continue
+    if openssl pkeyutl -verify -pubin -inkey "$tmp/pub.pem" -rawin -in "$tmp/input" -sigfile "$tmp/sig" >/dev/null 2>&1; then
+      cp "$tmp/payload" "$out"; ok=0; break
+    fi
+  done
+  rm -rf "$tmp"
+  return "$ok"
+}
+
+# otterd_fetch_binary MANIFEST NAME DEST: download NAME for this arch and
+# check it against the manifest; refuse a binary the release does not sign.
+otterd_fetch_binary() {
+  local manifest="$1" name="$2" dest="$3" arch want_sha want_size got_sha got_size
+  arch="$(otterd_arch)"
+  want_sha="$(jq -r --arg n "$name" --arg a "$arch" '.artifacts[] | select((.name // "otterd") == $n and .arch == $a) | .sha256' "$manifest")"
+  want_size="$(jq -r --arg n "$name" --arg a "$arch" '.artifacts[] | select((.name // "otterd") == $n and .arch == $a) | .size' "$manifest")"
+  [ -n "$want_sha" ] || fail "otterd release $OTTERD_VERSION does not sign $name for $arch"
+  curl -fsSL --retry 3 -o "$dest" "$OTTERD_RELEASE_URL/v$OTTERD_VERSION/$name-linux-$arch" \
+    || fail "could not download $name from $OTTERD_RELEASE_URL/v$OTTERD_VERSION"
+  got_size="$(wc -c < "$dest" | tr -d ' ')"
+  got_sha="$(openssl dgst -sha256 -hex "$dest" | awk '{print $NF}')"
+  [ "$got_size" = "$want_size" ] && [ "$got_sha" = "$want_sha" ] \
+    || fail "$name does not match the signed otterd release $OTTERD_VERSION (refusing to install it)"
+}
+
+# The pinned release keys, root-only, as `otterd update` reads them. Later key
+# sets are accepted only when signed by a key of this one.
+otterd_write_release_keys() {
+  local keys
+  keys="$(for k in $OTTERD_RELEASE_KEYS; do printf '%s\n' "$k"; done | jq -R '{key: .}' | jq -s '{serial: 1, keys: .}')"
+  run $SUDO install -d -m 0700 "$OTTERD_ETC"
+  have_file "$OTTERD_ETC/release-keys.json" && return 0
+  printf '%s\n' "$keys" | write_file "$OTTERD_ETC/release-keys.json"
+  $SUDO chmod 600 "$OTTERD_ETC/release-keys.json"
+}
+
+# The systemd unit, verbatim from apps/otterd/packaging/systemd/otterd.service
+# (a test keeps the two identical). Keep the `<<'UNIT'` ... `UNIT` markers.
+otterd_write_unit() {
+  write_file /etc/systemd/system/otterd.service <<'UNIT'
+# otterd: the otterdeploy per-node daemon.
+#
+# Install as /etc/systemd/system/otterd.service. The binary lives in A/B slots
+# under /usr/lib/otterd (`otterd update install`), and the guard, which an
+# update never replaces, at /usr/lib/otterd/otterd-guard. Settings come from
+# /etc/otterd/otterd.env (see otterd.env.example); enrollment (`otterd keygen`,
+# `otterd init`) happens before the first start.
+
+[Unit]
+Description=otterdeploy node daemon
+Documentation=https://otterdeploy.com/docs
+# Order after the Engine and the network when they exist, but never require
+# them: otterd must run, report and refuse safely while dockerd is down or hung.
+After=network-online.target docker.service containerd.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+# Spends one start of a pending update's budget, and rolls back to the
+# previous slot once the budget is gone. Never fails the start.
+ExecStartPre=/usr/lib/otterd/otterd-guard
+ExecStart=/usr/lib/otterd/current/otterd run
+EnvironmentFile=-/etc/otterd/otterd.env
+
+# The daemon pets the watchdog only while its reconciler completes passes; a
+# wedged reconciler is restarted (into boot quarantine), a slow Engine is not.
+WatchdogSec=30s
+Restart=always
+RestartSec=2s
+# Exit status 2: the journal is missing or corrupt, or the key store disagrees
+# with it. That is recovery, and restarting would only repeat it.
+RestartPreventExitStatus=2
+# Containers belong to dockerd, not to this unit; stopping otterd stops only
+# otterd. Workloads keep running under their grants.
+KillMode=process
+TimeoutStopSec=20s
+
+# The staging root and the control socket live under /run/otterd.
+RuntimeDirectory=otterd
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+StateDirectory=otterd
+StateDirectoryMode=0700
+ConfigurationDirectory=otterd
+ConfigurationDirectoryMode=0700
+UMask=0077
+LimitNOFILE=65536
+
+# No PrivateTmp, ProtectSystem, ReadOnlyPaths or other mount-namespace
+# sandboxing: retained data is staged with bind mounts that dockerd must see,
+# so otterd has to share the host mount namespace (it checks this at start).
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  $SUDO systemctl daemon-reload
+}
+
+# Download, verify and install the otterd release: the daemon into A/B slot a
+# (`otterd update install` re-checks the manifest against the pinned keys),
+# and the guard, the name responder and the recovery tool next to it. Idempotent: an existing install
+# is left to the control plane's rolling upgrades.
+install_otterd_binaries() {
+  step "Installing otterd $OTTERD_VERSION"
+  if dry; then say "   + would download, verify and install otterd $OTTERD_VERSION into $OTTERD_LIB"; return; fi
+  if $SUDO test -L "$OTTERD_LIB/current"; then
+    say " - otterd already installed ($OTTERD_LIB/current); upgrades come from the control plane"
+    chip "otterd present"; return
+  fi
+  local tmp name
+  tmp="$(mktemp -d)"
+  curl -fsSL --retry 3 -o "$tmp/release.json" "$OTTERD_RELEASE_URL/v$OTTERD_VERSION/release.json" \
+    || fail "could not download the otterd $OTTERD_VERSION release manifest"
+  otterd_verify_release "$tmp/release.json" "$tmp/manifest.json" \
+    || fail "the otterd $OTTERD_VERSION release manifest is not signed by an embedded release key (refusing to install it)"
+  [ "$(jq -r .version "$tmp/manifest.json")" = "$OTTERD_VERSION" ] \
+    || fail "the signed manifest is for otterd $(jq -r .version "$tmp/manifest.json"), not $OTTERD_VERSION"
+  for name in otterd otterd-guard otterd-dns otterd-recover; do
+    otterd_fetch_binary "$tmp/manifest.json" "$name" "$tmp/$name"
+    chmod 0755 "$tmp/$name"
+  done
+  otterd_write_release_keys
+  run $SUDO install -d -m 0755 "$OTTERD_LIB"
+  run $SUDO "$tmp/otterd" update install --release "$tmp/release.json" --binary "$tmp/otterd"
+  run $SUDO install -m 0755 "$tmp/otterd-guard" "$OTTERD_LIB/otterd-guard"
+  run $SUDO install -m 0755 "$tmp/otterd-dns" "$OTTERD_LIB/otterd-dns"
+  run $SUDO install -m 0755 "$tmp/otterd-recover" "$OTTERD_LIB/otterd-recover"
+  otterd_write_unit
+  rm -rf "$tmp"
+  say " - otterd $OTTERD_VERSION verified and installed in $OTTERD_LIB"
+  chip "otterd $OTTERD_VERSION"
+}
+
+# DER SHA-256 of a PEM certificate: the pin the enroll command carries.
+otterd_cert_pin() { openssl x509 -in "$1" -outform DER | openssl dgst -sha256 -hex | awk '{print $NF}'; }
+
+# The control plane's keys and its private CA for :7443, under the data
+# folder (root-only), created once and kept across re-runs. The signing seed
+# never leaves this host; the recovery key belongs offline once installed.
+provision_otterd_cp() {
+  step "Preparing the otterd control plane"
+  if dry; then say "   + would create signing/recovery keys and a private CA + certificate for :$OTTERD_CP_PORT in $OTTERD_CP_DIR"; return; fi
+  local addr d="$OTTERD_CP_DIR" recover="$OTTERD_LIB/otterd-recover"
+  addr="$(otterd_advertise_addr)"
+  run $SUDO install -d -m 0700 "$d"
+  if ! have_file "$d/signing.key"; then
+    $SUDO "$recover" keygen --out "$d/signing.key" | jq -r .public | write_file "$d/signing.pub"
+    $SUDO "$recover" keygen --out "$d/recovery.key" | jq -r .public | write_file "$d/recovery.pub"
+  fi
+  if ! have_file "$d/ca.pem"; then
+    $SUDO openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 \
+      -subj "/CN=otterdeploy control plane CA" -keyout "$d/ca.key" -out "$d/ca.pem" 2>/dev/null
+  fi
+  # Reissued on every run, so a changed address is picked up.
+  printf 'subjectAltName=IP:%s,IP:127.0.0.1,DNS:otterd-cp\nextendedKeyUsage=serverAuth\n' "$addr" \
+    | write_file "$d/server.ext"
+  $SUDO openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=$addr" \
+    -keyout "$d/server.key" -out "$d/server.csr" 2>/dev/null
+  $SUDO openssl x509 -req -in "$d/server.csr" -CA "$d/ca.pem" -CAkey "$d/ca.key" -CAcreateserial \
+    -days 825 -extfile "$d/server.ext" -out "$d/server.pem" 2>/dev/null
+  $SUDO chmod 600 "$d"/*.key
+  say " - Keys and a private CA in $d (back up recovery.key somewhere offline)"
+  chip "CA $(otterd_cert_pin "$d/ca.pem" | cut -c1-12)"
+}
+
+# Where nodes reach this control plane: the swarm-style advertise address.
+otterd_advertise_addr() {
+  local addr="$ADVERTISE_ADDR"
+  [ -z "$addr" ] && addr="$(primary_ip)"
+  [ -z "$addr" ] && addr="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  printf '%s' "$addr"
+}
+
+# enroll_otterd_node URL CA_PEM CP_KEY TOKEN ROLES...: keys, a signed
+# enrollment request, the control plane's certificate, the journal, and the
+# service. A node that already has a journal is left alone.
+enroll_otterd_node() {
+  local url="$1" ca="$2" cp_key="$3" token="$4"; shift 4
+  local base roles=() r tmp hetzner=""
+  step "Enrolling this host as an otterd node"
+  if dry; then say "   + would enroll with $url and start otterd.service"; return; fi
+  if $SUDO test -f /var/lib/otterd/journal/node.journal; then
+    say " - Already enrolled (journal present)"; run $SUDO systemctl enable --now otterd; return
+  fi
+  for r in "$@"; do roles+=(--role "$r"); done
+  curl -fsS -m 2 http://169.254.169.254/hetzner/v1/metadata/instance-id >/dev/null 2>&1 && hetzner="--hetzner"
+  base="$(printf '%s' "$url" | sed -E 's#^wss://([^/]+)/.*#https://\1#')"
+  tmp="$(mktemp -d)"
+  $SUDO install -m 0600 "$ca" "$OTTERD_ETC/control-ca.pem"
+  $SUDO test -d "$OTTERD_ETC/keys" || run $SUDO "$OTTERD_LIB/current/otterd" keygen
+  # shellcheck disable=SC2086
+  $SUDO "$OTTERD_LIB/current/otterd" enroll --token "$token" "${roles[@]}" $hetzner > "$tmp/request.json" \
+    || fail "otterd could not build its enrollment request"
+  jq '{request: .}' "$tmp/request.json" \
+    | curl -fsS --cacert "$OTTERD_ETC/control-ca.pem" -H 'content-type: application/json' \
+        --data-binary @- "$base/api/otterd/enroll" > "$tmp/answer.json" \
+    || fail "the control plane at $base refused the enrollment (token used or expired?)"
+  jq -e .value.certificate "$tmp/answer.json" > "$tmp/certificate.json" \
+    || fail "the control plane answered without a certificate: $(cat "$tmp/answer.json")"
+  run $SUDO "$OTTERD_LIB/current/otterd" init --certificate "$tmp/certificate.json" --cp-key "$cp_key"
+  write_file "$OTTERD_ETC/otterd.env" <<EOF
+OTTERD_CONTROL_URL=$url
+OTTERD_CONTROL_CA=$OTTERD_ETC/control-ca.pem
+OTTERD_CONTROL_CA_ONLY=true
+OTTERD_RELEASE_URL=$OTTERD_RELEASE_URL
+# The node network: endpoint book and VIP state, and the zone the name
+# responder serves. A node without these refuses networked grants.
+OTTERD_NET_STATE=/var/lib/otterd/net
+OTTERD_DNS_ZONE=/var/lib/otterd/dns/zone.json
+OTTERD_DNS_BINARY=$OTTERD_LIB/otterd-dns
+EOF
+  $SUDO chmod 600 "$OTTERD_ETC/otterd.env"
+  run $SUDO systemctl enable --now otterd
+  say " - Enrolled as $(jq -r .value.nodeId "$tmp/answer.json") and started otterd"
+  rm -rf "$tmp"
+  chip "node enrolled"
+}
+
+# The primary: once the control plane answers on :7443, mint a token for this
+# host over the admin API and enroll it like any other node. Its label makes
+# resources pinned to an organization's `localhost` server land on it.
+enroll_primary_node() {
+  local d="$OTTERD_CP_DIR" admin addr token i=0
+  dry && { enroll_otterd_node "wss://<addr>:$OTTERD_CP_PORT/api/otterd/connect" "" "" ""; return; }
+  admin="$(env_value OTTERD_CP_ADMIN_TOKEN)"
+  addr="$(otterd_advertise_addr)"
+  until curl -fsS -o /dev/null --cacert "$d/ca.pem" "https://127.0.0.1:$OTTERD_CP_PORT/api/otterd/ca.pem"; do
+    i=$((i + 1)); [ "$i" -lt 45 ] || fail "the otterd control plane did not answer on :$OTTERD_CP_PORT"
+    sleep 2
+  done
+  token="$(curl -fsS --cacert "$d/ca.pem" -H "authorization: Bearer $admin" -H 'content-type: application/json' \
+    --data '{"roles":["worker","edge","build"],"labels":{"otterdeploy.primary":"true"}}' \
+    "https://127.0.0.1:$OTTERD_CP_PORT/admin/enroll-tokens" \
+    | jq -r .value.token)"
+  [ -n "$token" ] && [ "$token" != null ] || fail "could not mint an enrollment token for this host"
+  enroll_otterd_node "wss://$addr:$OTTERD_CP_PORT/api/otterd/connect" "$d/ca.pem" \
+    "$(read_file "$d/signing.pub")" "$token" worker edge build
+}
+
+# `install.sh node`: a host joining an otterd install. The enroll command the
+# dashboard prints carries the control URL, the CA pin, the control plane's
+# key and a single-use token. The CA is fetched from the control plane and
+# used only if its SHA-256 matches the pin.
+join_otterd_node() {
+  [ -n "$NODE_URL" ] && [ -n "$NODE_CA_PIN" ] && [ -n "$NODE_CP_KEY" ] && [ -n "$NODE_TOKEN" ] \
+    || fail "node needs --control-url, --ca-sha256, --cp-key and --token (copy the command from the dashboard)"
+  RUNTIME=otterd
+  otterd_require_release
+  local base tmp
+  phase Host "Checking the host"
+  preflight
+  install_prereqs
+  phase Docker "Setting up Docker"
+  configure_docker_pool
+  phase Node "Joining the otterd install"
+  install_otterd_binaries
+  base="$(printf '%s' "$NODE_URL" | sed -E 's#^wss://([^/]+)/.*#https://\1#')"
+  tmp="$(mktemp -d)"
+  curl -fsSk -o "$tmp/ca.pem" "$base/api/otterd/ca.pem" || fail "could not reach the control plane at $base"
+  [ "$(otterd_cert_pin "$tmp/ca.pem")" = "$NODE_CA_PIN" ] \
+    || fail "the control plane at $base presented a CA that does not match the pin (refusing to enroll)"
+  enroll_otterd_node "$NODE_URL" "$tmp/ca.pem" "$NODE_CP_KEY" "$NODE_TOKEN" "${NODE_ROLES[@]:-worker}"
+  rm -rf "$tmp"
+  phase_end
 }
 
 # ── legacy layout migration ───────────────────────────────────────────────────
@@ -2073,6 +2442,9 @@ otterdeploy installer
 Subcommands:
   (none)              Install / re-install.
   update              Pull the new image tag and restart; skips host setup.
+  node                Join an otterd install as a node. Takes --control-url,
+                      --ca-sha256, --cp-key, --token and optional --role; the
+                      dashboard prints the whole command.
   firewall-status     Inspect the host nftables table + native CrowdSec bouncer.
   firewall-rollback   Remove the host nftables table (documented lockout recovery —
                       the CrowdSec containers/profile are untouched by this).
@@ -2101,13 +2473,22 @@ OTTERDEPLOY_FIREWALL=false / --no-firewall.
 EOF
 }
 
-main() {
-  local mode="install"
-  for arg in "$@"; do
+# Flags and subcommands → MODE and the settings they override.
+parse_args() {
+  local arg
+  MODE="install"
+  while [ "$#" -gt 0 ]; do
+    arg="$1"; shift
     case "$arg" in
-      update)             mode="update" ;;
-      firewall-status)    mode="firewall-status" ;;
-      firewall-rollback)  mode="firewall-rollback" ;;
+      update)             MODE="update" ;;
+      node)               MODE="node" ;;
+      --control-url)      NODE_URL="${1:-}"; shift || true ;;
+      --ca-sha256)        NODE_CA_PIN="${1:-}"; shift || true ;;
+      --cp-key)           NODE_CP_KEY="${1:-}"; shift || true ;;
+      --token)            NODE_TOKEN="${1:-}"; shift || true ;;
+      --role)             NODE_ROLES+=("${1:-}"); shift || true ;;
+      firewall-status)    MODE="firewall-status" ;;
+      firewall-rollback)  MODE="firewall-rollback" ;;
       -n|--dry-run)       DRY_RUN=true ;;
       -y|--yes)           ASSUME_YES=true ;;
       -v|--verbose)       VERBOSE=true ;;
@@ -2117,6 +2498,11 @@ main() {
       *) fail "Unknown argument: $arg (try --help)" ;;
     esac
   done
+}
+
+main() {
+  parse_args "$@"
+  local mode="$MODE"
 
   if [ "$mode" = "firewall-status" ]; then
     firewall_status_cmd
@@ -2155,6 +2541,9 @@ main() {
   fi
   trap 'on_error $?' ERR
   have_file "$ENV_FILE" && IS_UPDATE=true
+  [ -n "$RUNTIME" ] || RUNTIME="$(env_value OTTERDEPLOY_RUNTIME)"
+  RUNTIME="${RUNTIME:-docker}"
+  case "$RUNTIME" in docker|otterd) ;; *) fail "OTTERDEPLOY_RUNTIME must be docker or otterd, not $RUNTIME" ;; esac
 
   say "=========================================="
   say "  otterdeploy installer — $DATE"
@@ -2176,6 +2565,14 @@ main() {
     update_stack
     return
   fi
+  if [ "$mode" = "node" ]; then
+    join_otterd_node
+    report_notes
+    tsay ""
+    tsay "  This host is an otterd node now: sudo systemctl status otterd"
+    return
+  fi
+  otterd_mode && otterd_require_release
 
   # Phases group the 17 internal steps into the six outcomes an operator
   # actually tracks. Each is one line on the terminal; the steps inside it keep
@@ -2188,7 +2585,7 @@ main() {
   phase Docker    "Setting up Docker"
   if [ -n "$DOCKER_VER" ]; then chip "docker $DOCKER_VER"; fi
   configure_docker_pool
-  ensure_swarm
+  otterd_mode || ensure_swarm
   ensure_network
   provision_build_sandbox_apparmor
 
@@ -2196,6 +2593,12 @@ main() {
   # lookup that only needs curl (installed above), and the release tag it picks
   # is what write_env pins — so it reads as part of "configuration", and its
   # version lands on the Config line where an operator looks for it.
+  if otterd_mode; then
+    phase Otterd  "Installing otterd"
+    install_otterd_binaries
+    provision_otterd_cp
+  fi
+
   phase Config    "Writing configuration"
   resolve_version
   prepare_tree
@@ -2211,6 +2614,7 @@ main() {
   start_stack
   wait_for_health
   provision_native_bouncer
+  if otterd_mode; then enroll_primary_node; fi
   phase_end
 
   if [ "$DRY_RUN" = "true" ]; then
@@ -2238,4 +2642,5 @@ main() {
   tsay ""
 }
 
-main "$@"
+# OTTERDEPLOY_SOURCE_ONLY=1 loads the functions without running (tests).
+[ "${OTTERDEPLOY_SOURCE_ONLY:-}" = 1 ] || main "$@"
