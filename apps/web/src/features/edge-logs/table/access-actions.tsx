@@ -20,6 +20,7 @@ import type { EdgeAccessRow } from "@/features/edge-logs/table/access-columns";
 
 import { BAN_DURATIONS } from "@/features/firewall/ban-durations";
 import { BlockSplitButton } from "@/features/firewall/components/block-split-button";
+import { unblockIp } from "@/features/firewall/decisions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,9 +49,13 @@ const DEFAULT_BAN_LABEL = "30 days";
 /**
  * The per-row control.
  *
- * Already-banned clients say so instead of offering the action again: the row
- * is still in the log (the request happened), and a second Block would be a
- * no-op reported as a success.
+ * Already-banned clients offer Unblock instead of Block: the row is still in
+ * the log (the request happened), a second Block would be a no-op reported as
+ * a success, and a ban you can see but not lift from where you saw it is a
+ * dead end. A neutral outlined button the same size as Block, so it reads as
+ * a control, not as the label it replaces. Unblocking is not confirmed:
+ * it is the safe direction, and it applies optimistically and rolls back with
+ * a toast if CrowdSec refuses.
  */
 export function BlockIpAction({
   row,
@@ -69,10 +74,19 @@ export function BlockIpAction({
   const [pendingHours, setPendingHours] = useState<number | null | undefined>(null);
   const [working, setWorking] = useState(false);
 
-  if (bannedIps?.has(row.clientIp)) {
-    return <span className="font-mono text-[10px] text-muted-foreground">blocked</span>;
-  }
   if (!canBlock) return null;
+  if (bannedIps?.has(row.clientIp)) {
+    return (
+      <Button
+        variant="outline"
+        size="xs"
+        onClick={() => unblockIp(row.clientIp)}
+        title={`${row.clientIp} is blocked at the host firewall and the edge. Lift the ban.`}
+      >
+        Unblock
+      </Button>
+    );
+  }
 
   return (
     <AlertDialog
