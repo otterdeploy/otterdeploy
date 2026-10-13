@@ -7,7 +7,7 @@
 //! added later by the Engine adapter.
 
 use otterd_proto::spec::{
-    EnvValue, ImageHealthcheck, MountKind, PortProtocol, PublishMode, ServiceSpec,
+    EnvValue, ImageHealthcheck, ImageSpec, MountKind, PortProtocol, PublishMode, ServiceSpec,
 };
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -21,6 +21,74 @@ pub enum TranslateError {
     Unstaged(String),
     #[error("mount {0} has no source")]
     NoSource(String),
+    #[error("image reference {0:?} is not a valid reference")]
+    InvalidImage(String),
+}
+
+/// The image one attempt runs, and how to pull it when it is absent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImageTarget {
+    /// What the create body names: `repo@digest` when pinned, else the
+    /// reference as given.
+    pub run: String,
+    /// `fromImage` of a pull.
+    pub repository: String,
+    /// `tag` of a pull: the tag, `latest` when there is none, or the digest.
+    pub tag: String,
+    /// The pinned content digest the pulled image must match.
+    pub digest: Option<String>,
+}
+
+/// Resolve an image spec. A digest (the spec's, or one in the reference)
+/// pins the content and the tag is informational; an untagged reference
+/// means `latest`, never every tag.
+pub fn image_target(image: &ImageSpec) -> Result<ImageTarget, TranslateError> {
+    let invalid = || TranslateError::InvalidImage(image.reference.clone());
+    let reference = image.reference.trim();
+    let (named, inline_digest) = match reference.split_once('@') {
+        Some((n, d)) => (n, Some(d)),
+        None => (reference, None),
+    };
+    let repository = strip_tag(named);
+    let tag_of = || {
+        named
+            .get(repository.len()..)
+            .and_then(|t| t.strip_prefix(':'))
+            .filter(|t| !t.is_empty())
+            .unwrap_or("latest")
+            .to_owned()
+    };
+    let digest = image.digest.as_deref().or(inline_digest).map(str::to_owned);
+    let target = match &digest {
+        Some(d) => ImageTarget {
+            run: format!("{repository}@{d}"),
+            repository: repository.to_owned(),
+            tag: d.clone(),
+            digest: digest.clone(),
+        },
+        None => ImageTarget {
+            run: reference.to_owned(),
+            repository: repository.to_owned(),
+            tag: tag_of(),
+            digest: None,
+        },
+    };
+    let charset = |s: &str| {
+        !s.is_empty()
+            && !s.starts_with(['/', '.', '-', ':'])
+            && !s.contains("..")
+            && s.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'/' | b':'))
+    };
+    let digest_ok = target.digest.as_deref().is_none_or(|d| {
+        d.strip_prefix("sha256:")
+            .is_some_and(|h| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit()))
+    });
+    if charset(&target.repository) && charset(&target.tag) && digest_ok {
+        Ok(target)
+    } else {
+        Err(invalid())
+    }
 }
 
 /// One bind as Docker will see it: the staging path for held data, else the
@@ -38,10 +106,7 @@ pub fn create_body(
 ) -> Result<Value, TranslateError> {
     let task = &spec.task;
     let c = &task.container;
-    let image = c.image.digest.as_ref().map_or_else(
-        || c.image.reference.clone(),
-        |d| format!("{}@{d}", strip_tag(&c.image.reference)),
-    );
+    let image = image_target(&c.image)?.run;
     let mut body = Map::new();
     body.insert("Image".into(), json!(image));
     if let Some(cmd) = &c.command {
@@ -248,6 +313,44 @@ mod tests {
             create_body(&s, &BTreeMap::new()),
             Err(TranslateError::SecretUnsupported("PW".into()))
         );
+    }
+
+    #[test]
+    fn image_targets_pull_one_tag_or_the_pinned_digest() {
+        let d = format!("sha256:{}", "a".repeat(64));
+        let t = |reference: &str, digest: Option<&str>| {
+            image_target(&ImageSpec {
+                reference: reference.into(),
+                digest: digest.map(str::to_owned),
+            })
+        };
+        let tagged = t("registry:5000/acme/web:1", None).unwrap();
+        assert_eq!(
+            (
+                tagged.run.as_str(),
+                tagged.repository.as_str(),
+                tagged.tag.as_str()
+            ),
+            ("registry:5000/acme/web:1", "registry:5000/acme/web", "1")
+        );
+        assert_eq!(tagged.digest, None);
+        // Untagged means latest, never every tag of the repository.
+        assert_eq!(t("busybox", None).unwrap().tag, "latest");
+        assert_eq!(t("registry:5000/acme/web", None).unwrap().tag, "latest");
+        // A digest pins the content; the tag is informational.
+        let pinned = t("busybox:1.37", Some(&d)).unwrap();
+        assert_eq!(pinned.run, format!("busybox@{d}"));
+        assert_eq!(
+            (pinned.repository.as_str(), pinned.tag.as_str()),
+            ("busybox", d.as_str())
+        );
+        assert_eq!(pinned.digest.as_deref(), Some(d.as_str()));
+        let inline = t(&format!("busybox@{d}"), None).unwrap();
+        assert_eq!(inline, pinned);
+        for bad in ["", "a b", "../x", "x?y", ":1"] {
+            assert!(t(bad, None).is_err(), "{bad}");
+        }
+        assert!(t("busybox", Some("sha256:XYZ")).is_err());
     }
 
     #[test]

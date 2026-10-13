@@ -24,7 +24,9 @@ use crate::ids::{
     AttemptId, BootId, ContainerRef, DataIdentity, GrantId, HoldId, Incarnation, InstallId, KeyId,
     MutationId, NodeId, OpId, ResourceId, SessionId, Sha256Hex, SlotRef, UpdateId,
 };
-use crate::lifecycle::{BarrierEvidence, EngineRestartPolicy, EngineVerb, SlotGrant};
+use crate::lifecycle::{
+    AttemptFailure, BarrierEvidence, EngineRestartPolicy, EngineVerb, SlotGrant,
+};
 use crate::num::{U53, UnixMs};
 use serde::{Deserialize, Serialize};
 
@@ -304,6 +306,15 @@ pub enum Record {
         attempt_id: AttemptId,
         ordinal: u32,
         reason: AttemptReason,
+    },
+    /// The attempt ended before its process could run (its image could not
+    /// be pulled, or the Engine refused to create or start it). Terminal:
+    /// nothing more is sent for it.
+    #[serde(rename_all = "camelCase")]
+    AttemptFailed {
+        grant_id: GrantId,
+        attempt_id: AttemptId,
+        failure: AttemptFailure,
     },
     MutationIntent {
         mutation: MutationRecord,

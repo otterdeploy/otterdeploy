@@ -147,6 +147,62 @@
         "resourceId": "res_pg"
       },
       "state": "running"
+    },
+    {
+      "attempts": [
+        {
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "failure": {
+            "code": "image-pull-failed",
+            "message": "pull registry.invalid/none:1: no such host"
+          },
+          "mutations": [],
+          "ordinal": 1,
+          "process": {
+            "state": "absent"
+          }
+        }
+      ],
+      "generation": 4,
+      "grantId": "grant_1",
+      "quarantined": false,
+      "revoked": false,
+      "slot": {
+        "index": 0,
+        "resourceId": "res_pg"
+      },
+      "state": "running"
+    },
+    {
+      "attempts": [
+        {
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "failure": {
+            "code": "create-refused",
+            "message": "invalid reference format (Engine status 400)"
+          },
+          "mutations": [
+            {
+              "mutationId": "mut_00000000000000000000000000000001",
+              "state": "settled",
+              "verb": "create"
+            }
+          ],
+          "ordinal": 1,
+          "process": {
+            "state": "absent"
+          }
+        }
+      ],
+      "generation": 4,
+      "grantId": "grant_1",
+      "quarantined": false,
+      "revoked": false,
+      "slot": {
+        "index": 0,
+        "resourceId": "res_pg"
+      },
+      "state": "running"
     }
   ],
   "schema": "SlotReport"

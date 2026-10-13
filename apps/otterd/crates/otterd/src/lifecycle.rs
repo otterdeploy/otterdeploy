@@ -6,7 +6,7 @@
 //! slot concurrently, and revocation always becomes durable before any stop is
 //! sent.
 
-use crate::container::{self, TranslateError};
+use crate::container::{self, ImageTarget, TranslateError};
 use crate::net::{self, Entry, NodeNet, Place};
 use crate::watchdog::Progress;
 use ed25519_dalek::SigningKey;
@@ -16,7 +16,7 @@ use otterd_engine::{
 };
 use otterd_journal::{Blocker, HoldPhase, NodeState, Submission};
 use otterd_proto::U53;
-use otterd_proto::command::CommandResult;
+use otterd_proto::command::{CommandResult, SideEffects};
 use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
 use otterd_proto::identity::{AuthorityRevocation, EnrollCertificate};
 use otterd_proto::ids::{
@@ -26,9 +26,9 @@ use otterd_proto::journal::{
     AttemptReason, BackingIdentity, EngineOutcome, HoldRecord, Record, Retirement, WorkloadClass,
 };
 use otterd_proto::lifecycle::{
-    AttemptReport, BarrierEvidence, ContainerObservation, EngineRestartPolicy, GrantState,
-    HeldAttempt, MutationReport, ProcessObservation, SlotGrant, SlotReport, StopCertificate,
-    SubmissionState,
+    AttemptFailure, AttemptReport, BarrierEvidence, ContainerObservation, EngineRestartPolicy,
+    GrantState, HeldAttempt, MutationReport, ProcessObservation, SlotGrant, SlotReport,
+    StopCertificate, SubmissionState,
 };
 use otterd_proto::spec::{MountKind, ServiceSpec};
 use otterd_sys::host::container_cgroup;
@@ -50,6 +50,22 @@ pub enum NodeError {
     Refused(String),
     #[error("internal: {0}")]
     Internal(String),
+    /// The grant was accepted but its attempt ended before a process ran.
+    /// Journalled, so slot reports keep saying so.
+    #[error("attempt failed ({}): {}", failure.code, failure.message)]
+    AttemptFailed {
+        failure: AttemptFailure,
+        side_effects: SideEffects,
+    },
+}
+
+impl NodeError {
+    fn attempt_failed(code: &str, message: impl Into<String>, side_effects: SideEffects) -> Self {
+        Self::AttemptFailed {
+            failure: AttemptFailure::new(code, message),
+            side_effects,
+        }
+    }
 }
 
 impl From<HandleError> for NodeError {
@@ -105,6 +121,8 @@ pub struct LifecycleConfig {
     /// waiting for the control plane to adopt or stop it, before it is
     /// stopped and certified.
     pub hold_bound: Duration,
+    /// Longest an image pull may take before the attempt fails.
+    pub pull_timeout: Duration,
 }
 
 /// Whether tenant work may start. Closed on a platform host until the control
@@ -660,8 +678,9 @@ impl Node {
         spec_digest: Sha256Hex,
         place: Option<(Place, Entry)>,
     ) -> Result<CommandResult, NodeError> {
+        let image = container::image_target(&spec.task.container.image)?;
         let lock = self.slot_lock(&grant.slot)?;
-        let _slot_guard = lock.lock().await;
+        let slot_guard = lock.lock().await;
         let state = self.state()?;
         let blockers: Vec<String> = state
             .slot_blockers(&grant.slot)
@@ -701,12 +720,43 @@ impl Node {
             // starts, and the agent has applied it once it reports ready.
             self.sync_network();
         }
-        let staged = self.stage_binds(spec, &grant.slot, &attempt).await?;
+        // A pull can take minutes. It starts no process, so the slot is not
+        // held meanwhile: a stop of this grant never waits behind it, and the
+        // create below still needs the grant to be live.
+        drop(slot_guard);
+        let pulled = self.ensure_image(grant, &image).await;
+        let _slot_guard = lock.lock().await;
+        // A stop may have revoked the grant while the slot was free; nothing
+        // is staged or created for it then.
+        let launched = match pulled.and_then(|()| self.may_start(grant)) {
+            Ok(()) => self.launch(grant, spec, &attempt, place.as_ref()).await,
+            Err(e) => Err(e),
+        };
+        match launched {
+            Ok(()) => Ok(CommandResult::Applied {
+                grant_id: grant.grant_id.clone(),
+                attempt_id: attempt,
+            }),
+            Err(e) => Err(self.fail_attempt(&grant.grant_id, &attempt, e).await),
+        }
+    }
+
+    /// Stage, create and start the attempt's container. A definitive refusal
+    /// is an [`NodeError::AttemptFailed`]; a request without a terminal answer
+    /// stays `Submitted` and is reported as such.
+    async fn launch(
+        &self,
+        grant: &SlotGrant,
+        spec: &ServiceSpec,
+        attempt: &AttemptId,
+        place: Option<&(Place, Entry)>,
+    ) -> Result<(), NodeError> {
+        let staged = self.stage_binds(spec, &grant.slot, attempt).await?;
         let mut body = container::create_body(spec, &staged)?;
-        if let Some((p, _)) = &place {
+        if let Some((p, _)) = place {
             p.attach(&mut body);
         }
-        let name = object_name(&grant.slot, &attempt);
+        let name = object_name(&grant.slot, attempt);
         let mutation = |op| MutationSpec {
             class: WorkloadClass::Tenant,
             slot: grant.slot.clone(),
@@ -725,27 +775,141 @@ impl Node {
                 guard,
             )
             .await?;
-        if let SubmitResult::Settled {
-            outcome: EngineOutcome::Created { container },
-            ..
-        } = &create
-        {
-            self.engine
-                .submit(
-                    mutation(EngineOp::Start {
-                        container: container.clone(),
-                        name,
-                    }),
-                    guard,
-                )
-                .await?;
-            // Best effort: the next pass observes it anyway.
-            let _ = self.observe_container(container).await;
+        let container = match create {
+            SubmitResult::Settled {
+                outcome: EngineOutcome::Created { container },
+                ..
+            } => container,
+            SubmitResult::Settled { outcome, .. } => {
+                return Err(NodeError::attempt_failed(
+                    AttemptFailure::CREATE_REFUSED,
+                    refusal(&outcome),
+                    SideEffects::None,
+                ));
+            }
+            // May still take effect: stays Submitted, the slot reports Unknown.
+            SubmitResult::Unresolved { .. } => return Ok(()),
+        };
+        let start = self
+            .engine
+            .submit(
+                mutation(EngineOp::Start {
+                    container: container.clone(),
+                    name,
+                }),
+                guard,
+            )
+            .await?;
+        // Best effort: the next pass observes it anyway.
+        let _ = self.observe_container(&container).await;
+        match start {
+            SubmitResult::Settled {
+                outcome: outcome @ (EngineOutcome::Refused { .. } | EngineOutcome::Absent),
+                ..
+            } => Err(NodeError::attempt_failed(
+                AttemptFailure::START_REFUSED,
+                refusal(&outcome),
+                // The created container exists until the grant is stopped.
+                SideEffects::Possible,
+            )),
+            _ => Ok(()),
         }
-        Ok(CommandResult::Applied {
-            grant_id: grant.grant_id.clone(),
-            attempt_id: attempt,
-        })
+    }
+
+    /// Make sure the Engine has the attempt's image, pulling it when absent.
+    /// A pull starts no process, so it is not a journalled mutation; it
+    /// still never runs for a grant that may no longer start. Every failure
+    /// here (Engine, registry, timeout, digest) fails the attempt.
+    async fn ensure_image(&self, grant: &SlotGrant, image: &ImageTarget) -> Result<(), NodeError> {
+        let failed = |message: String| {
+            NodeError::attempt_failed(
+                AttemptFailure::IMAGE_PULL_FAILED,
+                message,
+                SideEffects::None,
+            )
+        };
+        let docker = self.engine.docker();
+        let matches = |view: &otterd_engine::ImageView| {
+            image.digest.as_deref().is_none_or(|d| view.has_digest(d))
+        };
+        match docker.inspect_image(&image.run).await {
+            Ok(Some(view)) if matches(&view) => return Ok(()),
+            Ok(_) => {}
+            Err(e) => return Err(failed(format!("image {}: {e}", image.run))),
+        }
+        self.may_start(grant)?;
+        tracing::info!(grant = %grant.grant_id, image = %image.run, "pulling an absent image");
+        let started = Instant::now();
+        let report = docker
+            .with_timeout(self.cfg.pull_timeout)
+            .pull_image(&image.repository, &image.tag)
+            .await
+            .map_err(|e| failed(format!("pull {}: {e}", image.run)))?;
+        let view = docker
+            .inspect_image(&image.run)
+            .await
+            .map_err(|e| failed(format!("image {} after its pull: {e}", image.run)))?
+            .ok_or_else(|| {
+                failed(format!(
+                    "pull {} finished but the Engine does not have the image",
+                    image.run
+                ))
+            })?;
+        if let Some(d) = &image.digest {
+            let announced = report.digest.as_deref().unwrap_or(d.as_str());
+            if !view.has_digest(d) || announced != d {
+                return Err(failed(format!(
+                    "pull {} produced content that does not match the pinned digest {d} \
+                     (announced {announced}, image {})",
+                    image.run, view.id
+                )));
+            }
+        }
+        tracing::info!(grant = %grant.grant_id, image = %image.run, elapsed = ?started.elapsed(), "image pulled");
+        Ok(())
+    }
+
+    /// The grant may still start something now.
+    fn may_start(&self, grant: &SlotGrant) -> Result<(), NodeError> {
+        self.engine
+            .journal()
+            .read(|s| start_guard(s, &grant.grant_id, &grant.slot, &self.incarnation))?
+            .map_err(NodeError::Refused)
+    }
+
+    /// Journal why an accepted attempt ended before a process ran, so slot
+    /// reports and the control plane see a terminal failure instead of an
+    /// attempt that never starts. Errors without a definitive answer pass
+    /// through unchanged.
+    async fn fail_attempt(&self, grant: &GrantId, attempt: &AttemptId, e: NodeError) -> NodeError {
+        let (failure, side_effects) = match e {
+            NodeError::AttemptFailed {
+                failure,
+                side_effects,
+            } => (failure, side_effects),
+            NodeError::Refused(message) => (
+                AttemptFailure::new(AttemptFailure::REFUSED, message),
+                SideEffects::None,
+            ),
+            other => return other,
+        };
+        if let Err(j) = self
+            .engine
+            .journal()
+            .append(Record::AttemptFailed {
+                grant_id: grant.clone(),
+                attempt_id: attempt.clone(),
+                failure: failure.clone(),
+            })
+            .await
+        {
+            return j.into();
+        }
+        tracing::warn!(%grant, %attempt, code = %failure.code, message = %failure.message, "attempt failed before its process ran");
+        NodeError::AttemptFailed {
+            failure,
+            side_effects,
+        }
     }
 
     /// Take over a running container started outside otterd, in place: its
@@ -1720,6 +1884,7 @@ impl Node {
                             container,
                             process,
                             observed_since_unix_ms: since,
+                            failure: state.attempts.get(a).and_then(|s| s.failure.clone()),
                             mutations: mutations
                                 .iter()
                                 .map(|m| MutationReport {
@@ -1870,6 +2035,15 @@ fn live_containers(state: &NodeState) -> BTreeSet<ContainerRef> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+/// What the Engine said when it refused a request.
+fn refusal(outcome: &EngineOutcome) -> String {
+    match outcome {
+        EngineOutcome::Refused { status, message } => format!("{message} (Engine status {status})"),
+        EngineOutcome::Absent => "the Engine answered that the object does not exist".into(),
+        other => format!("unexpected Engine answer {other:?}"),
+    }
 }
 
 fn view_obs(v: Option<&ContainerView>) -> ProcessObservation {

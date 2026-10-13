@@ -20,7 +20,7 @@ use otterd_proto::journal::{
     AttemptReason, BackingIdentity, EngineOutcome, Entry, HighWaterKind, HoldRecord,
     MutationRecord, Record, Retirement, UpdatePhase, WorkloadClass,
 };
-use otterd_proto::lifecycle::{EngineRestartPolicy, SlotGrant, StopCertificate};
+use otterd_proto::lifecycle::{AttemptFailure, EngineRestartPolicy, SlotGrant, StopCertificate};
 use otterd_proto::version::JOURNAL_FORMAT;
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
@@ -88,6 +88,8 @@ pub enum TransitionError {
     AttemptOrdinal { grant: GrantId, want: u32, got: u32 },
     #[error("attempt {attempt} does not belong to grant {grant}")]
     UnknownAttempt { grant: GrantId, attempt: AttemptId },
+    #[error("attempt {0} already ended in a failure")]
+    AttemptAlreadyFailed(AttemptId),
     #[error("mutation {0} already recorded")]
     DuplicateMutation(MutationId),
     #[error("unknown mutation {0}")]
@@ -229,6 +231,9 @@ pub struct AttemptState {
     pub grant_id: GrantId,
     pub ordinal: u32,
     pub reason: AttemptReason,
+    /// The attempt ended before its process could run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<AttemptFailure>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -629,6 +634,25 @@ impl NodeState {
                 ordinal,
                 ..
             } => self.check_attempt(grant_id, attempt_id, *ordinal),
+            Record::AttemptFailed {
+                grant_id,
+                attempt_id,
+                ..
+            } => {
+                let g = self.grant(grant_id)?;
+                let attempt = self
+                    .attempts
+                    .get(attempt_id)
+                    .filter(|_| g.attempts.contains(attempt_id))
+                    .ok_or_else(|| TransitionError::UnknownAttempt {
+                        grant: grant_id.clone(),
+                        attempt: attempt_id.clone(),
+                    })?;
+                if attempt.failure.is_some() {
+                    return Err(TransitionError::AttemptAlreadyFailed(attempt_id.clone()));
+                }
+                Ok(())
+            }
             Record::MutationIntent { mutation } => self.check_intent(mutation),
             Record::MutationSubmitted { .. }
             | Record::MutationSettled { .. }
@@ -1225,6 +1249,7 @@ impl NodeState {
                         grant_id: grant_id.clone(),
                         ordinal: 1,
                         reason: AttemptReason::AdoptedContainer,
+                        failure: None,
                     },
                 );
             }
@@ -1302,8 +1327,18 @@ impl NodeState {
                         grant_id: grant_id.clone(),
                         ordinal: *ordinal,
                         reason: *reason,
+                        failure: None,
                     },
                 );
+            }
+            Record::AttemptFailed {
+                attempt_id,
+                failure,
+                ..
+            } => {
+                if let Some(a) = self.attempts.get_mut(attempt_id) {
+                    a.failure = Some(failure.clone());
+                }
             }
             Record::MutationIntent { mutation } => {
                 self.mutations.insert(

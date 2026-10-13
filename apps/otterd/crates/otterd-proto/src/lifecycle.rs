@@ -210,6 +210,39 @@ pub struct MutationReport {
     pub state: SubmissionState,
 }
 
+/// Why an attempt ended before its process could run. Terminal: the node
+/// never retries the attempt; the control plane applies its restart and
+/// rollout policy (a new grant or attempt).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AttemptFailure {
+    /// Stable machine code, one of the `AttemptFailure::*` constants.
+    pub code: String,
+    /// What the node or the Engine said, for people.
+    pub message: String,
+}
+
+impl AttemptFailure {
+    /// The image was absent and could not be pulled (registry error, timeout,
+    /// or a pulled image that does not match the pinned digest).
+    pub const IMAGE_PULL_FAILED: &'static str = "image-pull-failed";
+    /// The Engine definitively refused to create the container.
+    pub const CREATE_REFUSED: &'static str = "create-refused";
+    /// The container exists but the Engine definitively refused to start it.
+    pub const START_REFUSED: &'static str = "start-refused";
+    /// The node refused to go on after accepting the grant (a revoked grant,
+    /// a mount it could not stage, a spec it cannot run).
+    pub const REFUSED: &'static str = "refused";
+
+    #[must_use]
+    pub fn new(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            code: code.to_owned(),
+            message: message.into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AttemptReport {
@@ -229,6 +262,10 @@ pub struct AttemptReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observed_since_unix_ms: Option<UnixMs>,
     pub mutations: Vec<MutationReport>,
+    /// Set when the attempt ended before a process ran. Its process is then
+    /// `absent` (or `created`, when a start was refused) and stays so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<AttemptFailure>,
 }
 
 /// Node-side view of one slot, as journalled.

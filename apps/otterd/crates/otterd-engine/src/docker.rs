@@ -6,8 +6,9 @@
 //! inspect and `/version` while containerd is blocked, so callers treat
 //! Engine reachability as a reconcile result, never a startup gate.
 
+use crate::image::{ImageView, PullError, PullProgress, PullReport, checked_reference};
 use bytes::Bytes;
-use http::{Method, Request, StatusCode, header};
+use http::{Method, Request, Response, StatusCode, header};
 use http_body_util::{BodyExt as _, Full, Limited};
 use hyper_util::rt::TokioIo;
 use serde::Deserialize;
@@ -159,6 +160,67 @@ impl DockerClient {
         .await
     }
 
+    /// `GET /images/{reference}/json`. `Ok(None)` when the Engine has no
+    /// such image.
+    pub async fn inspect_image(&self, reference: &str) -> Result<Option<ImageView>, PullError> {
+        let reference = checked_reference(reference)?;
+        let r = self.get(&format!("/images/{reference}/json")).await?;
+        if r.status == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !r.status.is_success() {
+            return Err(PullError::Transport(TransportError::Http(format!(
+                "image inspect {reference}: {} {}",
+                r.status,
+                r.message()
+            ))));
+        }
+        let v: serde_json::Value = r
+            .json()
+            .map_err(|e| TransportError::Http(format!("image inspect decode: {e}")))?;
+        Ok(Some(ImageView::from_inspect(&v)))
+    }
+
+    /// `POST /images/create`: pull `repository` at `tag` (a tag, or a
+    /// `sha256:` digest). The progress stream is read to its end, every line
+    /// checked for an embedded error, all within this client's timeout (use
+    /// [`Self::with_timeout`] for a pull's own budget).
+    pub async fn pull_image(&self, repository: &str, tag: &str) -> Result<PullReport, PullError> {
+        let path = format!(
+            "{}/images/create?fromImage={}&tag={}",
+            self.api_prefix,
+            urlencode(repository),
+            urlencode(tag)
+        );
+        let pull = async {
+            let resp = self.open(Method::POST, &path, None, None).await?;
+            let status = resp.status();
+            let mut body = resp.into_body();
+            if !status.is_success() {
+                let body = Limited::new(body, MAX_RESPONSE_BYTES)
+                    .collect()
+                    .await
+                    .map_err(|e| TransportError::Http(e.to_string()))?
+                    .to_bytes();
+                return Err(PullError::Refused {
+                    status: status.as_u16(),
+                    message: EngineResponse { status, body }.message(),
+                });
+            }
+            let mut progress = PullProgress::default();
+            while let Some(frame) = body.frame().await {
+                let frame = frame.map_err(|e| TransportError::Http(e.to_string()))?;
+                if let Ok(data) = frame.into_data() {
+                    progress.feed(&data)?;
+                }
+            }
+            progress.finish()
+        };
+        tokio::time::timeout(self.timeout, pull)
+            .await
+            .map_err(|_| TransportError::Timeout(self.timeout))?
+    }
+
     async fn call(
         &self,
         method: Method,
@@ -178,35 +240,7 @@ impl DockerClient {
         content_type: Option<&str>,
     ) -> Result<EngineResponse, TransportError> {
         let request = async {
-            let stream = UnixStream::connect(&self.socket).await.map_err(|source| {
-                TransportError::Connect {
-                    socket: self.socket.display().to_string(),
-                    source,
-                }
-            })?;
-            let (mut sender, conn) = hyper::client::conn::http1::handshake(TokioIo::new(stream))
-                .await
-                .map_err(|e| TransportError::Http(e.to_string()))?;
-            // The connection task ends with the request; its error is the request's error.
-            tokio::spawn(async move {
-                if let Err(e) = conn.await {
-                    tracing::debug!(error = %e, "engine connection closed");
-                }
-            });
-            let mut req = Request::builder()
-                .method(method)
-                .uri(path)
-                .header(header::HOST, "docker");
-            if let Some(ct) = content_type {
-                req = req.header(header::CONTENT_TYPE, ct);
-            }
-            let req = req
-                .body(Full::new(body.unwrap_or_default()))
-                .map_err(|e| TransportError::Http(e.to_string()))?;
-            let resp = sender
-                .send_request(req)
-                .await
-                .map_err(|e| TransportError::Http(e.to_string()))?;
+            let resp = self.open(method, path, body, content_type).await?;
             let status = resp.status();
             let body = Limited::new(resp.into_body(), MAX_RESPONSE_BYTES)
                 .collect()
@@ -218,6 +252,46 @@ impl DockerClient {
         tokio::time::timeout(self.timeout, request)
             .await
             .map_err(|_| TransportError::Timeout(self.timeout))?
+    }
+
+    /// Connect and send one request; the body is the caller's to read.
+    async fn open(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Bytes>,
+        content_type: Option<&str>,
+    ) -> Result<Response<hyper::body::Incoming>, TransportError> {
+        let stream =
+            UnixStream::connect(&self.socket)
+                .await
+                .map_err(|source| TransportError::Connect {
+                    socket: self.socket.display().to_string(),
+                    source,
+                })?;
+        let (mut sender, conn) = hyper::client::conn::http1::handshake(TokioIo::new(stream))
+            .await
+            .map_err(|e| TransportError::Http(e.to_string()))?;
+        // The connection task ends with the request; its error is the request's error.
+        tokio::spawn(async move {
+            if let Err(e) = conn.await {
+                tracing::debug!(error = %e, "engine connection closed");
+            }
+        });
+        let mut req = Request::builder()
+            .method(method)
+            .uri(path)
+            .header(header::HOST, "docker");
+        if let Some(ct) = content_type {
+            req = req.header(header::CONTENT_TYPE, ct);
+        }
+        let req = req
+            .body(Full::new(body.unwrap_or_default()))
+            .map_err(|e| TransportError::Http(e.to_string()))?;
+        sender
+            .send_request(req)
+            .await
+            .map_err(|e| TransportError::Http(e.to_string()))
     }
 }
 

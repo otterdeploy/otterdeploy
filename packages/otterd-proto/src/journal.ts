@@ -9,7 +9,13 @@ import { verb } from "./capability";
 import { opOutcome } from "./command";
 import { signedEnvelope } from "./envelope";
 import { hostBinding, trustedKey } from "./identity";
-import { barrierEvidence, engineRestartPolicy, engineVerb, slotGrant } from "./lifecycle";
+import {
+  attemptFailure,
+  barrierEvidence,
+  engineRestartPolicy,
+  engineVerb,
+  slotGrant,
+} from "./lifecycle";
 import { keyId, publicKey, sha256Hex, slotRef, u16, u32, u53, wireId } from "./primitives";
 
 export const FRAME_HEADER_LEN = 8;
@@ -110,6 +116,7 @@ export const journalRecord = z.discriminatedUnion("type", [
     ordinal: u32,
     reason: z.enum(["initial", "restart", "manual", "adopted-container"]),
   }),
+  r("attemptFailed", { grantId: wireId, attemptId: wireId, failure: attemptFailure }),
   r("mutationIntent", { mutation: mutationRecord }),
   r("mutationSubmitted", {
     mutationId: wireId,

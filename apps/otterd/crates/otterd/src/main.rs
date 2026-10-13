@@ -160,6 +160,9 @@ struct RunArgs {
     /// a restart, waiting for the control plane to adopt or stop it.
     #[arg(long, env = "OTTERD_HOLD_BOUND_S", default_value_t = 300)]
     hold_bound_s: u64,
+    /// Seconds an image pull may take before the attempt that needs it fails.
+    #[arg(long, env = "OTTERD_PULL_TIMEOUT_S", default_value_t = 600)]
+    pull_timeout_s: u64,
     /// Seconds between metrics rounds sent as telemetry.
     #[arg(long, env = "OTTERD_METRICS_INTERVAL_S", default_value_t = 60)]
     metrics_interval_s: u64,
@@ -520,6 +523,7 @@ async fn start_node(args: &RunArgs) -> Result<Node, (u8, String)> {
             stop_grace: Duration::from_secs(args.stop_grace_s),
             boot_barrier_profile: args.boot_barrier_profile.clone(),
             hold_bound: Duration::from_secs(args.hold_bound_s),
+            pull_timeout: Duration::from_secs(args.pull_timeout_s),
         },
         engine,
         keys.identity().clone(),
