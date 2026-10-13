@@ -19,6 +19,7 @@ import type {
 } from "./manifest-apply-phases";
 
 import { declaredEnvOf, type Change, type ServiceManifest } from "../../stack/manifest";
+import { missingDomains } from "../../stack/manifest/diff-helpers";
 import { ManifestApplySkipError } from "./errors";
 import { runGitBuilds } from "./manifest-apply-phases";
 import { type RefTable, resolveEnv } from "./manifest-apply-refs";
@@ -134,22 +135,66 @@ async function updateOneService(
     spec.source === "git" && (await hasPendingImage(existingId))
       ? [{ resourceId: existingId, name: change.name }]
       : [];
-  const updated = await updateServiceFromManifest({
-    projectId: ctx.projectId,
-    organizationId: ctx.organizationId,
-    name: change.name,
-    resourceId: existingId,
-    spec,
-    env: resolved.values,
-    // Synthesized by groupChanges when the diff for this service is env-only:
-    // skip the field patch, run just the env reconcile (one container roll).
-    envOnly: change.details?.envOnly === true,
-    rollout: resolveRolloutTiming(ctx, change.name, spec.source, builds.length > 0),
-    log: ctx.log,
-  });
+  // A change that only adds domains attaches them and rolls nothing.
+  const updated = domainsOnly(change)
+    ? Result.ok<ServiceApplied, ManifestApplySkipError>({
+        resourceId: existingId,
+        deploymentId: null,
+      })
+    : await updateServiceFromManifest({
+        projectId: ctx.projectId,
+        organizationId: ctx.organizationId,
+        name: change.name,
+        resourceId: existingId,
+        spec,
+        env: resolved.values,
+        // Synthesized by groupChanges when the diff for this service is env-only:
+        // skip the field patch, run just the env reconcile (one container roll).
+        envOnly: change.details?.envOnly === true,
+        rollout: resolveRolloutTiming(ctx, change.name, spec.source, builds.length > 0),
+        log: ctx.log,
+      });
   // Enqueued here, with the update, for the same reason as a create's.
   const buildSkipped = await runGitBuilds(ctx, builds);
-  return { updated, localSkipped: [...resolved.skipped, ...buildSkipped], name: change.name };
+  const domainSkipped = await addMissingDomains(ctx, change.name, existingId, spec);
+  return {
+    updated,
+    localSkipped: [...resolved.skipped, ...buildSkipped, ...domainSkipped],
+    name: change.name,
+  };
+}
+
+/** The diff for this service changed nothing but its domains. */
+function domainsOnly(change: Change): boolean {
+  const fields = change.details?.fields;
+  const keys =
+    fields && typeof fields === "object" && !Array.isArray(fields) ? Object.keys(fields) : [];
+  return keys.length === 1 && keys[0] === "domains";
+}
+
+/**
+ * Domains the manifest declares that the service does not serve yet, added
+ * the way a create seeds them. Additive: a live domain the manifest does not
+ * name is never removed here.
+ */
+async function addMissingDomains(
+  ctx: ApplyContext,
+  name: string,
+  resourceId: ResourceId,
+  spec: ServiceManifest,
+): Promise<ManifestApplySkipError[]> {
+  const current = ctx.current.services[name];
+  const missing = current ? new Set(missingDomains(spec, current)) : new Set<string>();
+  const domains = (spec.domains ?? []).filter((d) => missing.has(d.domain.toLowerCase()));
+  if (domains.length === 0) return [];
+  return seedServiceDomains({
+    projectId: ctx.projectId,
+    organizationId: ctx.organizationId,
+    resourceId,
+    name,
+    domains,
+    log: ctx.log,
+  });
 }
 
 /** The rollout a create/update started, if it started one. */

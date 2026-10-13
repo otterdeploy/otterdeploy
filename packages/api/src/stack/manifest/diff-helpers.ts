@@ -75,7 +75,21 @@ export function diffServiceFields(desired: ServiceManifest, current: CurrentServ
   diffLifecycleFields(desired, current, fc);
   diffResourceLimitFields(desired, current, fc);
   diffHealthcheck(desired, current, fc);
+  const missing = missingDomains(desired, current);
+  if (missing.length > 0)
+    fc.domains = { from: current.domains, to: [...(current.domains ?? []), ...missing] };
   return fc;
+}
+
+/**
+ * Declared domains the service does not serve yet. Additive only: a live
+ * domain the manifest does not name stays (domains are also managed in the
+ * domains UI), so the manifest can add one but never silently remove one.
+ */
+export function missingDomains(desired: ServiceManifest, current: CurrentService): string[] {
+  if (!desired.domains?.length || current.domains === undefined) return [];
+  const live = new Set(current.domains.map((d) => d.toLowerCase()));
+  return desired.domains.map((d) => d.domain.toLowerCase()).filter((d) => !live.has(d));
 }
 
 // ── Env diff ───────────────────────────────────────────────────────────

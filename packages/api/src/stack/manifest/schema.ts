@@ -252,18 +252,20 @@ const serviceCommonSchema = z.object({
   // that exec form was wanted (od-3kvm).
   preDeploy: shellOrExecForm.nullable().optional(),
   postDeploy: shellOrExecForm.nullable().optional(),
-  // Public domains to attach when the service is first created by Apply.
-  // A create-time seed so an operator can set a domain *before* deploy.
-  // The reconciler creates the proxy routes (and exposes the service) on
-  // create; thereafter domains are managed via the resource's domains UI,
-  // so this field is intentionally not diffed for drift. Requires the
-  // service to declare an http port.
+  // Public domains the service serves. Apply adds a declared domain the
+  // service does not have yet (on create, and on any later apply); it never
+  // removes one, because domains are also managed in the resource's domains
+  // UI, so a domain dropped from the manifest stays until removed there.
+  // Requires the service to declare an http port.
   domains: z
     .array(
-      z.object({
-        domain: z.string().min(1),
-        primary: z.boolean().optional(),
-      }),
+      z.object(
+        {
+          domain: z.string().min(1),
+          primary: z.boolean().optional(),
+        },
+        { error: 'each domain is an object: { domain: "app.example.com", primary?: true }' },
+      ),
     )
     .optional(),
   /**

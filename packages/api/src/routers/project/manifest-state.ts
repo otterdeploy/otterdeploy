@@ -15,6 +15,7 @@ import {
   servicePort,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import type {
@@ -72,6 +73,17 @@ async function groupEnvByService(
     envBySvc.set(e.serviceResourceId, existing);
   }
   return { envBySvc, envSourceBySvc };
+}
+
+/** Each service's live public domains, from its proxy routes. */
+function groupDomainsByService(
+  routes: readonly { resourceId: string | null; domain: string }[],
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const r of routes) {
+    if (r.resourceId) out.set(r.resourceId, [...(out.get(r.resourceId) ?? []), r.domain]);
+  }
+  return out;
 }
 
 function toCurrentService(
@@ -210,7 +222,7 @@ export async function loadCurrentState(
   const services: Record<string, CurrentService> = {};
   if (serviceRows.length > 0) {
     const serviceIds = serviceRows.map((r) => r.service.resourceId);
-    const [ports, envs] = await Promise.all([
+    const [ports, envs, routes] = await Promise.all([
       db
         .select()
         .from(servicePort)
@@ -226,7 +238,13 @@ export async function loadCurrentState(
           ),
         )
         .$withCache(false),
+      db
+        .select({ resourceId: proxyRoute.resourceId, domain: proxyRoute.domain })
+        .from(proxyRoute)
+        .where(inArray(proxyRoute.resourceId, serviceIds))
+        .$withCache(false),
     ]);
+    const domainsBySvc = groupDomainsByService(routes);
 
     const portsBySvc = new Map<string, CurrentServicePort[]>();
     for (const p of ports) {
@@ -246,7 +264,10 @@ export async function loadCurrentState(
       const svcPorts = portsBySvc.get(row.service.resourceId) ?? [];
       const svcEnv = envBySvc.get(row.service.resourceId) ?? {};
       const svcEnvSource = envSourceBySvc.get(row.service.resourceId) ?? {};
-      services[row.resource.name] = toCurrentService(row, svcPorts, svcEnv, svcEnvSource);
+      services[row.resource.name] = {
+        ...toCurrentService(row, svcPorts, svcEnv, svcEnvSource),
+        domains: domainsBySvc.get(row.service.resourceId) ?? [],
+      };
     }
   }
 
