@@ -152,8 +152,9 @@ fn the_unit_notifies_restarts_a_hung_daemon_and_stops_on_lost_journal() {
         "/../../packaging/systemd/otterd.service"
     ))
     .unwrap()
+    .replace("ExecStartPre=/usr/lib/otterd/otterd-guard\n", "")
     .replace(
-        "ExecStart=/usr/local/bin/otterd run",
+        "ExecStart=/usr/lib/otterd/current/otterd run",
         &format!("ExecStart={} run", bin.display()),
     )
     .replace(

@@ -26,6 +26,7 @@ otterd-journal.workspace = true
 otterd-proto.workspace = true
 otterd-sys.workspace = true
 otterd-transport.workspace = true
+otterd-update.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

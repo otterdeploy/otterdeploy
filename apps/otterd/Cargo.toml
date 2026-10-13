@@ -20,6 +20,7 @@ otterd-proto = { path = "crates/otterd-proto" }
 otterd-recover = { path = "crates/otterd-recover" }
 otterd-sys = { path = "crates/otterd-sys" }
 otterd-transport = { path = "crates/otterd-transport" }
+otterd-update = { path = "crates/otterd-update" }
 
 base64 = "0.22"
 bytes = "1"

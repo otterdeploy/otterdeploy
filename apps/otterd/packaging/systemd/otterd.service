@@ -1,9 +1,10 @@
 # otterd: the otterdeploy per-node daemon.
 #
-# Install as /etc/systemd/system/otterd.service with the binary at
-# /usr/local/bin/otterd. Settings come from /etc/otterd/otterd.env (see
-# otterd.env.example); enrollment (`otterd keygen`, `otterd init`) happens
-# before the first start.
+# Install as /etc/systemd/system/otterd.service. The binary lives in A/B slots
+# under /usr/lib/otterd (`otterd update install`), and the guard, which an
+# update never replaces, at /usr/lib/otterd/otterd-guard. Settings come from
+# /etc/otterd/otterd.env (see otterd.env.example); enrollment (`otterd keygen`,
+# `otterd init`) happens before the first start.
 
 [Unit]
 Description=otterdeploy node daemon
@@ -16,7 +17,10 @@ Wants=network-online.target
 [Service]
 Type=notify
 NotifyAccess=main
-ExecStart=/usr/local/bin/otterd run
+# Spends one start of a pending update's budget, and rolls back to the
+# previous slot once the budget is gone. Never fails the start.
+ExecStartPre=/usr/lib/otterd/otterd-guard
+ExecStart=/usr/lib/otterd/current/otterd run
 EnvironmentFile=-/etc/otterd/otterd.env
 
 # The daemon pets the watchdog only while its reconciler completes passes; a

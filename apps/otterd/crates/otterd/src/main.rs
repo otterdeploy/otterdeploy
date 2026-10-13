@@ -80,6 +80,9 @@ enum Cmd {
     /// The host-pinned platform (control plane, Postgres, Redis) on this host.
     #[command(subcommand)]
     Platform(PlatformCmd),
+    /// A/B binary updates.
+    #[command(subcommand)]
+    Update(UpdateCmd),
     /// Create the node keys.
     Keygen {
         #[command(flatten)]
@@ -136,6 +139,54 @@ struct RunArgs {
     /// Start the platform's control plane in recovery mode.
     #[arg(long, env = "OTTERD_PLATFORM_RECOVERY")]
     platform_recovery: bool,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+struct UpdatePaths {
+    /// Where the A/B slots live.
+    #[arg(long, env = "OTTERD_UPDATE_ROOT", default_value = "/usr/lib/otterd")]
+    root: PathBuf,
+    /// The pinned release keys.
+    #[arg(
+        long,
+        env = "OTTERD_RELEASE_KEYS",
+        default_value = "/etc/otterd/release-keys.json"
+    )]
+    release_keys: PathBuf,
+}
+
+#[derive(Debug, Subcommand)]
+enum UpdateCmd {
+    /// First installation: put this signed release's binary in slot a.
+    Install {
+        #[command(flatten)]
+        paths: UpdatePaths,
+        #[arg(long)]
+        release: PathBuf,
+        #[arg(long)]
+        binary: PathBuf,
+    },
+    /// Stage a signed release in the inactive slot; the next start tries it.
+    Stage {
+        #[command(flatten)]
+        paths: UpdatePaths,
+        #[arg(long)]
+        release: PathBuf,
+        #[arg(long)]
+        binary: PathBuf,
+    },
+    /// Replace the pinned release keys with a set signed by a current key.
+    RotateKeys {
+        #[command(flatten)]
+        paths: UpdatePaths,
+        #[arg(long)]
+        replacement: PathBuf,
+    },
+    /// The slots, the active one and any pending update.
+    Status {
+        #[command(flatten)]
+        paths: UpdatePaths,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -381,6 +432,109 @@ async fn platform_install(paths: &Paths, manifest: &Path) -> Result<(), String> 
     Ok(())
 }
 
+fn read_envelope(path: &Path) -> Result<SignedEnvelope, String> {
+    serde_json::from_slice(&std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?)
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+fn verified_release(
+    paths: &UpdatePaths,
+    release: &Path,
+) -> Result<otterd_proto::release::ReleaseManifest, String> {
+    let keys = otterd_update::keys::load(&paths.release_keys).map_err(|e| e.to_string())?;
+    otterd_update::keys::verify_release(
+        &keys,
+        &read_envelope(release)?,
+        otterd_journal::now_unix_ms(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+fn update_cmd(cmd: UpdateCmd) -> Result<(), String> {
+    let out = match cmd {
+        UpdateCmd::Install {
+            paths,
+            release,
+            binary,
+        } => {
+            let r = verified_release(&paths, &release)?;
+            let bytes = std::fs::read(&binary).map_err(|e| e.to_string())?;
+            let a = r
+                .artifact(std::env::consts::ARCH)
+                .ok_or("the release has no binary for this architecture")?;
+            if otterd_proto::ids::Sha256Hex::digest(&bytes) != a.sha256 {
+                return Err("the binary does not match the signed release".into());
+            }
+            otterd_update::Layout::new(&paths.root)
+                .install(
+                    &bytes,
+                    otterd_update::SlotInfo {
+                        version: r.version.clone(),
+                        sha256: a.sha256.clone(),
+                        protocol: r.protocol,
+                        journal_format: r.journal_format,
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            serde_json::json!({"installed": r.version})
+        }
+        UpdateCmd::Stage {
+            paths,
+            release,
+            binary,
+        } => {
+            let r = verified_release(&paths, &release)?;
+            let bytes = std::fs::read(&binary).map_err(|e| e.to_string())?;
+            let slot = otterd_update::Layout::new(&paths.root)
+                .stage(
+                    &r,
+                    std::env::consts::ARCH,
+                    &bytes,
+                    otterd_proto::version::JOURNAL_FORMAT,
+                )
+                .map_err(|e| e.to_string())?;
+            serde_json::json!({"staged": r.version, "slot": slot, "next": "restart otterd to try it"})
+        }
+        UpdateCmd::RotateKeys { paths, replacement } => {
+            let current =
+                otterd_update::keys::load(&paths.release_keys).map_err(|e| e.to_string())?;
+            let next = otterd_update::keys::rotate(
+                &current,
+                &read_envelope(&replacement)?,
+                otterd_journal::now_unix_ms(),
+            )
+            .map_err(|e| e.to_string())?;
+            otterd_update::keys::store(&paths.release_keys, &next).map_err(|e| e.to_string())?;
+            serde_json::json!({"releaseKeySerial": next.serial})
+        }
+        UpdateCmd::Status { paths } => serde_json::to_value(
+            otterd_update::Layout::new(&paths.root)
+                .state()
+                .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?,
+    };
+    println!("{out}");
+    Ok(())
+}
+
+/// A pending A/B update commits once this binary completed a healthy pass.
+fn commit_update_if_pending() {
+    let root = std::env::var("OTTERD_UPDATE_ROOT").unwrap_or_else(|_| "/usr/lib/otterd".into());
+    let layout = otterd_update::Layout::new(&root);
+    if layout.state().is_err() {
+        return;
+    }
+    match std::env::current_exe()
+        .map_err(|e| e.to_string())
+        .and_then(|exe| layout.commit(&exe).map_err(|e| e.to_string()))
+    {
+        Ok(Some(v)) => tracing::info!(version = %v, "update committed: this release is now active"),
+        Ok(None) => {}
+        Err(e) => tracing::error!(error = %e, "could not commit the pending update"),
+    }
+}
+
 /// Boot the platform in the background, retrying while blocked; the tenant
 /// gate opens only once it is up.
 fn supervise_platform(node: Arc<Node>, platform: Platform, recovery: bool) {
@@ -519,6 +673,9 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
                     tracing::warn!(error = %e, "reconcile pass finished with errors");
                 }
                 progress.pass_completed();
+                if progress.snapshot().passes == 1 {
+                    commit_update_if_pending();
+                }
                 if let Some(c) = &control {
                     reporter.after_pass(&node, &c.outbox);
                 }
@@ -554,6 +711,7 @@ async fn main() -> ExitCode {
             .await
             .map_err(|e| (1, e)),
         Cmd::Run(args) => run(*args).await,
+        Cmd::Update(cmd) => update_cmd(cmd).map_err(|e| (1, e)),
         Cmd::Platform(PlatformCmd::Install { paths, manifest }) => {
             platform_install(&paths, &manifest)
                 .await

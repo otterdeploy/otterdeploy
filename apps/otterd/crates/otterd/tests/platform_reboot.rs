@@ -212,8 +212,9 @@ fn prepare() {
         "/../../packaging/systemd/otterd.service"
     ))
     .unwrap()
+    .replace("ExecStartPre=/usr/lib/otterd/otterd-guard\n", "")
     .replace(
-        "ExecStart=/usr/local/bin/otterd run",
+        "ExecStart=/usr/lib/otterd/current/otterd run",
         &format!("ExecStart={bin} run"),
     )
     .replace(

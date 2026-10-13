@@ -1,0 +1,26 @@
+[package]
+name = "otterd-update"
+description = "otterd A/B binary updates: signed releases, release key rotation and the boot guard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "otterd-guard"
+path = "src/bin/guard.rs"
+
+[dependencies]
+otterd-proto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+ed25519-dalek.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
