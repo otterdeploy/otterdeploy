@@ -97,7 +97,9 @@ export function admitGrant(req: IssueRequest): Promise<Result<GrantRow, StoreFai
       .returning();
     if (!svc) throw refusal("unknown-service", `no service ${req.resourceId}`);
     await tx.update(otterdSlot).set({ generationHighWater: generation.value }).where(slotKey);
-    const network = await allocateNetwork(tx, req);
+    // A container adopted in place keeps the network it was created with: its
+    // grant carries none (a node refuses one that does).
+    const network = req.adoptsContainer ? null : await allocateNetwork(tx, req);
     const [grant] = await tx
       .insert(otterdGrant)
       .values({

@@ -20,7 +20,8 @@ import type { Hub } from "../hub/hub";
 import type { MigrationRow } from "./store";
 
 import { grantRow } from "../store/adopt";
-import { admitGrant, markGrant, markSent } from "../store/grants";
+import { recordRefusal } from "../store/evidence";
+import { admitGrant, markGrant, markSent, releaseGrant } from "../store/grants";
 import { revisionOf } from "../store/services";
 import { adoptedLeftBehind, currentSpec, markAdoptedRemoved, releaseAdoption } from "./cp-store";
 import { currentSession, rowsIn, stepResource } from "./store";
@@ -107,8 +108,31 @@ async function adopt(cfg: MigrationCpConfig, row: MigrationRow): Promise<void> {
     await markGrant(g.grantId, "applied", cfg.now(), `adopted ${row.containerId}`);
     await stepResource(row.resourceId, "adopted", cfg.now());
   } else if (o.status === "failed" || o.status === "rejected") {
-    await stepResource(row.resourceId, "failed", cfg.now(), { error: JSON.stringify(o) });
+    await refused(cfg, row, g, answer.value, o.status === "rejected" || o.sideEffects === "none");
   }
+}
+
+/**
+ * The node refused the adoption. With no side effects the refusal retires
+ * the grant, so the host side can give the container back as it was.
+ */
+async function refused(
+  cfg: MigrationCpConfig,
+  row: MigrationRow,
+  g: { grantId: string; opId: string },
+  answer: { kind: "outcome"; outcome: { status: string; code?: string; message?: string } },
+  clean: boolean,
+): Promise<void> {
+  if (clean) {
+    const recorded = await recordRefusal(g.grantId, g.opId, { answer }, cfg.now());
+    if (recorded.isOk()) await releaseGrant(g.grantId, cfg.now());
+  }
+  await stepResource(row.resourceId, "failed", cfg.now(), { error: failureOf(answer.outcome) });
+}
+
+/** The node's own words for a failed or rejected apply. */
+function failureOf(o: { status: string; code?: string; message?: string }): string {
+  return o.message ? `${o.code ?? o.status}: ${o.message}` : JSON.stringify(o);
 }
 
 async function giveBack(cfg: MigrationCpConfig, row: MigrationRow): Promise<void> {
@@ -127,7 +151,7 @@ async function giveBack(cfg: MigrationCpConfig, row: MigrationRow): Promise<void
     },
     {
       opId: `${g.value.opId}-give-back`,
-      operationEpoch: g.value.operationEpoch,
+      operationEpoch: await currentEpoch(g.value),
       resourceId: row.resourceId,
       grantId: row.grantId,
     },
@@ -142,6 +166,20 @@ async function giveBack(cfg: MigrationCpConfig, row: MigrationRow): Promise<void
   }
 }
 
+/**
+ * The resource's operation epoch now. A later command must carry the
+ * current one: the node refuses anything below its high-water mark, and
+ * every grant issued since this one raised it.
+ */
+async function currentEpoch(g: {
+  resourceId: string;
+  specRevision: number;
+  operationEpoch: number;
+}) {
+  const rev = await revisionOf(g.resourceId, g.specRevision);
+  return rev.isOk() ? rev.value.operationEpoch : g.operationEpoch;
+}
+
 /** After finalize: delete adopted containers their stop kept. */
 async function removeLeftBehind(cfg: MigrationCpConfig): Promise<void> {
   const left = await adoptedLeftBehind();
@@ -152,7 +190,7 @@ async function removeLeftBehind(cfg: MigrationCpConfig): Promise<void> {
       { verb: "workload.remove", grantId: g.grantId },
       {
         opId: `${g.opId}-remove`,
-        operationEpoch: g.operationEpoch,
+        operationEpoch: await currentEpoch(g),
         resourceId: g.resourceId,
         grantId: g.grantId,
       },
