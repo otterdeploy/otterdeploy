@@ -83,6 +83,7 @@ async fn adapter(dir: &tempfile::TempDir) -> EngineAdapter {
             probe_only: false,
             adopts_attempt: None,
             adopts_container: None,
+            network: None,
         },
         spec_digest: Sha256Hex::digest(b"spec"),
         op_id: id("op-real"),

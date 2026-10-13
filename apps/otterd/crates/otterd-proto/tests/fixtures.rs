@@ -536,7 +536,11 @@ fn schemas() {
     legacy["generation"] = json!(1);
     legacy["adoptsContainer"] =
         json!("4f2a9c0d1e3b5a7c9e1f3a5b7c9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c5d");
-    schema_file::<SlotGrant>("SlotGrant", vec![slot_grant(), adopting, legacy]);
+    let mut networked = slot_grant();
+    networked["network"] = json!({"scopeId": "scope_prod", "subnet": "172.24.0.32/27",
+        "address": "172.24.0.37", "resolver": "172.30.228.1", "zone": "prod.otd.internal",
+        "vip": {"vipId": "vip_web", "address": "172.31.0.7"}});
+    schema_file::<SlotGrant>("SlotGrant", vec![slot_grant(), adopting, legacy, networked]);
     let mut held = slot_report();
     held["held"] = json!({"attemptId": "att_0123456789abcdef0123456789abcdef", "paused": true});
     let mut observed = slot_report();
@@ -715,6 +719,8 @@ fn schemas() {
         "ServingSet",
         vec![json!({
         "installId": "inst_1", "authorityTerm": 2, "scopeId": "scope_prod", "vipId": "vip_web",
+        "vipAddress": "172.31.0.7", "names": ["web.prod.otd.internal", "www.prod.otd.internal"],
+        "ports": [{"protocol": "tcp", "port": 8080}],
         "servingRevision": 18, "operationEpoch": 9,
         "newFlowAttempts": [{"grantId": "grant_7", "attemptId": "att_0123456789abcdef0123456789abcdef",
             "nodeEpoch": 3, "address": "10.240.1.5", "ports": [{"protocol": "tcp", "port": 8080}]}],

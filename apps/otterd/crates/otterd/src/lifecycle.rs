@@ -1722,6 +1722,7 @@ mod tests {
                 probe_only: false,
                 adopts_attempt: None,
                 adopts_container: None,
+                network: None,
             },
             spec_digest: Sha256Hex::digest(b"s"),
             op_id: "op".parse().unwrap(),

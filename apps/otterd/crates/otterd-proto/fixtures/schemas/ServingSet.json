@@ -3,6 +3,10 @@
     {
       "authorityTerm": 2,
       "installId": "inst_1",
+      "names": [
+        "web.prod.otd.internal",
+        "www.prod.otd.internal"
+      ],
       "newFlowAttempts": [
         {
           "address": "10.240.1.5",
@@ -18,8 +22,15 @@
         }
       ],
       "operationEpoch": 9,
+      "ports": [
+        {
+          "port": 8080,
+          "protocol": "tcp"
+        }
+      ],
       "scopeId": "scope_prod",
       "servingRevision": 18,
+      "vipAddress": "172.31.0.7",
       "vipId": "vip_web",
       "withdrawals": [
         {

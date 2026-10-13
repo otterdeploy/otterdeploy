@@ -82,6 +82,44 @@
         "index": 0,
         "resourceId": "res_pg"
       }
+    },
+    {
+      "authorityTerm": 2,
+      "dataClaims": [
+        {
+          "access": "rw",
+          "claimEpoch": 1,
+          "dataIdentity": "vol:inst_1:6f1c"
+        }
+      ],
+      "disconnectAction": "continue-existing",
+      "exclusive": true,
+      "generation": 4,
+      "grantId": "grant_1",
+      "incarnation": "inc_0123456789abcdef0123456789abcdef",
+      "network": {
+        "address": "172.24.0.37",
+        "resolver": "172.30.228.1",
+        "scopeId": "scope_prod",
+        "subnet": "172.24.0.32/27",
+        "vip": {
+          "address": "172.31.0.7",
+          "vipId": "vip_web"
+        },
+        "zone": "prod.otd.internal"
+      },
+      "nodeEpoch": 3,
+      "probeOnly": false,
+      "restart": {
+        "condition": "on-failure",
+        "delayMs": 5000,
+        "maxAttempts": 3,
+        "windowMs": 60000
+      },
+      "slot": {
+        "index": 0,
+        "resourceId": "res_pg"
+      }
     }
   ],
   "schema": "SlotGrant"

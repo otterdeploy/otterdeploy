@@ -120,6 +120,7 @@ async fn apply(node: &Node, grant: &str, resource: &str, action: DisconnectActio
         probe_only: false,
         adopts_attempt: None,
         adopts_container: None,
+        network: None,
     };
     let s = spec(resource);
     node.apply(

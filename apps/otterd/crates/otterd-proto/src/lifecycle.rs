@@ -4,7 +4,7 @@
 
 use crate::ids::{
     AttemptId, BootId, ContainerRef, DataIdentity, EvidenceId, GrantId, HoldId, Incarnation,
-    InstallId, MutationId, NodeId, Nonce, OpId, Sha256Hex, SlotRef,
+    InstallId, MutationId, NodeId, Nonce, OpId, ScopeId, Sha256Hex, SlotRef, VipId,
 };
 use crate::num::{DurationMs, U53, UnixMs};
 use crate::spec::{DisconnectAction, RestartPolicy};
@@ -55,6 +55,45 @@ pub struct SlotGrant {
     /// restarted by otterd.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub adopts_container: Option<ContainerRef>,
+    /// Where the attempt lives on the network. Absent: no scope network
+    /// (the Engine's default bridge), for workloads that need none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network: Option<GrantNetwork>,
+}
+
+/// The attempt's place on the node network. Placement-specific, so it rides
+/// on the grant, not the spec.
+///
+/// The control plane allocates every value here from the fleet address plan
+/// (`otterd-net`'s `AddressPlan`, ported to the control plane with parity
+/// vectors): the scope, this node's network for it (inside the node's slice),
+/// the attempt address (never reused before the stop is acknowledged) and the
+/// VIP (never reused). The node only applies them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GrantNetwork {
+    /// The environment's isolation scope.
+    pub scope_id: ScopeId,
+    /// This scope's network on this node, IPv4 CIDR (`/24`..`/27`).
+    pub subnet: String,
+    /// The attempt's IPv4 address inside `subnet`.
+    pub address: String,
+    /// The environment resolver's listener address: the container's only
+    /// DNS server.
+    pub resolver: String,
+    /// The environment's DNS zone, e.g. `prod.otd.internal`; the search
+    /// domain, under which `endpoint.aliases` resolve.
+    pub zone: String,
+    /// The service's stable address, when its endpoint mode is `vip`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vip: Option<GrantVip>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GrantVip {
+    pub vip_id: VipId,
+    pub address: String,
 }
 
 /// CP grant states.

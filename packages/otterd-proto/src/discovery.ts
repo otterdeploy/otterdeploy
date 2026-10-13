@@ -60,6 +60,12 @@ export const servingSet = z.strictObject({
   authorityTerm: u53,
   scopeId: wireId,
   vipId: wireId,
+  /** The VIP's IPv4 address (allocated by the control plane, never reused). */
+  vipAddress: z.string(),
+  /** Fully qualified names (service name and aliases) that resolve to the VIP in the scope's view. */
+  names: z.array(z.string()).optional(),
+  /** Ports the VIP forwards, each to the same port on a backend. */
+  ports: z.array(endpointPort),
   servingRevision: u53,
   operationEpoch: u53,
   newFlowAttempts: z.array(

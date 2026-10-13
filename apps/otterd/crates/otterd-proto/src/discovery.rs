@@ -110,6 +110,14 @@ pub struct ServingSet {
     pub authority_term: U53,
     pub scope_id: ScopeId,
     pub vip_id: VipId,
+    /// The VIP's IPv4 address (allocated by the control plane, never reused).
+    pub vip_address: String,
+    /// Fully qualified names (the service name and its aliases, under the
+    /// scope's zone) that resolve to the VIP in this scope's view.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub names: Vec<String>,
+    /// Ports the VIP forwards; each goes to the same port on a backend.
+    pub ports: Vec<EndpointPort>,
     pub serving_revision: U53,
     pub operation_epoch: U53,
     pub new_flow_attempts: Vec<ServingAttempt>,
