@@ -17,13 +17,15 @@
  *
  * An empty result now means "no container has run yet" (build in progress or
  * failed), which callers render as a helpful pointer to Build Logs rather than a
- * daemon error.
+ * daemon error. A service otterd runs is listed from its grants instead
+ * (./otterd-instances.ts).
  */
 import { Docker, type ContainerSummary, type Task } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
 import { taskLabel } from "../../lib/task-labels";
 import { isSwarmRuntime } from "../../runtime";
+import { otterdInstances } from "./otterd-instances";
 
 export interface ResourceInstance {
   /** Stable row/stream key: swarm task ID, or the container ID under Docker. */
@@ -178,6 +180,13 @@ export async function listResourceInstances(
   serviceName: string,
   opts?: { withInspect?: boolean },
 ): Promise<Result<ResourceInstance[], Error>> {
+  // otterd runs it: its grants are the instances, whatever this install's runtime.
+  const fromOtterd = await Result.tryPromise({
+    try: () => otterdInstances(serviceName),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+  });
+  if (fromOtterd.isErr()) return Result.err(fromOtterd.error);
+  if (fromOtterd.value) return Result.ok(fromOtterd.value);
   if (isSwarmRuntime()) {
     const res = await docker.tasks.list({ filters: { service: [serviceName] } });
     if (res.isErr()) return Result.err(res.error);

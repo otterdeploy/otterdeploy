@@ -208,6 +208,8 @@ export const otterdGrant = pgTable(
     sentAt: bigint("sent_at", { mode: "number" }),
     releasedAt: bigint("released_at", { mode: "number" }),
     releaseEvidenceId: text("release_evidence_id"),
+    /** The newest attempt's container id, as the node last reported it. */
+    container: text("container"),
     /** Every attempt id the node reported for this grant. */
     attempts: jsonb("attempts")
       .$type<string[]>()
