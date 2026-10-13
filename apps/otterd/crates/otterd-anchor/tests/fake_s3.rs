@@ -38,6 +38,9 @@ struct Store {
     /// Answer some conditional PUTs with 500, sometimes after applying them.
     ambiguous_500: bool,
     puts: u64,
+    /// Apply the next head write, then hold its answer until notified and
+    /// answer 500: an ambiguous write that others can build on meanwhile.
+    stall_head: Option<Arc<tokio::sync::Notify>>,
 }
 
 fn decode(s: &str) -> String {
@@ -69,13 +72,17 @@ async fn serve(strict_unquoted: bool) -> String {
 }
 
 async fn serve_with(strict_unquoted: bool, ambiguous_500: bool) -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
-    let store = Arc::new(Mutex::new(Store {
+    serve_store(Arc::new(Mutex::new(Store {
         strict_unquoted,
         ambiguous_500,
         ..Store::default()
-    }));
+    })))
+    .await
+}
+
+async fn serve_store(store: Arc<Mutex<Store>>) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move {
         loop {
             let (stream, _) = listener.accept().await.unwrap();
@@ -106,8 +113,10 @@ async fn serve_with(strict_unquoted: bool, ambiguous_500: bool) -> String {
                             .trim_start_matches("/anchor-bucket")
                             .trim_start_matches('/')
                             .to_owned();
-                        let mut s = store.lock().unwrap();
-                        let r = match (method.as_str(), key.is_empty()) {
+                        let mut stall = None;
+                        let r = {
+                            let mut s = store.lock().unwrap();
+                            match (method.as_str(), key.is_empty()) {
                             ("GET", true) if query.contains("versioning") => resp(200, None, b"<VersioningConfiguration><Status>Enabled</Status></VersioningConfiguration>".to_vec()),
                             ("GET", true) => {
                                 let prefix = query.split('&').find_map(|kv| kv.strip_prefix("prefix=")).map(decode).unwrap_or_default();
@@ -140,8 +149,12 @@ async fn serve_with(strict_unquoted: bool, ambiguous_500: bool) -> String {
                                     resp(500, None, b"<Error><Code>UnknownError</Code></Error>".to_vec())
                                 } else if allowed {
                                     let etag = format!("\"{}\"", &hex::encode(Sha256::digest(&body))[..32]);
+                                    let is_head = key.ends_with("head.json");
                                     s.objects.insert(key, (body, etag.clone()));
-                                    if chaos {
+                                    if is_head && let Some(n) = s.stall_head.take() {
+                                        stall = Some(n);
+                                        resp(500, None, b"<Error><Code>UnknownError</Code></Error>".to_vec())
+                                    } else if chaos {
                                         // Applied, but the answer says 500.
                                         resp(500, None, b"<Error><Code>UnknownError</Code></Error>".to_vec())
                                     } else {
@@ -152,7 +165,11 @@ async fn serve_with(strict_unquoted: bool, ambiguous_500: bool) -> String {
                                 }
                             }
                             _ => resp(400, None, Vec::new()),
+                        }
                         };
+                        if let Some(n) = stall {
+                            n.notified().await;
+                        }
                         Ok::<_, std::convert::Infallible>(r)
                     }
                 });
@@ -455,4 +472,51 @@ async fn a_deleted_committed_record_invalidates_the_inventory() {
     a.s3().delete(&inventory[1].key).await.unwrap();
     let err = a.inventory().await.unwrap_err().to_string();
     assert!(err.contains("missing"), "{err}");
+}
+
+#[tokio::test]
+async fn an_ambiguous_head_write_that_was_built_on_is_not_enrolled_twice() {
+    let store = Arc::new(Mutex::new(Store::default()));
+    let base = serve_store(Arc::clone(&store)).await;
+    let a = anchor(&base);
+    let (recovery, enrollment) = (key(1), key(2));
+    a.init(&recovery, host("cp-1"), U53::ONE).await.unwrap();
+
+    // A's head write applies, but its answer is held back and will say 500.
+    let release = Arc::new(tokio::sync::Notify::new());
+    store.lock().unwrap().stall_head = Some(Arc::clone(&release));
+    let first = {
+        let (a, k) = (a.clone(), enrollment.clone());
+        tokio::spawn(async move { a.enroll(&k, record("first")).await })
+    };
+    while store.lock().unwrap().stall_head.is_some() {
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
+    // Meanwhile B enrolls on top of A's head, so A reads back B's head.
+    let EnrollOutcome::Committed { seq: b_seq } =
+        a.enroll(&enrollment, record("second")).await.unwrap()
+    else {
+        panic!("second not committed")
+    };
+    release.notify_one();
+    let EnrollOutcome::Committed { seq: a_seq } = first.await.unwrap().unwrap() else {
+        panic!("first not committed")
+    };
+    assert_eq!(
+        (a_seq.get(), b_seq.get()),
+        (1, 2),
+        "A keeps the seq it committed at"
+    );
+    let inventory = a.inventory().await.unwrap();
+    let firsts: Vec<_> = inventory
+        .iter()
+        .filter(|e| e.record.node_id.as_str() == "first")
+        .collect();
+    assert_eq!(
+        firsts.len(),
+        1,
+        "one record for the first node: {inventory:?}"
+    );
+    assert!(firsts[0].committed);
+    assert_eq!(inventory.len(), 2);
 }
