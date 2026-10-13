@@ -2078,6 +2078,26 @@ enroll_primary_node() {
   [ -n "$token" ] && [ "$token" != null ] || fail "could not mint an enrollment token for this host"
   enroll_otterd_node "wss://$addr:$OTTERD_CP_PORT/api/otterd/connect" "$d/ca.pem" \
     "$(read_file "$d/signing.pub")" "$token" worker edge build
+  otterd_set_edge_bridges
+}
+
+# The edge network's Linux bridge, which the node network lets reach service
+# addresses (the edge proxies to VIPs). Resolved after `compose up`, since the
+# network may have been recreated; otterd restarts only when it changed.
+otterd_set_edge_bridges() {
+  local id name env="$OTTERD_ETC/otterd.env"
+  dry && { say "   + would set OTTERD_EDGE_BRIDGES to the '$EDGE_NETWORK' bridge in $env"; return; }
+  id="$($SUDO docker network inspect "$EDGE_NETWORK" --format '{{.Id}}' 2>/dev/null || true)"
+  [ -n "$id" ] || { warn "the '$EDGE_NETWORK' network was not found, so the edge cannot reach service addresses yet"; return; }
+  name="$($SUDO docker network inspect "$EDGE_NETWORK" --format '{{index .Options "com.docker.network.bridge.name"}}' 2>/dev/null || true)"
+  [ -n "$name" ] || name="br-$(printf '%s' "$id" | cut -c1-12)"
+  [ "$(read_file "$env" | sed -n 's/^OTTERD_EDGE_BRIDGES=//p')" = "$name" ] && return 0
+  local tmp; tmp="$(mktemp)"
+  { read_file "$env" | grep -v '^OTTERD_EDGE_BRIDGES='; printf 'OTTERD_EDGE_BRIDGES=%s\n' "$name"; } > "$tmp"
+  $SUDO install -m 0600 "$tmp" "$env"
+  rm -f "$tmp"
+  $SUDO systemctl is-active --quiet otterd && run $SUDO systemctl restart otterd
+  say " - Edge bridge $name may reach service addresses (OTTERD_EDGE_BRIDGES)"
 }
 
 # `install.sh node`: a host joining an otterd install. The enroll command the
