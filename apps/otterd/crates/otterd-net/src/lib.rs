@@ -12,5 +12,6 @@
 pub mod addr;
 pub mod ids;
 pub mod ipam;
+pub mod policy;
 
 pub use addr::Ipv4Net;
