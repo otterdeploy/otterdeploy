@@ -355,7 +355,12 @@ journalFormat, minRollbackVersion, issuedAtUnixMs}` is signed by a release key
 valid at the time it is checked. The node installs a binary only when its
 architecture's artifact matches it by size and SHA-256, and rolls back only to
 a release at or above `minRollbackVersion` with a compatible journal format.
-`node.upgrade` carries a signed manifest.
+`node.upgrade` carries a signed manifest. The node downloads the binary for
+its architecture from `<release URL>/v<version>/otterd-linux-<arch>` (default
+release URL `https://get.otterdeploy.com/otterd`; `arch` is `x86_64` or
+`aarch64`), so a release must be published at that path. It checks the signed
+size and SHA-256, stages it in the inactive A/B slot, answers with the staged
+version, and restarts into it behind the boot guard.
 
 ## Discovery (`discovery.rs`)
 
