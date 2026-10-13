@@ -15,7 +15,8 @@
 //! when explicitly signed as essential.
 
 use crate::identity::HostBinding;
-use crate::ids::{InstallId, Sha256Hex};
+use crate::ids::{InstallId, Sha256Hex, UpdateId};
+use crate::journal::UpdatePhase;
 use crate::num::U53;
 use crate::spec::is_image_digest;
 use serde::{Deserialize, Serialize};
@@ -158,6 +159,36 @@ pub struct PlatformBootManifest {
     pub recovery_listener: Option<String>,
     #[serde(default)]
     pub preflight: PlatformPreflight,
+}
+
+/// The platform's state as the node reports it (slot reports and the local
+/// status socket), so a control plane that restarted in recovery mode can
+/// read where a boot or an update stands.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformReport {
+    /// `preflight`, `starting <member>`, `up` or `blocked`.
+    pub phase: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blocked: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_digest: Option<Sha256Hex>,
+    /// Member name → state (`ready`, `ready (continued)`, …).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub members: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update: Option<PlatformUpdateReport>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformUpdateReport {
+    pub update_id: UpdateId,
+    pub phase: UpdatePhase,
+    /// Crossed the schema boundary: only forward from here.
+    pub irreversible: bool,
+    pub from_manifest_digest: Sha256Hex,
+    pub to_manifest_digest: Sha256Hex,
 }
 
 /// Why a manifest cannot boot.

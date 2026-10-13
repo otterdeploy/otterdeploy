@@ -18,6 +18,7 @@ use otterd_proto::identity::CrossSigned;
 use otterd_proto::ids::SessionId;
 use otterd_proto::journal::Record;
 use otterd_proto::lifecycle::SlotReport;
+use otterd_proto::platform::PlatformReport;
 use otterd_proto::version::Feature;
 use otterd_transport::{Handler, IdentitySource, NodeIdentity, Outbox, RequestAnswer, SessionInfo};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -66,6 +67,12 @@ impl ControlHandler {
     pub fn with_upgrader(mut self, upgrader: Arc<Upgrader>) -> Self {
         self.upgrader = Some(upgrader);
         self
+    }
+
+    /// This host's platform, if it runs one.
+    #[must_use]
+    pub fn platform(&self) -> Option<&Arc<Platform>> {
+        self.platform.as_ref()
     }
 
     /// Run `platform.update` on this host's platform.
@@ -173,7 +180,11 @@ impl Handler for ControlHandler {
     async fn on_ready(&self, session: SessionInfo) -> Vec<ControlFrame> {
         self.dispatcher_for(&session.session_id);
         self.reports.reset();
-        let mut out: Vec<ControlFrame> = self.reports.frame(&self.node).into_iter().collect();
+        let mut out: Vec<ControlFrame> = self
+            .reports
+            .frame(&self.node, self.platform.as_deref())
+            .into_iter()
+            .collect();
         let enabled = session.has(Feature::KeyRotation);
         self.rotation_enabled.store(enabled, Ordering::SeqCst);
         if let (true, Some(r)) = (enabled, &self.rotator) {
@@ -273,7 +284,7 @@ pub struct SlotReporter {
 #[derive(Debug, Default)]
 struct ReporterState {
     seq: u64,
-    last: Option<(bool, Vec<SlotReport>)>,
+    last: Option<(bool, Vec<SlotReport>, Option<PlatformReport>)>,
 }
 
 impl SlotReporter {
@@ -284,13 +295,14 @@ impl SlotReporter {
     }
 
     /// The next report, if anything changed since the last one.
-    fn frame(&self, node: &Node) -> Option<ControlFrame> {
+    fn frame(&self, node: &Node, platform: Option<&Platform>) -> Option<ControlFrame> {
         let slots = node.slot_reports().ok()?;
         let engine_reachable = node
             .engine_reachable
             .load(std::sync::atomic::Ordering::SeqCst);
+        let platform = platform.map(Platform::report);
         let mut g = self.inner.lock().ok()?;
-        let current = (engine_reachable, slots);
+        let current = (engine_reachable, slots, platform);
         if g.last.as_ref() == Some(&current) {
             return None;
         }
@@ -301,13 +313,14 @@ impl SlotReporter {
             quarantined: current.1.iter().any(|s| s.quarantined),
             engine_reachable: current.0,
             slots: current.1,
+            platform: current.2,
         })
     }
 
     /// After a reconcile pass: send a report if the state changed.
-    pub fn after_pass(&self, node: &Node, outbox: &Outbox) {
+    pub fn after_pass(&self, node: &Node, platform: Option<&Platform>, outbox: &Outbox) {
         // Not connected: the next session starts with a full report.
-        if let Some(f) = self.frame(node)
+        if let Some(f) = self.frame(node, platform)
             && outbox.send(f).is_err()
         {
             self.reset();

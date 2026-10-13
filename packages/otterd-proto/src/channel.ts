@@ -12,6 +12,7 @@ import { signedEnvelope } from "./envelope";
 import { crossSigned, hostFacts } from "./identity";
 import { leaseRequest, slotReport } from "./lifecycle";
 import { batchDisposition, sampleBatch } from "./metrics";
+import { platformReport } from "./platform";
 import { keyId, nonce, u16, u32, u53, wireId } from "./primitives";
 import { feature, versionRange } from "./version";
 
@@ -130,6 +131,7 @@ export const controlFrame = z.discriminatedUnion("type", [
     quarantined: z.boolean(),
     engineReachable: z.boolean(),
     slots: z.array(slotReport),
+    platform: platformReport.optional(),
   }),
   f("leaseRequest", leaseRequest.shape),
   f("lease", { renewal: signedEnvelope }),

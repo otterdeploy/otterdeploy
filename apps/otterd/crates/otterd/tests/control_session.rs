@@ -270,7 +270,7 @@ async fn commands_reports_key_transition_and_revocation_over_a_session() {
         panic!("not applied")
     };
     node.reconcile().await.unwrap();
-    reporter.after_pass(&node, &outbox);
+    reporter.after_pass(&node, None, &outbox);
     match s.recv_within(5 * SEC).await {
         Some(ControlFrame::SlotReports { slots, seq, .. }) => {
             assert_eq!(slots.len(), 1);
@@ -278,7 +278,7 @@ async fn commands_reports_key_transition_and_revocation_over_a_session() {
         }
         other => panic!("{other:?}"),
     }
-    reporter.after_pass(&node, &outbox);
+    reporter.after_pass(&node, None, &outbox);
     assert!(
         s.recv_within(Duration::from_millis(500)).await.is_none(),
         "no report without a change"

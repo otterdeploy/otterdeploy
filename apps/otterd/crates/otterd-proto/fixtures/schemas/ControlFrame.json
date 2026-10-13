@@ -202,6 +202,28 @@
       "type": "slotReports"
     },
     {
+      "engineReachable": true,
+      "platform": {
+        "manifestDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "members": {
+          "pg": "ready (continued)",
+          "redis": "ready"
+        },
+        "phase": "starting cp",
+        "update": {
+          "fromManifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "irreversible": true,
+          "phase": "schema-boundary",
+          "toManifestDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+          "updateId": "upd_0123456789abcdef0123456789abcdef"
+        }
+      },
+      "quarantined": false,
+      "seq": 13,
+      "slots": [],
+      "type": "slotReports"
+    },
+    {
       "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
       "grants": [
         "grant_1"

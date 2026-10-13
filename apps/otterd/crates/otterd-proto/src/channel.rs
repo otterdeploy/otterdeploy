@@ -233,6 +233,9 @@ pub enum ControlFrame {
         quarantined: bool,
         engine_reachable: bool,
         slots: Vec<SlotReport>,
+        /// On a host that runs the platform: where its boot or update stands.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        platform: Option<crate::platform::PlatformReport>,
     },
     LeaseRequest(LeaseRequest),
     /// CP → node: signed [`crate::lifecycle::LeaseRenewal`].

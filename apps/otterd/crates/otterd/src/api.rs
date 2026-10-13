@@ -8,6 +8,7 @@
 //! session.
 
 use crate::lifecycle::{Node, NodeError};
+use crate::platform::Platform;
 use crate::session::ControlHandler;
 use bytes::Bytes;
 use http::{Method, Request, Response, StatusCode};
@@ -30,7 +31,7 @@ fn json(status: StatusCode, v: &serde_json::Value) -> Response<Full<Bytes>> {
 }
 
 /// The status document.
-pub fn status(node: &Node) -> Result<serde_json::Value, NodeError> {
+pub fn status(node: &Node, platform: Option<&Platform>) -> Result<serde_json::Value, NodeError> {
     let state = node.engine.journal().snapshot()?;
     let gate = node
         .gate
@@ -52,16 +53,18 @@ pub fn status(node: &Node) -> Result<serde_json::Value, NodeError> {
         "slots": node.slot_reports()?,
         "unresolvedStarts": unresolved,
         "openHolds": state.open_holds().collect::<Vec<_>>(),
+        "platform": platform.map(Platform::report),
     }))
 }
 
 async fn route(
     node: Arc<Node>,
     session: Option<Arc<ControlHandler>>,
+    platform: Option<Arc<Platform>>,
     req: Request<Incoming>,
 ) -> Response<Full<Bytes>> {
     match (req.method().clone(), req.uri().path()) {
-        (Method::GET, "/status") => match status(&node) {
+        (Method::GET, "/status") => match status(&node, platform.as_deref()) {
             Ok(v) => json(StatusCode::OK, &v),
             Err(e) => json(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -122,6 +125,7 @@ async fn route(
 pub async fn serve(
     node: Arc<Node>,
     session: Option<Arc<ControlHandler>>,
+    platform: Option<Arc<Platform>>,
     socket: &Path,
 ) -> std::io::Result<()> {
     if let Some(dir) = socket.parent() {
@@ -137,11 +141,15 @@ pub async fn serve(
         let (stream, _) = listener.accept().await?;
         let node = Arc::clone(&node);
         let session = session.clone();
+        let platform = platform.clone();
         tokio::spawn(async move {
             let svc = hyper::service::service_fn(move |req| {
                 let node = Arc::clone(&node);
                 let session = session.clone();
-                async move { Ok::<_, std::convert::Infallible>(route(node, session, req).await) }
+                let platform = platform.clone();
+                async move {
+                    Ok::<_, std::convert::Infallible>(route(node, session, platform, req).await)
+                }
             });
             if let Err(e) = hyper::server::conn::http1::Builder::new()
                 .serve_connection(TokioIo::new(stream), svc)
