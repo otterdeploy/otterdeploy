@@ -189,6 +189,7 @@ fn grant(node: &Node, id_: &str, generation: u64) -> SlotGrant {
         probe_only: false,
         adopts_attempt: None,
         adopts_container: None,
+        network: None,
     }
 }
 

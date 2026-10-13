@@ -123,6 +123,7 @@ fn grant(
         probe_only: false,
         adopts_attempt: attempt.cloned(),
         adopts_container: container.map(|c| c.parse().unwrap()),
+        network: None,
     }
 }
 

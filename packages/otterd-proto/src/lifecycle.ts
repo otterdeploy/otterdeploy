@@ -33,6 +33,24 @@ export const slotGrant = z.strictObject({
    * as the only attempt. Only for a slot that never had a grant on this node.
    */
   adoptsContainer: wireId.optional(),
+  /**
+   * The attempt's place on the node network (placement-specific). The control plane allocates
+   * every value from the fleet address plan; the node only applies them.
+   */
+  network: z
+    .strictObject({
+      scopeId: wireId,
+      /** This scope's network on this node, IPv4 CIDR (/24../27). */
+      subnet: z.string(),
+      /** The attempt's IPv4 address inside `subnet`. */
+      address: z.string(),
+      /** The environment resolver's listener address. */
+      resolver: z.string(),
+      /** The environment's DNS zone, e.g. `prod.otd.internal`. */
+      zone: z.string(),
+      vip: z.strictObject({ vipId: wireId, address: z.string() }).optional(),
+    })
+    .optional(),
 });
 export type SlotGrant = z.infer<typeof slotGrant>;
 

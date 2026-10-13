@@ -147,6 +147,7 @@ fn journal_with_grant(path: &Path) -> Journal {
             probe_only: false,
             adopts_attempt: None,
             adopts_container: None,
+            network: None,
         },
         spec_digest: Sha256Hex::digest(b"spec"),
         op_id: id("op-1"),

@@ -499,6 +499,12 @@ mod tests {
             authority_term: U53::ONE,
             scope_id: ScopeId::new("s1").unwrap(),
             vip_id: VipId::new("v1").unwrap(),
+            vip_address: "172.31.0.7".into(),
+            names: vec![],
+            ports: vec![EndpointPort {
+                protocol: PortProtocol::Tcp,
+                port: 80,
+            }],
             serving_revision: U53::from_const(rev),
             operation_epoch: U53::ONE,
             new_flow_attempts: attempts

@@ -123,6 +123,7 @@ fn grant(
         probe_only: false,
         adopts_attempt: None,
         adopts_container: None,
+        network: None,
     }
 }
 
