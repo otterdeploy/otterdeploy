@@ -12,6 +12,7 @@
 //!   passes.
 
 use clap::{Parser, Subcommand};
+use otterd::session::{ControlHandler, NodeIdentitySource, SlotReporter};
 use otterd::{LifecycleConfig, Node, Progress};
 use otterd_engine::{DockerClient, EngineAdapter, JournalHandle, engine_incarnation};
 use otterd_identity::{KeyStore, NodeKeyset};
@@ -21,10 +22,13 @@ use otterd_proto::identity::EnrollCertificate;
 use otterd_proto::ids::{BootId, Incarnation};
 use otterd_proto::journal::Record;
 use otterd_sys::notify::Notifier;
+use otterd_transport::tls::{Trust, client_config};
+use otterd_transport::{ConnectionManager, Outbox, TransportConfig};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::watch;
 
 /// Exit code systemd must not restart on (`RestartPreventExitStatus=2`):
 /// the journal is missing or corrupt, which is recovery, not a restart.
@@ -80,24 +84,38 @@ enum Cmd {
         cp_key: String,
     },
     /// Run the daemon.
-    Run {
-        #[command(flatten)]
-        paths: Paths,
-        #[arg(long, env = "OTTERD_SOCKET", default_value = "/run/otterd/otterd.sock")]
-        socket: PathBuf,
-        #[arg(long, env = "OTTERD_STAGING_ROOT", default_value = "/run/otterd/stage")]
-        staging_root: PathBuf,
-        /// Per-request Engine timeout. Expiry leaves a mutation Submitted, never settled.
-        #[arg(long, env = "OTTERD_ENGINE_TIMEOUT_MS", default_value_t = 15_000)]
-        engine_timeout_ms: u64,
-        #[arg(long, env = "OTTERD_STOP_GRACE_S", default_value_t = 10)]
-        stop_grace_s: u64,
-        #[arg(long, env = "OTTERD_RECONCILE_MS", default_value_t = 2_000)]
-        reconcile_ms: u64,
-        /// Engine boot-barrier profile; empty (the default) disables it.
-        #[arg(long, env = "OTTERD_BOOT_BARRIER_PROFILE", default_value = "")]
-        boot_barrier_profile: String,
-    },
+    Run(Box<RunArgs>),
+}
+
+#[derive(Debug, clap::Args)]
+struct RunArgs {
+    #[command(flatten)]
+    paths: Paths,
+    #[arg(long, env = "OTTERD_SOCKET", default_value = "/run/otterd/otterd.sock")]
+    socket: PathBuf,
+    #[arg(long, env = "OTTERD_STAGING_ROOT", default_value = "/run/otterd/stage")]
+    staging_root: PathBuf,
+    /// Per-request Engine timeout. Expiry leaves a mutation Submitted, never settled.
+    #[arg(long, env = "OTTERD_ENGINE_TIMEOUT_MS", default_value_t = 15_000)]
+    engine_timeout_ms: u64,
+    #[arg(long, env = "OTTERD_STOP_GRACE_S", default_value_t = 10)]
+    stop_grace_s: u64,
+    #[arg(long, env = "OTTERD_RECONCILE_MS", default_value_t = 2_000)]
+    reconcile_ms: u64,
+    /// Engine boot-barrier profile; empty (the default) disables it.
+    #[arg(long, env = "OTTERD_BOOT_BARRIER_PROFILE", default_value = "")]
+    boot_barrier_profile: String,
+    /// The control plane (`wss://…/api/otterd/connect`, from the enrollment
+    /// certificate). Without it the node runs disconnected: workloads keep
+    /// their grants and no command can arrive.
+    #[arg(long, env = "OTTERD_CONTROL_URL")]
+    control_url: Option<String>,
+    /// PEM file of certificate authorities for a control plane with its own CA.
+    #[arg(long, env = "OTTERD_CONTROL_CA")]
+    control_ca: Option<PathBuf>,
+    /// Trust only `--control-ca`, not the public web PKI.
+    #[arg(long, env = "OTTERD_CONTROL_CA_ONLY")]
+    control_ca_only: bool,
 }
 
 fn keygen(paths: &Paths) -> Result<(), String> {
@@ -161,6 +179,7 @@ async fn init(paths: &Paths, certificate: &Path, cp_key: &str) -> Result<(), Str
             keys.epoch()
         ));
     }
+    let control_url = cert.control_url.clone();
     let mut journal =
         Journal::create(&paths.journal, env!("CARGO_PKG_VERSION")).map_err(|e| e.to_string())?;
     journal
@@ -175,7 +194,10 @@ async fn init(paths: &Paths, certificate: &Path, cp_key: &str) -> Result<(), Str
             host: cert.host,
         })
         .map_err(|e| e.to_string())?;
-    println!("journal created at {}", paths.journal.display());
+    println!(
+        "{}",
+        serde_json::json!({"journal": paths.journal, "controlUrl": control_url})
+    );
     Ok(())
 }
 
@@ -219,18 +241,12 @@ fn open_journal_and_keys(paths: &Paths) -> Result<(Journal, NodeKeyset), (u8, St
     Ok((journal, keys))
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn run(
-    paths: Paths,
-    socket: PathBuf,
-    staging_root: PathBuf,
-    engine_timeout: Duration,
-    stop_grace: Duration,
-    reconcile: Duration,
-    boot_barrier_profile: String,
-) -> Result<(), (u8, String)> {
+/// Open the journal and keys, record a new incarnation (boot quarantine), and
+/// attach the Engine without waiting on it.
+async fn start_node(args: &RunArgs) -> Result<Node, (u8, String)> {
     let fail = |e: String| (1, e);
-    let (mut journal, keys) = open_journal_and_keys(&paths)?;
+    let paths = &args.paths;
+    let (mut journal, keys) = open_journal_and_keys(paths)?;
     let incarnation = Incarnation::mint().map_err(|e| fail(e.to_string()))?;
     let boot: BootId = otterd_sys::host::kernel_boot_id()
         .map_err(|e| fail(e.to_string()))?
@@ -243,7 +259,10 @@ async fn run(
         })
         .map_err(|e| fail(e.to_string()))?;
     tracing::info!(%incarnation, %boot, "process started: boot quarantine");
-    let mut docker = DockerClient::new(&paths.docker_socket, engine_timeout);
+    let mut docker = DockerClient::new(
+        &paths.docker_socket,
+        Duration::from_millis(args.engine_timeout_ms),
+    );
     // Never wait on the Engine before serving: inspect and /version can hang.
     let engine_version =
         match tokio::time::timeout(Duration::from_secs(5), docker.negotiate()).await {
@@ -257,31 +276,70 @@ async fn run(
         incarnation.clone(),
         engine_incarnation(&engine_version, &paths.docker_pid_file),
     );
-    let progress = Progress::default();
-    let node = Arc::new(Node::new(
+    Ok(Node::new(
         LifecycleConfig {
-            staging_root,
-            stop_grace,
-            boot_barrier_profile,
+            staging_root: args.staging_root.clone(),
+            stop_grace: Duration::from_secs(args.stop_grace_s),
+            boot_barrier_profile: args.boot_barrier_profile.clone(),
         },
         engine,
         keys.identity().clone(),
         incarnation,
-        progress.clone(),
+        Progress::default(),
+    ))
+}
+
+/// Start the control-plane connection, if one is configured.
+fn connect(
+    args: &RunArgs,
+    node: &Arc<Node>,
+    reporter: &SlotReporter,
+    shutdown: watch::Receiver<bool>,
+) -> Result<Option<Outbox>, String> {
+    let Some(url) = &args.control_url else {
+        tracing::warn!("no control URL: running disconnected; no command can arrive");
+        return Ok(None);
+    };
+    let trust = match (&args.control_ca, args.control_ca_only) {
+        (Some(p), true) => Trust::Only(p.clone()),
+        (Some(p), false) => Trust::PublicRootsAnd(p.clone()),
+        (None, true) => return Err("--control-ca-only needs --control-ca".into()),
+        (None, false) => Trust::PublicRoots,
+    };
+    let tls = client_config(&trust).map_err(|e| e.to_string())?;
+    let manager = Arc::new(ConnectionManager::new(
+        TransportConfig::new(url.clone(), tls),
+        Arc::new(ControlHandler::new(Arc::clone(node), reporter.clone())),
+        Arc::new(NodeIdentitySource::new(
+            Arc::clone(node),
+            env!("CARGO_PKG_VERSION"),
+        )),
     ));
+    let outbox = manager.outbox();
+    tokio::spawn(async move { manager.run(shutdown).await });
+    Ok(Some(outbox))
+}
+
+async fn run(args: RunArgs) -> Result<(), (u8, String)> {
+    let fail = |e: String| (1, e);
+    let node = Arc::new(start_node(&args).await?);
+    let progress = node.progress.clone();
     let notifier = Notifier::from_env();
     tokio::spawn(otterd::watchdog::run(progress.clone(), notifier.clone()));
     let api_node = Arc::clone(&node);
-    let api_socket = socket.clone();
+    let api_socket = args.socket.clone();
     tokio::spawn(async move {
         if let Err(e) = otterd::api::serve(api_node, &api_socket).await {
             tracing::error!(error = %e, "control socket stopped");
         }
     });
+    let reporter = SlotReporter::default();
+    let (shutdown, shutdown_rx) = watch::channel(false);
+    let outbox = connect(&args, &node, &reporter, shutdown_rx).map_err(fail)?;
     if let Err(e) = notifier.ready() {
         tracing::warn!(error = %e, "sd_notify READY failed");
     }
-    let mut tick = tokio::time::interval(reconcile);
+    let mut tick = tokio::time::interval(Duration::from_millis(args.reconcile_ms));
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .map_err(|e| fail(e.to_string()))?;
     loop {
@@ -291,10 +349,14 @@ async fn run(
                     tracing::warn!(error = %e, "reconcile pass finished with errors");
                 }
                 progress.pass_completed();
+                if let Some(o) = &outbox {
+                    reporter.after_pass(&node, o);
+                }
                 let _ = notifier.status(&format!("passes={} engine={}", progress.snapshot().passes,
                     node.engine_reachable.load(std::sync::atomic::Ordering::SeqCst)));
             }
             _ = term.recv() => {
+                let _ = shutdown.send(true);
                 let _ = notifier.stopping();
                 tracing::info!("stopping; workloads keep running under their grants");
                 return Ok(());
@@ -321,26 +383,7 @@ async fn main() -> ExitCode {
         } => init(&paths, &certificate, &cp_key)
             .await
             .map_err(|e| (1, e)),
-        Cmd::Run {
-            paths,
-            socket,
-            staging_root,
-            engine_timeout_ms,
-            stop_grace_s,
-            reconcile_ms,
-            boot_barrier_profile,
-        } => {
-            run(
-                paths,
-                socket,
-                staging_root,
-                Duration::from_millis(engine_timeout_ms),
-                Duration::from_secs(stop_grace_s),
-                Duration::from_millis(reconcile_ms),
-                boot_barrier_profile,
-            )
-            .await
-        }
+        Cmd::Run(args) => run(*args).await,
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

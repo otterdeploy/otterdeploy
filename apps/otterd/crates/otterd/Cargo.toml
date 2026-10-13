@@ -25,6 +25,7 @@ otterd-identity.workspace = true
 otterd-journal.workspace = true
 otterd-proto.workspace = true
 otterd-sys.workspace = true
+otterd-transport.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -33,6 +34,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+otterd-transport = { workspace = true, features = ["test-cp"] }
 base64.workspace = true
 tempfile.workspace = true
 

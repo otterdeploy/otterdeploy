@@ -169,7 +169,7 @@ impl Node {
         Ok(Arc::clone(locks.entry(slot.clone()).or_default()))
     }
 
-    fn state(&self) -> Result<NodeState, NodeError> {
+    pub(crate) fn state(&self) -> Result<NodeState, NodeError> {
         Ok(self.engine.journal().snapshot()?)
     }
 
@@ -178,6 +178,11 @@ impl Node {
             .journal()
             .read(|s| s.grants.get(grant).map(|g| g.grant.slot.clone()))?
             .ok_or_else(|| NodeError::Refused(format!("unknown grant {grant}")))
+    }
+
+    /// The identity key, for session proofs.
+    pub(crate) fn identity_key(&self) -> &SigningKey {
+        &self.identity_key
     }
 
     /// The node's public identity key.

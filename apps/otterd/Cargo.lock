@@ -1106,6 +1106,7 @@ dependencies = [
  "otterd-journal",
  "otterd-proto",
  "otterd-sys",
+ "otterd-transport",
  "serde",
  "serde_json",
  "tempfile",
