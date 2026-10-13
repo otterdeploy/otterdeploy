@@ -21,9 +21,12 @@
 use crate::capability::CapabilityError;
 use crate::command::OpOutcome;
 use crate::discovery::DiscoveryMessage;
-use crate::envelope::SignedEnvelope;
+use crate::envelope::{SignContext, SignedEnvelope};
 use crate::identity::{CrossSigned, HostFacts};
-use crate::ids::{BatchId, BootId, Incarnation, InstallId, KeyId, NodeId, Nonce, OpId, SessionId};
+use crate::ids::{
+    AttemptId, BatchId, BootId, Incarnation, InstallId, KeyId, NodeId, Nonce, OpId, SessionId,
+    Sha256Hex, VipId,
+};
 use crate::lifecycle::{LeaseRequest, SlotReport};
 use crate::metrics::{BatchDisposition, SampleBatch};
 use crate::num::{DurationMs, U53, UnixMs};
@@ -264,6 +267,23 @@ pub enum ControlFrame {
     Authority {
         document: SignedEnvelope,
     },
+    /// Node → CP: an authority document took effect. For a serving set it is
+    /// sent once the set is installed (`drainedAttempts` empty), and again
+    /// when each withdrawn attempt's drain has ended and its connection
+    /// tracking is flushed, listing those attempts. The control plane frees a
+    /// withdrawn attempt's address only when every node it sent a set listing
+    /// that attempt has acknowledged its drain, or was fenced.
+    #[serde(rename_all = "camelCase")]
+    AuthorityAck {
+        context: SignContext,
+        /// Payload digest of the acknowledged document, so the
+        /// acknowledgement names exactly one signed revision.
+        document_digest: Sha256Hex,
+        vip_id: VipId,
+        serving_revision: U53,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        drained_attempts: Vec<AttemptId>,
+    },
 
     // ---- keys (feature `key-rotation`) ----
     /// node → CP: a node key rotation, signed by the outgoing and incoming
@@ -350,6 +370,7 @@ impl ControlFrame {
             Self::TelemetryAck { .. } => "telemetryAck",
             Self::Discovery { .. } => "discovery",
             Self::Authority { .. } => "authority",
+            Self::AuthorityAck { .. } => "authorityAck",
             Self::KeyRotation { .. } => "keyRotation",
             Self::KeyRotationAck { .. } => "keyRotationAck",
             Self::CpKeyTransition { .. } => "cpKeyTransition",

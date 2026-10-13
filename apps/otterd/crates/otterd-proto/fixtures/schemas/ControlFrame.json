@@ -413,6 +413,23 @@
       "type": "authority"
     },
     {
+      "context": "otterd/serving-set/v1",
+      "documentDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "servingRevision": 18,
+      "type": "authorityAck",
+      "vipId": "vip_web"
+    },
+    {
+      "context": "otterd/serving-set/v1",
+      "documentDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "drainedAttempts": [
+        "att_fedcba9876543210fedcba9876543210"
+      ],
+      "servingRevision": 18,
+      "type": "authorityAck",
+      "vipId": "vip_web"
+    },
+    {
       "statement": {
         "byNew": {
           "context": "otterd/key-rotation/v1",
