@@ -23,7 +23,7 @@
  * controllers (silence as a stop, revocation as a release, the delay ignored)
  * must each fail.
  */
-import { describe, expect, test } from "bun:test";
+import { describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import type { GrantView, NodeView, Retirement, ServiceView, Snapshot } from "../model";
 
@@ -446,6 +446,10 @@ const WEB_WITNESSES: Record<string, (s: S) => boolean> = {
 };
 
 const DB = { svc: "db", dbPolicy: "reschedule", fence: true } as const;
+
+// Each exhaustive exploration takes seconds and grows with the model; the
+// default 5 s budget makes them flaky on a busy CI runner.
+setDefaultTimeout(60_000);
 
 describe("failover model (exhaustive at small bounds)", () => {
   test("exclusive, reschedule, fence enabled: every invariant holds and each witness is reachable", () => {
