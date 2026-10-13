@@ -1941,7 +1941,8 @@ UNIT
 
 # Download, verify and install the otterd release: the daemon into A/B slot a
 # (`otterd update install` re-checks the manifest against the pinned keys),
-# and the guard, the name responder and the recovery tool next to it. Idempotent: an existing install
+# and the guard, the name responder, the packet policy agent and the
+# recovery tool next to it (otterd starts the two network units itself). Idempotent: an existing install
 # is left to the control plane's rolling upgrades.
 install_otterd_binaries() {
   step "Installing otterd $OTTERD_VERSION"
@@ -1958,7 +1959,7 @@ install_otterd_binaries() {
     || fail "the otterd $OTTERD_VERSION release manifest is not signed by an embedded release key (refusing to install it)"
   [ "$(jq -r .version "$tmp/manifest.json")" = "$OTTERD_VERSION" ] \
     || fail "the signed manifest is for otterd $(jq -r .version "$tmp/manifest.json"), not $OTTERD_VERSION"
-  for name in otterd otterd-guard otterd-dns otterd-recover; do
+  for name in otterd otterd-guard otterd-dns otterd-net otterd-recover; do
     otterd_fetch_binary "$tmp/manifest.json" "$name" "$tmp/$name"
     chmod 0755 "$tmp/$name"
   done
@@ -1967,6 +1968,7 @@ install_otterd_binaries() {
   run $SUDO "$tmp/otterd" update install --release "$tmp/release.json" --binary "$tmp/otterd"
   run $SUDO install -m 0755 "$tmp/otterd-guard" "$OTTERD_LIB/otterd-guard"
   run $SUDO install -m 0755 "$tmp/otterd-dns" "$OTTERD_LIB/otterd-dns"
+  run $SUDO install -m 0755 "$tmp/otterd-net" "$OTTERD_LIB/otterd-net"
   run $SUDO install -m 0755 "$tmp/otterd-recover" "$OTTERD_LIB/otterd-recover"
   otterd_write_unit
   rm -rf "$tmp"
