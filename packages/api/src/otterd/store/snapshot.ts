@@ -26,6 +26,7 @@ import { nodeRole, serviceSpec } from "@otterdeploy/otterd-proto";
 import { Result } from "better-result";
 import { and, eq, ne } from "drizzle-orm";
 
+import { heldResourceIds } from "../migration/store";
 import { type StoreFailure, toStoreFailure } from "./errors";
 import { grantView, retirementOf } from "./rows";
 
@@ -82,10 +83,12 @@ export function loadSnapshot(now: number): Promise<Result<Snapshot, StoreFailure
           const nodes = await tx.select().from(otterdNode).where(ne(otterdNode.admin, "retired"));
           const fences = await tx.select().from(otterdFence);
           const evidence = await tx.select().from(otterdEvidence);
-          const grants = await tx
-            .select()
-            .from(otterdGrant)
-            .where(ne(otterdGrant.state, "released"));
+          // A resource a migration holds is the migration's alone: the
+          // scheduler neither issues for it nor judges its grants.
+          const held = await heldResourceIds(tx);
+          const grants = (
+            await tx.select().from(otterdGrant).where(ne(otterdGrant.state, "released"))
+          ).filter((g) => !held.has(g.resourceId));
           const rows = await tx
             .select({ svc: otterdService, rev: otterdServiceRevision })
             .from(otterdService)
@@ -98,7 +101,7 @@ export function loadSnapshot(now: number): Promise<Result<Snapshot, StoreFailure
             );
           const services: ServiceView[] = rows.flatMap(({ svc, rev }) => {
             const spec = serviceSpec.safeParse(rev.spec);
-            if (!spec.success) return [];
+            if (!spec.success || held.has(svc.resourceId)) return [];
             return [
               {
                 resourceId: svc.resourceId,

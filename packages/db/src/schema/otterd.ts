@@ -219,6 +219,10 @@ export const otterdGrant = pgTable(
     heldAttempt: text("held_attempt"),
     /** For an adopting grant: the held attempt it re-binds (same container). */
     adoptsAttempt: text("adopts_attempt"),
+    /** For a migration: the legacy container (full id) this grant adopts in place. */
+    adoptsContainer: text("adopts_container"),
+    /** When the node deleted the adopted container, kept after its stop until asked. */
+    adoptedRemovedAt: bigint("adopted_removed_at", { mode: "number" }),
     /** The attempt's place on the node network, as sent in the grant. */
     network: jsonb("network").$type<GrantNetwork>(),
     /** When the attempt address went back to the plan (freed, or held for peers). */

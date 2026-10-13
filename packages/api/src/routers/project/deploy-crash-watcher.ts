@@ -39,6 +39,7 @@ import { log } from "evlog";
 import type { ContainerEvent, DockerEvent } from "../../swarm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
+import { runtimeOwnerOf } from "../../runtime/owner-router";
 import { subscribeDockerEvents } from "../../swarm";
 import { scaleSwarmServiceToZero } from "../../swarm/service";
 import { publishResourceChanged } from "./project-event-bus";
@@ -144,6 +145,8 @@ async function holdDownCrashLoop(
   plan: { key: string; stop: () => Promise<boolean>; outcome: string },
 ): Promise<boolean> {
   if (bumpRapidDies(plan.key) < RAPID_DIE_CAP) return false;
+  // A resource being migrated, or run by otterd, is not this watcher's to stop.
+  if ((await runtimeOwnerOf(ctx.resourceId)) !== "legacy") return false;
   if (!(await plan.stop().catch(() => false))) return false;
 
   const line = `${exitPhrase(ctx)}: crash loop, ${plan.outcome}`;

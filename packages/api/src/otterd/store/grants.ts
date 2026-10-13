@@ -34,6 +34,8 @@ export interface IssueRequest {
   specRevision: number;
   reason: string;
   now: number;
+  /** A migration's grant: adopt this legacy container in place. */
+  adoptsContainer?: string;
 }
 
 export async function lockedGrant(tx: Tx, grantId: string): Promise<GrantRow> {
@@ -114,6 +116,7 @@ export function admitGrant(req: IssueRequest): Promise<Result<GrantRow, StoreFai
         operationEpoch: svc.operationEpoch,
         opId: mintId("op"),
         network,
+        adoptsContainer: req.adoptsContainer ?? null,
         createdAt: req.now,
       })
       .returning();
