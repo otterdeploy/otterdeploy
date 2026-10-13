@@ -319,6 +319,19 @@ impl Anchor {
         format!("{}/{rest}", self.prefix)
     }
 
+    /// Refuse to sign with a key this anchor does not trust for the role:
+    /// readers would reject the object, and a head they cannot verify leaves
+    /// the anchor unreadable until it is repaired by hand.
+    fn require(signer: &SigningKey, trusted: &PublicKey, role: &str) -> Result<(), AnchorError> {
+        if &PublicKey::from_verifying_key(&signer.verifying_key()) == trusted {
+            Ok(())
+        } else {
+            Err(AnchorError::Refused(format!(
+                "the key given is not this anchor's {role} key"
+            )))
+        }
+    }
+
     /// Read and verify the head: outer signature by either key, term
     /// certificate by the recovery key only, both for this install.
     pub async fn head(&self) -> Result<HeadState, AnchorError> {
@@ -376,6 +389,7 @@ impl Anchor {
         host: HostBinding,
         bootstrap_epoch: U53,
     ) -> Result<HeadState, AnchorError> {
+        Self::require(recovery, &self.recovery, "recovery")?;
         let term = TermCertificate {
             install_id: self.install.clone(),
             recovery_term: U53::ONE,
@@ -412,6 +426,7 @@ impl Anchor {
         enrollment: &SigningKey,
         mut record: EnrollmentRecord,
     ) -> Result<EnrollOutcome, AnchorError> {
+        Self::require(enrollment, &self.enrollment, "enrollment")?;
         let mut written: Option<Written> = None;
         for _ in 0..MAX_CAS_ATTEMPTS {
             let state = self.head().await?;
@@ -570,6 +585,7 @@ impl Anchor {
         recovery: &SigningKey,
         new_host: HostBinding,
     ) -> Result<TermCertificate, AnchorError> {
+        Self::require(recovery, &self.recovery, "recovery")?;
         for _ in 0..MAX_CAS_ATTEMPTS {
             let state = self.head().await?;
             let term = TermCertificate {
@@ -614,6 +630,7 @@ impl Anchor {
         method: RetirementMethod,
         reference: &str,
     ) -> Result<(), AnchorError> {
+        Self::require(recovery, &self.recovery, "recovery")?;
         let state = self.head().await?;
         if state.term.phase != Phase::RecoveryPending {
             return Err(AnchorError::Refused("no recovery in progress".into()));
@@ -687,6 +704,7 @@ impl Anchor {
         &self,
         recovery: &SigningKey,
     ) -> Result<TermCertificate, AnchorError> {
+        Self::require(recovery, &self.recovery, "recovery")?;
         let (term, missing, _) = self.outstanding().await?;
         if term.phase != Phase::RecoveryPending {
             return Err(AnchorError::Refused("no recovery in progress".into()));

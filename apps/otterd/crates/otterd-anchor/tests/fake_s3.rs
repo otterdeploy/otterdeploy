@@ -520,3 +520,30 @@ async fn an_ambiguous_head_write_that_was_built_on_is_not_enrolled_twice() {
     assert!(firsts[0].committed);
     assert_eq!(inventory.len(), 2);
 }
+
+#[tokio::test]
+async fn a_wrong_key_never_writes_an_object_readers_would_reject() {
+    let base = serve(false).await;
+    let a = anchor(&base);
+    let (recovery, enrollment) = (key(1), key(2));
+    assert!(matches!(
+        a.init(&enrollment, host("cp-1"), U53::ONE).await,
+        Err(AnchorError::Refused(_))
+    ));
+    a.init(&recovery, host("cp-1"), U53::ONE).await.unwrap();
+    assert!(matches!(
+        a.enroll(&recovery, record("n1")).await,
+        Err(AnchorError::Refused(_))
+    ));
+    assert!(matches!(
+        a.begin_recovery(&enrollment, host("cp-2")).await,
+        Err(AnchorError::Refused(_))
+    ));
+    let head = a.head().await.unwrap();
+    assert_eq!(
+        head.term.phase,
+        Phase::Active,
+        "the head is untouched and still verifies"
+    );
+    assert!(a.inventory().await.unwrap().is_empty());
+}
