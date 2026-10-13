@@ -14,6 +14,8 @@ export type PendingReason =
   | { code: "fence-required"; nodeId: string }
   | { code: "fencing"; nodeId: string }
   | { code: "awaiting-stop"; grantIds: string[] }
+  | { code: "adopting"; grantId: string }
+  | { code: "awaiting-report"; nodeId: string }
   | { code: "rollout-paused" }
   | { code: "rollout-waiting"; until: number | null }
   | { code: "unsupported-mode"; mode: string };
@@ -31,6 +33,7 @@ export type Action =
       reason: string;
     }
   | { kind: "stop"; grantId: string; reason: string }
+  | { kind: "adopt"; grantId: string; nodeId: string; attemptId: string; reason: string }
   | { kind: "revoke"; grantId: string; reason: string }
   | { kind: "orphan"; grantId: string; reason: string }
   | { kind: "fence"; nodeId: string; nodeEpoch: number; reason: string }

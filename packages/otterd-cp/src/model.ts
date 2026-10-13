@@ -35,6 +35,11 @@ export interface NodeView {
   lastEvidenceAt: number | null;
   /** A control session is established now. */
   connected: boolean;
+  /**
+   * The live session has delivered its first slot report. Until then a
+   * restarted node's earlier grants are not judged: they may be held.
+   */
+  reported: boolean;
   /** Automatic whole-node fencing, off unless an install admin enabled it. */
   fence: { adapter: FenceAdapterName; enabled: boolean } | null;
   /** A fence of the current node epoch is under way (the store's record). */
@@ -113,6 +118,17 @@ export interface GrantView {
   runningSince: number | null;
   /** Its newest attempt exited or became unknown and nothing replaced it. */
   failed: boolean;
+  /**
+   * The attempt a restarted node kept for this grant (only an unrevoked
+   * exclusive grant of an earlier process is held, paused meanwhile) and asks
+   * the control plane to confirm; null if none. From the node's slot report.
+   */
+  held: HeldAttempt | null;
+}
+
+export interface HeldAttempt {
+  attemptId: string;
+  paused: boolean;
 }
 
 /** Positive retirement the store has verified for a grant. */

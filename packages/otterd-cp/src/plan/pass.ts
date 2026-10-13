@@ -154,7 +154,28 @@ export class Pass {
       sentAt: null,
       runningSince: null,
       failed: false,
+      held: null,
     });
     return true;
+  }
+
+  /**
+   * Re-bind the attempt a restarted node held, on the same node and the same
+   * container, under a fresh grant of a higher generation. The old grant
+   * hands over in the same transaction; there is never a second process.
+   */
+  adopt(g: GrantView, attemptId: string, reason: string): void {
+    const node = this.nodes.get(g.nodeId);
+    this.actions.push({ kind: "adopt", grantId: g.grantId, nodeId: g.nodeId, attemptId, reason });
+    g.state = "released";
+    this.working.push({
+      ...g,
+      grantId: `planned-${this.synthetic++}`,
+      generation: -1,
+      incarnation: node?.incarnation ?? "",
+      state: "prepared",
+      sentAt: null,
+      held: null,
+    });
   }
 }

@@ -54,14 +54,22 @@ interface G {
   sentAt: number | null;
   delivered: boolean;
   running: boolean;
+  /** Kept by a restarted node, frozen until the control plane confirms (exclusive). */
+  paused: boolean;
+  /** Reported as held by a restarted node. */
+  held: boolean;
+  /** Created by adopting a held attempt. */
+  adopted: boolean;
   cert: boolean;
-  evidence: "cert" | "fence" | "cancel" | "silence" | null;
+  evidence: "cert" | "fence" | "cancel" | "adoption" | "silence" | null;
 }
 interface S {
   t: number;
   power: boolean;
   daemon: boolean;
   link: boolean;
+  /** The current session's first slot report has arrived. */
+  reported: boolean;
   inc: number;
   last: number;
   fenceAt: number | null;
@@ -77,7 +85,9 @@ interface Config {
   svc: Svc;
   dbPolicy: "reschedule" | "stay";
   fence: boolean;
-  mutant?: "silence-as-stop" | "revoke-as-release" | "delay-ignored";
+  /** What a restarted daemon does with earlier-incarnation work: stop exclusive grants, or hold everything for the control plane. */
+  restart: "quarantine" | "hold";
+  mutant?: "silence-as-stop" | "revoke-as-release" | "delay-ignored" | "adopt-revoked";
 }
 
 const now = (s: S) => T0 + s.t * TICK;
@@ -88,6 +98,7 @@ function snapshotOf(s: S, cfg: Config): Snapshot {
     node("n1", {
       incarnation: s.link ? `i${s.inc}` : null,
       connected: s.link,
+      reported: s.reported,
       lastEvidenceAt: n1Last,
       fence: { adapter: "hetzner", enabled: cfg.fence },
       fencing: s.fenceAt !== null && s.fencedAt === null,
@@ -114,7 +125,7 @@ function snapshotOf(s: S, cfg: Config): Snapshot {
   const services: ServiceView[] =
     cfg.svc === "db" ? [service(dbSpec, { homeNode: s.home })] : [service(webSpec)];
   const live = s.grants.filter((g) => g.state !== "released");
-  const grants: GrantView[] = live.map((g) => view(g));
+  const grants: GrantView[] = live.map((g) => view(g, s));
   const retirements: Retirement[] = [];
   for (const g of live) {
     if (g.cert)
@@ -145,7 +156,7 @@ function snapshotOf(s: S, cfg: Config): Snapshot {
   return { now: now(s), nodes, services, grants, retirements };
 }
 
-function view(g: G): GrantView {
+function view(g: G, s: S): GrantView {
   return {
     grantId: `g${g.id}`,
     resourceId: g.svc,
@@ -164,6 +175,10 @@ function view(g: G): GrantView {
     sentAt: g.sentAt === null ? null : T0 + g.sentAt * TICK,
     runningSince: g.running ? T0 - 60_000 : null,
     failed: false,
+    held:
+      g.held && g.inc < s.inc && s.link
+        ? { attemptId: `att-${g.svc}-${g.gen}`, paused: g.paused }
+        : null,
   };
 }
 
@@ -174,7 +189,7 @@ function apply(s: S, actions: Action[], cfg: Config, snap: Snapshot): void {
     if (a.kind === "release") {
       const g = byId(a.grantId);
       if (!g) continue;
-      const ok = mayRelease(view(g), retirementOf(a.grantId));
+      const ok = mayRelease(view(g, s), retirementOf(a.grantId));
       if (ok.isErr()) throw new Error(`planner released ${a.grantId} without evidence`);
       g.state = "released";
       g.evidence =
@@ -185,7 +200,9 @@ function apply(s: S, actions: Action[], cfg: Config, snap: Snapshot): void {
             : "fence";
     } else if (a.kind === "issue") {
       const svc: Svc = a.resourceId === "db" ? "db" : "web";
-      const slot = s.grants.filter((g) => g.svc === svc && g.state !== "released").map(view);
+      const slot = s.grants
+        .filter((g) => g.svc === svc && g.state !== "released")
+        .map((g) => view(g, s));
       const r = admit(
         { highWater: s.high[svc], grants: slot },
         { exclusive: a.exclusive, surge: a.surge },
@@ -208,12 +225,22 @@ function apply(s: S, actions: Action[], cfg: Config, snap: Snapshot): void {
         sentAt: s.t,
         delivered: false,
         running: false,
+        paused: false,
+        held: false,
+        adopted: false,
         cert: false,
         evidence: null,
       });
+    } else if (a.kind === "adopt") {
+      const g = byId(a.grantId);
+      if (g) adopt(s, g);
     } else if (a.kind === "stop") {
       const g = byId(a.grantId);
       if (!g) continue;
+      if (cfg.mutant === "adopt-revoked" && g.held && g.inc < s.inc && s.link) {
+        adopt(s, g);
+        continue;
+      }
       g.stopReq = true;
       g.revokedAt ??= s.t;
       g.state = "stopping";
@@ -245,13 +272,40 @@ function apply(s: S, actions: Action[], cfg: Config, snap: Snapshot): void {
 }
 
 /**
+ * The store's adoption: the old grant hands over and a new generation on the
+ * same node takes the same container (same process) in one transaction.
+ */
+function adopt(s: S, g: G): void {
+  g.state = "released";
+  g.evidence = "adoption";
+  s.high[g.svc] += 1;
+  s.grants.push({
+    ...g,
+    id: s.next++,
+    gen: s.high[g.svc],
+    inc: s.inc,
+    state: "granted",
+    revokedAt: null,
+    stopReq: false,
+    sentAt: s.t,
+    delivered: false,
+    held: false,
+    adopted: true,
+    cert: false,
+    evidence: null,
+  });
+  g.running = false;
+  g.paused = false;
+}
+
+/**
  * Copy for the next transition. A grant released in an earlier step is
  * terminal (the invariants saw it released and stopped), so it is dropped and
  * the rest renumbered: states that differ only in history collapse into one.
  */
 const clone = (s: S): S => {
   const kept = s.grants
-    .filter((g) => g.state !== "released" || g.running)
+    .filter((g) => g.state !== "released" || g.running || g.paused)
     .map((g, i) => ({ ...g, id: i + 1 }));
   return { ...s, high: { ...s.high }, grants: kept, next: kept.length + 1 };
 };
@@ -265,6 +319,7 @@ function world(cfg: Config): Model<S> {
         power: true,
         daemon: true,
         link: true,
+        reported: true,
         inc: 1,
         last: 0,
         fenceAt: null,
@@ -290,9 +345,12 @@ function world(cfg: Config): Model<S> {
         });
       }
       if (n1Answers(s)) add("n1-partition", (n) => void (n.link = false));
+      if (n1Answers(s) && !s.reported)
+        add("n1-first-report-of-session", (n) => void (n.reported = true));
       if (s.power && s.daemon && !s.link) {
         add("n1-partition-heals", (n) => {
           n.link = true;
+          n.reported = false;
           n.last = n.t;
         });
       }
@@ -307,10 +365,23 @@ function world(cfg: Config): Model<S> {
           n.daemon = true;
           n.inc++;
           n.link = true;
+          n.reported = false;
           n.last = n.t;
-          // Boot quarantine stops exclusive grants; shared ones keep running.
-          for (const g of n.grants)
-            if (g.node === "n1" && g.inc < n.inc && g.svc === "db") g.running = false;
+          for (const g of n.grants) {
+            if (g.node !== "n1" || g.inc >= n.inc) continue;
+            if (cfg.restart === "quarantine") {
+              // Boot quarantine stops exclusive grants; shared ones keep running.
+              if (g.svc === "db") g.running = false;
+            } else {
+              // An unrevoked exclusive grant is kept, frozen and reported as
+              // held; shared grants keep running unheld.
+              if (g.svc === "db" && g.running && g.revokedAt === null) {
+                g.held = true;
+                g.running = false;
+                g.paused = true;
+              }
+            }
+          }
         });
       }
       if (s.fenceAt !== null && s.fencedAt === null) {
@@ -319,7 +390,12 @@ function world(cfg: Config): Model<S> {
           n.power = false;
           n.daemon = false;
           n.link = false;
-          for (const g of n.grants) if (g.node === "n1") g.running = false;
+          for (const g of n.grants) {
+            if (g.node === "n1") {
+              g.running = false;
+              g.paused = false;
+            }
+          }
         });
       }
       s.grants.forEach((g) => {
@@ -332,7 +408,9 @@ function world(cfg: Config): Model<S> {
             const h = same(n);
             if (!h) return;
             h.delivered = true;
-            if (h.revokedAt === null) h.running = true;
+            // An adopting grant unfreezes the same container; any other starts one.
+            if (h.revokedAt === null && (!h.adopted || h.paused)) h.running = true;
+            h.paused = false;
           });
         }
         if (answers && g.stopReq && !g.cert) {
@@ -340,6 +418,7 @@ function world(cfg: Config): Model<S> {
             const h = same(n);
             if (!h) return;
             h.running = false;
+            h.paused = false;
             h.cert = true;
           });
         }
@@ -358,17 +437,19 @@ function world(cfg: Config): Model<S> {
             (g) =>
               g.state !== "released" ||
               (!g.running &&
+                !g.paused &&
                 g.evidence !== "silence" &&
                 (g.evidence !== "cancel" || g.sentAt === null)),
           ),
       },
       {
         id: "G-PROCESS",
-        test: (s) => s.grants.filter((g) => g.svc === "db" && g.running).length <= 1,
+        // A frozen (paused) container still holds its data: it counts.
+        test: (s) => s.grants.filter((g) => g.svc === "db" && (g.running || g.paused)).length <= 1,
       },
       {
         id: "I5-running-copy-keeps-reservation",
-        test: (s) => s.grants.every((g) => !g.running || g.state !== "released"),
+        test: (s) => s.grants.every((g) => !(g.running || g.paused) || g.state !== "released"),
       },
       {
         id: "I5-one-active-shared-grant-plus-one-surge",
@@ -383,6 +464,25 @@ function world(cfg: Config): Model<S> {
       },
     ],
     edgeChecks: [
+      {
+        // Only the slot's live, never-revoked, never-moved grant hands its
+        // attempt over; a revoked or superseded one must stop and certify.
+        id: "adoption-only-of-a-live-unmoved-grant",
+        test: (b, e) =>
+          e.state.grants
+            .filter(
+              (g) =>
+                g.evidence === "adoption" &&
+                b.grants.some((x) => x.svc === g.svc && x.gen === g.gen && x.evidence === null),
+            )
+            .every((g) => {
+              const before = b.grants.find((x) => x.svc === g.svc && x.gen === g.gen);
+              const newer = b.grants.some(
+                (x) => x.svc === g.svc && x.gen > g.gen && x.state !== "released",
+              );
+              return before !== undefined && before.revokedAt === null && !before.orphan && !newer;
+            }),
+      },
       {
         id: "I2-generations-rise",
         test: (b, e) =>
@@ -403,7 +503,10 @@ function world(cfg: Config): Model<S> {
                 .every(
                   (x) =>
                     x.state === "released" &&
-                    (x.evidence === "cert" || x.evidence === "fence" || x.evidence === "cancel"),
+                    (x.evidence === "cert" ||
+                      x.evidence === "fence" ||
+                      x.evidence === "cancel" ||
+                      x.evidence === "adoption"),
                 ),
             ),
       },
@@ -422,7 +525,7 @@ function world(cfg: Config): Model<S> {
         },
       },
     ],
-    witnesses: cfg.svc === "db" ? DB_WITNESSES : WEB_WITNESSES,
+    witnesses: witnessesFor(cfg),
   };
 }
 
@@ -445,7 +548,19 @@ const WEB_WITNESSES: Record<string, (s: S) => boolean> = {
   "superseded-copy-certified-on-rejoin": (s) => s.link && s.grants.some((g) => g.orphan && g.cert),
 };
 
-const DB = { svc: "db", dbPolicy: "reschedule", fence: true } as const;
+const ADOPTED: Record<string, (s: S) => boolean> = {
+  "restart-adopts-the-held-attempt": (s) =>
+    s.grants.some((g) => g.adopted && g.running && g.node === "n1"),
+};
+
+function witnessesFor(cfg: Config): Record<string, (s: S) => boolean> {
+  if (cfg.svc === "db")
+    return cfg.restart === "hold" ? { ...DB_WITNESSES, ...ADOPTED } : DB_WITNESSES;
+  return WEB_WITNESSES;
+}
+
+const DB = { svc: "db", dbPolicy: "reschedule", fence: true, restart: "quarantine" } as const;
+const HOLD = { ...DB, restart: "hold" } as const;
 
 // Each exhaustive exploration takes seconds and grows with the model; the
 // default 5 s budget makes them flaky on a busy CI runner.
@@ -493,6 +608,21 @@ describe("failover model (exhaustive at small bounds)", () => {
       status: "holds",
       missingWitnesses: [],
     });
+  });
+
+  test.each([
+    ["exclusive", HOLD],
+    ["shared", { ...HOLD, svc: "web" as const }],
+  ] as const)(
+    "%s, restart holds its attempts: the live unmoved grant is adopted, nothing else, never beside a moved slot",
+    (_, cfg) => {
+      expect(check(world(cfg))).toMatchObject({ status: "holds", missingWitnesses: [] });
+    },
+  );
+
+  test("a planner that adopted a revoked grant is caught", () => {
+    const r = check(world({ ...HOLD, fence: false, mutant: "adopt-revoked" }));
+    expect(r.status === "violated" && r.invariant).toBe("adoption-only-of-a-live-unmoved-grant");
   });
 
   test.each([

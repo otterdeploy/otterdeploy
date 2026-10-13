@@ -231,6 +231,84 @@ describe("node restart (boot quarantine)", () => {
   });
 });
 
+describe("adoption after a node restart", () => {
+  const restarted = node("n1", { incarnation: "inc-n1-2" });
+  const stay = spec("svc-db", { lifecycle: { exclusive: true, failoverPolicy: "stay" } });
+
+  test("the live, unmoved grant's held attempt is adopted on the same node", () => {
+    const g = grant("svc-db", "n1", {
+      exclusive: true,
+      held: { attemptId: "att_1", paused: true },
+    });
+    const a = plan(
+      snapshot({ nodes: [restarted], services: [service(stay, { homeNode: "n1" })], grants: [g] }),
+    );
+    expect(a).toEqual([
+      {
+        kind: "adopt",
+        grantId: g.grantId,
+        nodeId: "n1",
+        attemptId: "att_1",
+        reason: "node restarted: adopt the held attempt",
+      },
+      {
+        kind: "pending",
+        resourceId: "svc-db",
+        slotIndex: 0,
+        reason: { code: "adopting", grantId: g.grantId },
+      },
+    ]);
+  });
+
+  test("nothing of a restarted node is judged before its first report of the new session", () => {
+    const g = grant("svc-db", "n1", { exclusive: true });
+    const quiet = node("n1", { incarnation: "inc-n1-2", reported: false });
+    const a = plan(
+      snapshot({ nodes: [quiet], services: [service(stay, { homeNode: "n1" })], grants: [g] }),
+    );
+    expect(a).toEqual([
+      {
+        kind: "pending",
+        resourceId: "svc-db",
+        slotIndex: 0,
+        reason: { code: "awaiting-report", nodeId: "n1" },
+      },
+    ]);
+  });
+
+  test("a revoked held grant is stopped and must certify, never adopted", () => {
+    const g = grant("svc-db", "n1", {
+      exclusive: true,
+      held: { attemptId: "att_1", paused: true },
+      revoked: true,
+      state: "unknown",
+    });
+    const a = plan(
+      snapshot({ nodes: [restarted, node("n2")], services: [service(exclusiveSpec)], grants: [g] }),
+    );
+    expect(kinds(a)).toEqual(["stop", "pending"]);
+  });
+
+  test("a held copy whose slot moved on is stopped, never adopted", () => {
+    const old = grant("svc-web", "n1", {
+      held: { attemptId: "att_1", paused: true },
+      orphan: true,
+      revoked: true,
+    });
+    const moved = grant("svc-web", "n2", { generation: 2 });
+    const a = plan(
+      snapshot({
+        nodes: [restarted, node("n2")],
+        services: [service(sharedSpec)],
+        grants: [old, moved],
+      }),
+    );
+    expect(a).toEqual([
+      { kind: "stop", grantId: old.grantId, reason: "node restarted: boot quarantine" },
+    ]);
+  });
+});
+
 describe("rollout", () => {
   const rev2 = (s: ReturnType<typeof spec>, over = {}) =>
     service(s, { revision: 2, stableRevision: 1, ...over });
