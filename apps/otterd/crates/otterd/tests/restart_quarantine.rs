@@ -1,6 +1,6 @@
-//! A daemon restart stops and certifies only the previous incarnation's
-//! exclusive attempts; shared (overlap-tolerant) workloads keep running for
-//! the control plane to re-bind. Ignored by default; run as root on a Linux
+//! A daemon restart never stops a shared (overlap-tolerant) workload: it keeps
+//! running for the control plane to re-bind. An exclusive one is held and
+//! paused instead (see `held_restart.rs`). Ignored by default; run as root on a Linux
 //! host with Docker:
 //!
 //! ```sh
@@ -84,6 +84,7 @@ async fn start_node(dir: &Path) -> Node {
             staging_root: dir.join("stage"),
             stop_grace: Duration::from_secs(2),
             boot_barrier_profile: String::new(),
+            hold_bound: Duration::from_secs(300),
         },
         engine,
         SigningKey::from_bytes(&NODE),
@@ -202,10 +203,14 @@ async fn a_restart_stops_exclusive_attempts_and_keeps_shared_ones() {
     let state = node.engine.journal().snapshot().unwrap();
     let excl_grant = &state.grants[&id::<otterd_proto::ids::GrantId>("g-excl")];
     assert!(
-        excl_grant.is_released(),
-        "the exclusive attempt is stopped and certified"
+        !excl_grant.is_released() && excl_grant.held.as_ref().is_some_and(|h| h.paused),
+        "the exclusive attempt is held and paused, not stopped"
     );
-    assert!(container_of("rq-excl").is_none(), "{excl_before:?} is gone");
+    assert_eq!(
+        container_of("rq-excl"),
+        Some(excl_before.clone()),
+        "same container"
+    );
     let shared_grant = &state.grants[&id::<otterd_proto::ids::GrantId>("g-shared")];
     assert!(
         !shared_grant.is_released(),
