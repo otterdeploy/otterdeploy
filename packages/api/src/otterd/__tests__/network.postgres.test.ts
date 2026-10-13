@@ -254,6 +254,17 @@ describe("otterd node network state", () => {
     expect(await held(address)).toBeUndefined();
   });
 
+  it("an unchanged set keeps its revision, whatever order Postgres returns its keys in", async () => {
+    const id = `net-steady-${run}`;
+    (await putService(web(id), NOW)).unwrap();
+    await running(id, `att-s-${run}`);
+    const target = (await servingTargets()).unwrap().find((t) => t.resourceId === id);
+    if (!target) throw new Error("no serving target");
+    const first = (await recordServing(target, NOW + 2)).unwrap();
+    const again = (await recordServing(target, NOW + 3)).unwrap();
+    expect(again.revision).toBe(first.revision);
+  });
+
   it("a drain acknowledged before the release takes that node out of the wait", async () => {
     const id = `net-early-${run}`;
     (await putService(web(id), NOW)).unwrap();
