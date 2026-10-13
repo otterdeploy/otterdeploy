@@ -7,9 +7,11 @@ pub mod api;
 pub mod container;
 pub mod dispatch;
 pub mod keys;
+pub mod lease;
 pub mod lifecycle;
 pub mod platform;
 pub mod session;
+pub mod telemetry;
 pub mod upgrade;
 pub mod watchdog;
 

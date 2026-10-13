@@ -18,6 +18,7 @@
 
 use crate::lifecycle::{Node, NodeError};
 use crate::platform::Platform;
+use crate::telemetry::Telemetry;
 use crate::upgrade::Upgrader;
 use otterd_identity::rotation::valid_cp_keys;
 use otterd_journal::OpState;
@@ -65,6 +66,7 @@ pub struct Dispatcher {
     replay: Mutex<ReplayGuard>,
     upgrader: Option<Arc<Upgrader>>,
     platform: Option<Arc<Platform>>,
+    telemetry: Option<Arc<Telemetry>>,
 }
 
 fn refuse(error: CapabilityError) -> Answer {
@@ -82,6 +84,13 @@ impl Dispatcher {
     #[must_use]
     pub fn and_platform(mut self, platform: Option<Arc<Platform>>) -> Self {
         self.platform = platform;
+        self
+    }
+
+    /// Also run `health.configure` and `metrics.sample`.
+    #[must_use]
+    pub fn and_telemetry(mut self, telemetry: Option<Arc<Telemetry>>) -> Self {
+        self.telemetry = telemetry;
         self
     }
 
@@ -266,43 +275,16 @@ async fn run(
     services: &Dispatcher,
     session: &Session,
 ) -> Result<CommandResult, NodeError> {
+    if matches!(
+        command,
+        Command::HealthConfigure { .. }
+            | Command::MetricsSample { .. }
+            | Command::PlatformUpdate { .. }
+            | Command::NodeUpgrade { .. }
+    ) {
+        return run_service(node, command, services, session).await;
+    }
     match command {
-        Command::PlatformUpdate { manifest } => {
-            let platform = services
-                .platform
-                .clone()
-                .ok_or_else(|| NodeError::Refused("this host runs no platform".into()))?;
-            let host = otterd_sys::host::host_binding(None)
-                .map_err(|e| NodeError::Internal(e.to_string()))?;
-            let revoked = node.state()?.revoked_below_term();
-            let digest = manifest
-                .payload_digest()
-                .map_err(|e| NodeError::Refused(e.to_string()))?;
-            let manifest = manifest.clone();
-            // The update stops the control plane that asked for it: run it on
-            // its own and answer now; progress is in the platform status.
-            tokio::spawn(async move {
-                match platform.update(&manifest, &host, revoked).await {
-                    Ok(id) => tracing::info!(update = %id, "platform update committed"),
-                    Err(e) => tracing::error!(error = %e, "platform update stopped"),
-                }
-            });
-            Ok(CommandResult::Document {
-                schema: "otterd/platform-update-started/v1".into(),
-                body: serde_json::json!({"manifestDigest": digest}),
-            })
-        }
-        Command::NodeUpgrade { release } => {
-            let upgrader = services.upgrader.as_deref().ok_or_else(|| {
-                NodeError::Refused("this node is not installed for A/B updates".into())
-            })?;
-            let clock = session
-                .clock
-                .ok_or_else(|| NodeError::Refused("no bounded clock".into()))?;
-            upgrader
-                .upgrade(release, clock.now_unix_ms, session.protocol)
-                .await
-        }
         Command::WorkloadApply { grant, spec } => {
             if cap.binding.as_ref().is_some_and(|b| {
                 b.grant_id != grant.grant_id
@@ -347,6 +329,82 @@ async fn run(
         }
         other => Err(NodeError::Refused(format!(
             "{} is not implemented by this daemon yet",
+            other.verb()
+        ))),
+    }
+}
+
+/// Commands served by optional daemon services (telemetry, platform, A/B
+/// updates).
+async fn run_service(
+    node: &Node,
+    command: &Command,
+    services: &Dispatcher,
+    session: &Session,
+) -> Result<CommandResult, NodeError> {
+    match command {
+        Command::HealthConfigure { checks, .. } => {
+            let t = services
+                .telemetry
+                .as_ref()
+                .ok_or_else(|| NodeError::Refused("telemetry is not running".into()))?;
+            t.configure(checks).await
+        }
+        Command::MetricsSample { cache_ms, .. } => {
+            let t = services
+                .telemetry
+                .as_ref()
+                .ok_or_else(|| NodeError::Refused("telemetry is not running".into()))?;
+            let samples = t
+                .sample(
+                    Duration::from_secs(60),
+                    Duration::from_millis(cache_ms.get()),
+                )
+                .await;
+            Ok(CommandResult::Document {
+                schema: "otterd/metric-samples/v1".into(),
+                body: serde_json::to_value(samples)
+                    .map_err(|e| NodeError::Internal(e.to_string()))?,
+            })
+        }
+        Command::PlatformUpdate { manifest } => {
+            let platform = services
+                .platform
+                .clone()
+                .ok_or_else(|| NodeError::Refused("this host runs no platform".into()))?;
+            let host = otterd_sys::host::host_binding(None)
+                .map_err(|e| NodeError::Internal(e.to_string()))?;
+            let revoked = node.state()?.revoked_below_term();
+            let digest = manifest
+                .payload_digest()
+                .map_err(|e| NodeError::Refused(e.to_string()))?;
+            let manifest = manifest.clone();
+            // The update stops the control plane that asked for it: run it on
+            // its own and answer now; progress is in the platform status.
+            tokio::spawn(async move {
+                match platform.update(&manifest, &host, revoked).await {
+                    Ok(id) => tracing::info!(update = %id, "platform update committed"),
+                    Err(e) => tracing::error!(error = %e, "platform update stopped"),
+                }
+            });
+            Ok(CommandResult::Document {
+                schema: "otterd/platform-update-started/v1".into(),
+                body: serde_json::json!({"manifestDigest": digest}),
+            })
+        }
+        Command::NodeUpgrade { release } => {
+            let upgrader = services.upgrader.as_deref().ok_or_else(|| {
+                NodeError::Refused("this node is not installed for A/B updates".into())
+            })?;
+            let clock = session
+                .clock
+                .ok_or_else(|| NodeError::Refused("no bounded clock".into()))?;
+            upgrader
+                .upgrade(release, clock.now_unix_ms, session.protocol)
+                .await
+        }
+        other => Err(NodeError::Refused(format!(
+            "{} is not a service command",
             other.verb()
         ))),
     }

@@ -1104,6 +1104,8 @@ dependencies = [
  "otterd-engine",
  "otterd-identity",
  "otterd-journal",
+ "otterd-metrics",
+ "otterd-probe",
  "otterd-proto",
  "otterd-sys",
  "otterd-transport",

@@ -14,8 +14,10 @@
 use clap::{Parser, Subcommand};
 use otterd::TenantGate;
 use otterd::keys::KeyRotator;
+use otterd::lease::LeaseKeeper;
 use otterd::platform::{Platform, PlatformConfig};
 use otterd::session::{ControlHandler, NodeIdentitySource, SlotReporter};
+use otterd::telemetry::Telemetry;
 use otterd::upgrade::Upgrader;
 use otterd::{LifecycleConfig, Node, Progress};
 use otterd_engine::{DockerClient, EngineAdapter, JournalHandle, engine_incarnation};
@@ -153,6 +155,9 @@ struct RunArgs {
     /// opening the tenant gate.
     #[arg(long, env = "OTTERD_PLATFORM")]
     platform: bool,
+    /// Seconds between metrics rounds sent as telemetry.
+    #[arg(long, env = "OTTERD_METRICS_INTERVAL_S", default_value_t = 60)]
+    metrics_interval_s: u64,
     /// Where the A/B slots live.
     #[arg(long, env = "OTTERD_UPDATE_ROOT", default_value = "/usr/lib/otterd")]
     update_root: PathBuf,
@@ -715,7 +720,7 @@ struct Control {
 }
 
 /// Start the control-plane connection, if one is configured.
-fn connect(
+async fn connect(
     args: &RunArgs,
     node: &Arc<Node>,
     reporter: &SlotReporter,
@@ -743,6 +748,25 @@ fn connect(
     if let Some(p) = platform {
         handler = handler.with_platform(p);
     }
+    let lease = Arc::new(LeaseKeeper::new());
+    handler = handler.with_lease(Arc::clone(&lease));
+    let mut docker = DockerClient::new(&args.paths.docker_socket, Duration::from_secs(10));
+    let telemetry = match docker.negotiate().await {
+        Ok(_) => match Telemetry::start(Arc::clone(node), docker) {
+            Ok(t) => Some(t),
+            Err(e) => {
+                tracing::error!(error = %e, "telemetry not started");
+                None
+            }
+        },
+        Err(e) => {
+            tracing::warn!(error = %e, "Engine unreachable: telemetry not started");
+            None
+        }
+    };
+    if let Some((t, _)) = &telemetry {
+        handler = handler.with_telemetry(Arc::clone(t));
+    }
     let handler = Arc::new(handler);
     let manager = Arc::new(ConnectionManager::new(
         TransportConfig::new(url.clone(), tls),
@@ -755,6 +779,28 @@ fn connect(
     let outbox = manager.outbox();
     handler.attach(outbox.clone());
     tokio::spawn(async move { manager.run(shutdown).await });
+    if let Some((t, records)) = telemetry {
+        tokio::spawn(Arc::clone(&t).run_metrics(
+            outbox.clone(),
+            Duration::from_secs(args.metrics_interval_s.max(5)),
+        ));
+        tokio::spawn(t.run_probes(outbox.clone(), records));
+    }
+    let lease_node = Arc::clone(node);
+    let lease_outbox = outbox.clone();
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(otterd::lease::renew_interval());
+        loop {
+            tick.tick().await;
+            match lease.request(&lease_node) {
+                Ok(frame) => {
+                    let _ = lease_outbox.send(frame);
+                }
+                Err(e) => tracing::warn!(error = %e, "cannot build a lease request"),
+            }
+            lease.enforce(&lease_node).await;
+        }
+    });
     Ok(Some(Control { outbox, handler }))
 }
 
@@ -820,6 +866,7 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
         platform.clone(),
         shutdown_rx,
     )
+    .await
     .map_err(fail)?;
     let api_node = Arc::clone(&node);
     let api_session = control.as_ref().map(|c| Arc::clone(&c.handler));

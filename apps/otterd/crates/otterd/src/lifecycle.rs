@@ -552,7 +552,7 @@ impl Node {
             .await
     }
 
-    async fn try_stop_and_certify(
+    pub(crate) async fn try_stop_and_certify(
         &self,
         grant: &GrantId,
         reason: &str,
