@@ -8,11 +8,13 @@
  * on "Invalid environment variables". The I/O lives here instead.
  */
 
+import { db } from "@otterdeploy/db";
+import { resource } from "@otterdeploy/db/schema/project";
+import { and, eq } from "drizzle-orm";
+
 import { ManifestVersionConflictError } from "./errors";
 import { loadManifest, saveManifest, type ProjectScope } from "./manifest";
 import { renameInManifest, type RenameKind } from "./manifest-rename";
-import { loadCurrentState } from "./manifest-state";
-import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 /**
  * Orchestrate a rename: load, check it's allowed, transform, save.
@@ -37,19 +39,15 @@ export async function renameResource(
   // swarm service and volume names derived from this name (buildContainerName
   // / buildVolumeName), so renaming the manifest key alone would repoint the
   // project at infrastructure that doesn't exist, and for a database, away
-  // from the volume holding its data.
-  const envScope = await resolveProjectEnvironmentScope(scope.projectId, null);
-  if (envScope) {
-    const current = await loadCurrentState(scope.projectId, envScope);
-    const deployed =
-      input.kind === "database" ? current.databases?.[input.from] : current.services?.[input.from];
-    if (deployed) {
-      return {
-        ok: false,
-        code: "rejected",
-        message: `"${input.from}" is already deployed. Renaming a running resource isn't supported yet. Its container and volume names are derived from this name.`,
-      };
-    }
+  // from the volume holding its data. Deployed ANYWHERE: the manifest is
+  // shared, so renaming one that runs only in staging reads there as a delete
+  // of the running resource plus a create of a new, empty one.
+  if (await deployedInAnyEnvironment(scope, input.kind, input.from)) {
+    return {
+      ok: false,
+      code: "rejected",
+      message: `"${input.from}" is already deployed. Renaming a running resource isn't supported yet. Its container and volume names are derived from this name.`,
+    };
   }
 
   const renamed = renameInManifest({ manifest, kind: input.kind, from: input.from, to: input.to });
@@ -79,4 +77,26 @@ export async function renameResource(
       : { ok: false, code: "not-found" };
   }
   return { ok: true, version: saved.value.version };
+}
+
+/** Whether a resource of this kind and name exists in any of the project's
+ *  environments. */
+async function deployedInAnyEnvironment(
+  scope: ProjectScope,
+  kind: RenameKind,
+  name: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: resource.id })
+    .from(resource)
+    .where(
+      and(
+        eq(resource.projectId, scope.projectId),
+        eq(resource.type, kind),
+        eq(resource.name, name),
+      ),
+    )
+    .limit(1)
+    .$withCache(false);
+  return row !== undefined;
 }

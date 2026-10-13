@@ -301,3 +301,27 @@ export class ManifestApplySkipError extends TaggedError("ManifestApplySkipError"
     });
   }
 }
+
+/**
+ * An apply planned to delete a resource that nothing in the manifest
+ * removed: the environment's own last apply never declared it, so its absence
+ * from the manifest is not a decision anyone made. Refused before anything
+ * runs. Whatever produced the plan is wrong, and a wrong plan must not be able
+ * to delete a running service.
+ */
+export class UntracedDeleteError extends TaggedError("UntracedDeleteError")<{
+  message: string;
+  environmentId: EnvironmentId;
+  resources: Array<{ resource: "service" | "database"; name: string }>;
+}>() {
+  constructor(args: {
+    environmentId: EnvironmentId;
+    resources: Array<{ resource: "service" | "database"; name: string }>;
+  }) {
+    const names = args.resources.map((r) => `${r.resource} ${r.name}`).join(", ");
+    super({
+      ...args,
+      message: `Refusing to delete ${names}: nothing in the manifest removed ${args.resources.length === 1 ? "it" : "them"} from this environment`,
+    });
+  }
+}

@@ -2,24 +2,17 @@ import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
 import { environmentIdOrReject } from "../../lib/environment/resolve-slug-reject";
-import { diffManifest, resolveEnvironment } from "../../stack/manifest";
+import { resolveEnvironment } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { getProject } from "./handlers";
-import {
-  discardManifest,
-  loadAppliedSnapshot,
-  loadManifest,
-  resolvedManifest,
-  saveManifest,
-} from "./manifest";
+import { documentAndResolved, loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { refuseUnrunnablePlacement } from "./manifest-apply-placement";
-import { loadRefTable, makeEnvRefResolver, withStagedServices } from "./manifest-apply-refs";
 import { enrichComposeCreates } from "./manifest-compose-enrich";
+import { discardPending } from "./manifest-discard";
+import { planEnvironmentChanges, refusingUntracedDeletes } from "./manifest-plan";
 import { manifestRemovals } from "./manifest-removals";
 import { renameResource } from "./manifest-rename-apply";
-import { loadCurrentState } from "./manifest-state";
-import { deleteDraftCredentialsNotIn } from "./queries";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 export const manifestRouter = {
@@ -113,25 +106,8 @@ export const manifestRouter = {
     // No environment pointer means nothing to diff against. An empty preview
     // beats a plan that claims every resource is new.
     if (!scope) return { resolved: resolved.value, changes: [] };
-    const [current, refTable, applied] = await Promise.all([
-      loadCurrentState(input.projectId, scope),
-      loadRefTable(input.projectId, scope),
-      // What the manifest has actually applied. Without it every live resource
-      // missing from the manifest reads as a pending DELETE, including ones the
-      // manifest never owned.
-      loadAppliedSnapshot(ref),
-    ]);
-    // Resolve ${database:…}/${service:…} refs before comparing. Apply stores
-    // the RESOLVED value in the env rows, so a raw-text compare surfaced a
-    // permanent phantom "update" for every ref-valued declaration.
-    // Same staged-service view apply resolves with, so a ref to a service this
-    // manifest creates previews as the value it will get.
-    const stagedServices = Object.keys(resolved.value.services).filter((n) => !current.services[n]);
     const changes = enrichComposeCreates(
-      diffManifest(resolved.value, current, {
-        resolveEnvValue: makeEnvRefResolver(withStagedServices(refTable, stagedServices)),
-        applied,
-      }),
+      await planEnvironmentChanges(input.projectId, scope, resolved.value),
       resolved.value,
     );
     return { resolved: resolved.value, changes };
@@ -157,15 +133,15 @@ export const manifestRouter = {
   apply: requirePermission({ project: ["update"] }).project.manifest.apply.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });
-      const resolved = await resolvedManifest(
+      const loaded = await documentAndResolved(
         {
           projectId: input.projectId,
           organizationId: context.activeOrganizationId,
         },
         input.environment,
       );
-      if (resolved.isErr()) {
-        throw matchError(resolved.error, {
+      if (loaded.isErr()) {
+        throw matchError(loaded.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ManifestMergeError: (error) => errors.INVALID_MANIFEST({ message: error.message }),
         });
@@ -173,45 +149,42 @@ export const manifestRouter = {
       // Nothing saved (or a stored manifest that no longer parses, which
       // loadManifest reports and reads as absent). Answering success with
       // appliedCount 0 here was indistinguishable from "up to date".
-      if (!resolved.value) throw errors.NO_MANIFEST();
-      return applyManifest({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-        manifest: resolved.value,
-        environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
-        only: input.only,
-        actorUserId: context.session?.user.id ?? null,
-        log: context.log,
-      });
+      if (!loaded.value) throw errors.NO_MANIFEST();
+      const { document, resolved } = loaded.value;
+      const environmentId = await environmentIdOrReject(input.projectId, input.environment, errors);
+      return refusingUntracedDeletes(
+        () =>
+          applyManifest({
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+            manifest: resolved,
+            document: { manifest: document, environment: input.environment },
+            environmentId,
+            only: input.only,
+            actorUserId: context.session?.user.id ?? null,
+            log: context.log,
+          }),
+        (error) => errors.UNTRACED_DELETE({ message: error.message }),
+      );
     },
   ),
 
   discard: requirePermission({ project: ["update"] }).project.manifest.discard.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });
-      const result = await discardManifest(
+      const result = await discardPending(
+        { projectId: input.projectId, organizationId: context.activeOrganizationId },
         {
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
+          environment: input.environment,
+          environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
+          only: input.only,
         },
-        input.only,
       );
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ManifestMergeError: (error) => errors.INVALID_MANIFEST({ message: error.message }),
         });
-      }
-      // Drop draft credentials for any staged database the discard removed.
-      // Keep only the ones the reverted manifest still declares.
-      const reverted = await loadManifest({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (reverted.isOk()) {
-        await deleteDraftCredentialsNotIn(
-          input.projectId,
-          Object.keys(reverted.value.manifest?.databases ?? {}),
-        );
       }
       return result.value;
     },
@@ -280,18 +253,24 @@ export const manifestRouter = {
 
       // Apply exactly what was just saved. Re-reading it raced a concurrent
       // discard (which could leave nothing to apply) and gained nothing.
-      const applied = await applyManifest({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-        manifest: resolved.value,
-        // Must match the environment the manifest was just resolved for. A
-        // manifest resolved for staging applied against production's rows
-        // would diff staging's desired state onto production's resources.
-        environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
-        sourceUploads: input.sourceUploads,
-        actorUserId: context.session?.user.id ?? null,
-        log: context.log,
-      });
+      const environmentId = await environmentIdOrReject(input.projectId, input.environment, errors);
+      const applied = await refusingUntracedDeletes(
+        () =>
+          applyManifest({
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+            manifest: resolved.value,
+            document: { manifest: input.manifest, environment: input.environment },
+            // Must match the environment the manifest was just resolved for. A
+            // manifest resolved for staging applied against production's rows
+            // would diff staging's desired state onto production's resources.
+            environmentId,
+            sourceUploads: input.sourceUploads,
+            actorUserId: context.session?.user.id ?? null,
+            log: context.log,
+          }),
+        (error) => errors.UNTRACED_DELETE({ message: error.message }),
+      );
       return { version: saved.value.version, ...applied };
     },
   ),

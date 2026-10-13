@@ -19,11 +19,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { DatabaseManifest, Manifest, ServiceManifest } from "../../../stack/manifest";
 
-import {
-  manifestAfterDiscard,
-  revertEntries,
-  snapshotAfterApply,
-} from "../manifest-applied-snapshot";
+import { revertEntries, snapshotAfterApply } from "../manifest-applied-snapshot";
 
 const db = (version: string): DatabaseManifest => ({ engine: "mariadb", version });
 const svc = (repo: string): ServiceManifest => ({ source: "git", repo });
@@ -232,54 +228,5 @@ describe("revertEntries: selective discard", () => {
   it("returns the target untouched when nothing is selected", () => {
     const target = manifest({ databases: { a: db("1") } });
     expect(revertEntries({ target, source: manifest(), resources: [] })).toBe(target);
-  });
-});
-
-describe("manifestAfterDiscard", () => {
-  it("resets to the applied snapshot when nothing specific is named", () => {
-    const applied = manifest({ databases: { mariadb: db("11.4") } });
-    const out = manifestAfterDiscard({
-      manifest: manifest({ databases: { mariadb: db("11.4"), redis: db("7") } }),
-      applied,
-    });
-    expect(out).toBe(applied);
-  });
-
-  it("clears the manifest when the project was never applied", () => {
-    expect(
-      manifestAfterDiscard({ manifest: manifest({ services: { a: svc("me/a") } }), applied: null }),
-    ).toBeNull();
-  });
-
-  it("keeps the other staged edits when one change is discarded", () => {
-    const out = manifestAfterDiscard({
-      manifest: manifest({ databases: { redis: db("7"), cache: db("7") } }),
-      applied: manifest(),
-      only: [{ resource: "database", name: "redis" }],
-    });
-    expect(out?.databases?.redis).toBeUndefined();
-    expect(out?.databases?.cache).toEqual(db("7"));
-  });
-
-  it("leaves the manifest absent when a selective discard has nothing on either side", () => {
-    // Never saved, never applied: the old result was the bare sections
-    // object, which manifestSchema rejects and so poisoned every later read.
-    expect(
-      manifestAfterDiscard({
-        manifest: null,
-        applied: null,
-        only: [{ resource: "env", name: "staging" }],
-      }),
-    ).toBeNull();
-  });
-
-  it("falls back to the applied snapshot when there is no working manifest", () => {
-    // manifest column null but changes staged elsewhere. Must not throw.
-    const out = manifestAfterDiscard({
-      manifest: null,
-      applied: manifest({ databases: { mariadb: db("11.4") } }),
-      only: [{ resource: "database", name: "mariadb" }],
-    });
-    expect(out?.databases?.mariadb).toEqual(db("11.4"));
   });
 });

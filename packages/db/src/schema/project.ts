@@ -253,6 +253,15 @@ export const environment = pgTable(
     claimableByOrganizationId: text("claimable_by_organization_id")
       .$type<OrganizationId>()
       .references(() => organization.id, { onDelete: "cascade" }),
+    // What THIS environment last applied: the whole manifest document as it
+    // stood (base plus every environment block), and the same document
+    // resolved for this environment. Kept per environment because the
+    // project's `last_applied_manifest` is written by whichever environment
+    // applied last, and an environment's pending changes are only legible
+    // against its own apply. The resolved copy is what a delete must find a
+    // resource in; the document is what a discard here reverts toward.
+    appliedManifest: jsonb("applied_manifest").$type<JsonObject | null>(),
+    appliedManifestResolved: jsonb("applied_manifest_resolved").$type<JsonObject | null>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

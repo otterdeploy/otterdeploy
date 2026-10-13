@@ -27,19 +27,14 @@
 
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
-import { db } from "@otterdeploy/db";
-import { project } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
-import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { Manifest } from "../../stack/manifest";
 import type { ApplyContext, PhaseContribution, StartedRollout } from "./manifest-apply-phases";
 
-import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
-import { diffManifest, manifestSchema } from "../../stack/manifest";
-import { loadAppliedSnapshot } from "./manifest";
-import { snapshotAfterApply } from "./manifest-applied-snapshot";
+import { diffManifest } from "../../stack/manifest";
+import { UntracedDeleteError } from "./errors";
 import {
   runComposeCreates,
   runDatabaseCreates,
@@ -53,10 +48,12 @@ import {
   runServiceUpdates,
   unbuiltGitServices,
 } from "./manifest-apply-phases-services";
+import { persistApplied } from "./manifest-apply-record";
 import { loadRefTable, makeEnvRefResolver, withStagedServices } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
+import { loadEnvironmentApplied } from "./manifest-environment-applied";
+import { untracedDeletes } from "./manifest-environment-baseline";
 import { loadCurrentState } from "./manifest-state";
-import { publishManifestChanged } from "./project-event-bus";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 export { enqueueGitBuild } from "./manifest-apply-git";
@@ -83,6 +80,10 @@ export interface ApplyInput {
    *  passed in has ALREADY been resolved for this environment; this is what
    *  scopes the deployed state it gets diffed against, so the two agree. */
   environmentId?: EnvironmentId | null;
+  /** The whole document `manifest` was resolved from, and the environment
+   *  slug it was resolved for. Recorded as this environment's apply, so a
+   *  later discard here can go back to it. Omitted = `manifest` itself. */
+  document?: { manifest: Manifest; environment: string | undefined };
   /** Apply only these resources; every other staged change stays PENDING.
    *  Omitted = apply everything. See the contract for why this is not the
    *  same as a selective discard. */
@@ -114,55 +115,6 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
     if (applyQueues.get(input.projectId) === settled) applyQueues.delete(input.projectId);
   });
   return run;
-}
-
-/**
- * Record what landed: `lastAppliedManifest`, then the escape hatch and the
- * stale-diff broadcast that follow it.
- *
- * Record what LANDED, not what was asked for. A resource in `skipped[]` never
- * happened, and writing it here would bake it into the snapshot that `discard`
- * reverts to, making a failed create both unappliable (its name collides with
- * whatever did get created) and undiscardable, forever. See
- * manifest-applied-snapshot.ts.
- */
-async function persistApplied(input: {
-  projectId: ProjectId;
-  organizationId: OrganizationId;
-  manifest: Manifest;
-  skipped: ApplyResult["skipped"];
-}): Promise<void> {
-  const { projectId, organizationId, manifest, skipped } = input;
-  const [before] = await db
-    .select({ lastApplied: project.lastAppliedManifest })
-    .from(project)
-    .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)))
-    .limit(1)
-    .$withCache(false);
-  // `lastApplied` is a jsonb column written exclusively by this pipeline from
-  // schema-validated manifests, so re-parse it at the read boundary instead of
-  // asserting. A row that no longer parses is treated as a first apply.
-  const parsedBefore = manifestSchema.safeParse(before?.lastApplied);
-  const applied = snapshotAfterApply({
-    submitted: manifest,
-    previous: parsedBefore.success ? parsedBefore.data : null,
-    skipped,
-  });
-
-  await db
-    .update(project)
-    .set({ lastAppliedManifest: applied, lastManifestAppliedAt: new Date() })
-    .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)));
-
-  // Refresh the project's DR escape hatch (rendered compose + JSON snapshot)
-  // from the now-current rows. Best-effort: it never throws, never blocks the
-  // apply result, and no-ops when the data folder isn't writable.
-  await writeProjectEscapeHatch(organizationId, projectId);
-
-  // lastAppliedManifest just moved, so every open tab's pending-changes diff
-  // is stale, announce it so the stream resyncs them now instead of at the
-  // slow poll backstop.
-  publishManifestChanged(projectId);
 }
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
@@ -202,14 +154,31 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // to the hostname they are about to get (withStagedServices).
   const stagedServices = Object.keys(manifest.services).filter((n) => !current.services[n]);
   const planRefTable = withStagedServices(await loadRefTable(projectId, scope), stagedServices);
-  // Same applied snapshot the diff endpoint uses, so what the operator
-  // previewed is what executes: without it apply would compute deletes the
-  // preview never showed.
-  const appliedSnapshot = await loadAppliedSnapshot({ projectId, organizationId });
+  // Same evidence the diff endpoint uses, so what the operator previewed is
+  // what executes: what THIS environment last applied, never another's.
+  const previous = await loadEnvironmentApplied(scope.environmentId);
   const planned = diffManifest(manifest, current, {
     resolveEnvValue: makeEnvRefResolver(planRefTable),
-    applied: appliedSnapshot,
+    applied: previous.resolved,
   });
+  // The last line between a faulty plan and a running service: every delete
+  // must trace to a removal from what this environment applied. Refused
+  // before any phase runs, so a refusal changes nothing.
+  const untraced = untracedDeletes(planned, { desired: manifest, applied: previous.resolved });
+  if (untraced.length > 0) {
+    throw new UntracedDeleteError({ environmentId: scope.environmentId, resources: untraced });
+  }
+  const record = (recordedSkips: ApplyResult["skipped"]) =>
+    persistApplied({
+      projectId,
+      organizationId,
+      manifest,
+      document: input.document?.manifest,
+      environment: input.document?.environment,
+      environmentId: scope.environmentId,
+      previous,
+      skipped: recordedSkips,
+    });
   const byKind = groupChanges(planned);
 
   let appliedCount = 0;
@@ -351,14 +320,14 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
       // Best-effort: the error already on its way out is the one the caller
       // needs, so a second failure here must not replace it.
       await Result.tryPromise({
-        try: () => persistApplied({ projectId, organizationId, manifest, skipped }),
+        try: () => record(skipped),
         catch: (cause) => cause,
       });
     }
   }
 
   // Outside the `finally`, so a failure of the normal write surfaces as itself.
-  await persistApplied({ projectId, organizationId, manifest, skipped });
+  await record(skipped);
 
   return {
     appliedCount,

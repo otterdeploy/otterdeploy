@@ -144,7 +144,10 @@ export function usePendingChanges(projectId: ProjectId, environment: string | un
   });
 
   const discardMut = useMutation({
-    mutationFn: (only?: ChangeRef[]) => orpc.project.manifest.discard.call({ projectId, only }),
+    // Scoped like the diff: Discard drops what THIS environment's bar shows,
+    // not whatever another environment's apply last recorded.
+    mutationFn: (only?: ChangeRef[]) =>
+      orpc.project.manifest.discard.call({ projectId, environment, only }),
     // Clear the ghost stores up front so a create-ghost from a prior apply
     // vanishes the instant the operator discards; otherwise `computePendingByName`
     // keeps re-synthesizing it until the TTL — the "ghost that won't die".
