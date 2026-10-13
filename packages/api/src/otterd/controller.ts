@@ -25,7 +25,7 @@ import type { Hub } from "./hub/hub";
 import type { GrantRow } from "./store/rows";
 import type { ToolConfig } from "./tools";
 
-import { runFence, sendApply, sendStop } from "./node-commands";
+import { runFence, sendApply, sendStop, sendUpgrade } from "./node-commands";
 import { adoptGrant, grantRow } from "./store/adopt";
 import { admitGrant, markGrant, markSent, releaseGrant } from "./store/grants";
 import { journal } from "./store/journal";
@@ -39,6 +39,8 @@ export interface ControllerConfig {
   now: () => number;
   /** Is issuance allowed now (anchor active at our term)? */
   mayIssue: () => Promise<boolean>;
+  /** Does this process hold the scheduler lock? Only the leader plans and acts. */
+  leader: () => Promise<boolean>;
   /** Adopt held attempts; when off, a held grant is stopped and must certify instead. */
   adoption: boolean;
 }
@@ -54,6 +56,7 @@ export class Controller {
   private readonly lastStop = new Map<string, number>();
   private readonly lastPending = new Map<string, string>();
   private readonly lastFence = new Map<string, number>();
+  private leading = false;
 
   constructor(private readonly cfg: ControllerConfig) {}
 
@@ -76,6 +79,14 @@ export class Controller {
   }
 
   private async pass(): Promise<void> {
+    const leading = await this.cfg.leader();
+    if (leading !== this.leading) {
+      this.leading = leading;
+      log.warn({
+        otterd: { event: leading ? "scheduler leadership taken" : "not the scheduler leader" },
+      });
+    }
+    if (!leading) return;
     const now = this.cfg.now();
     const snap = await loadSnapshot(now);
     if (snap.isErr()) {
@@ -121,8 +132,20 @@ export class Controller {
         await recordRollout(a.resourceId, a.outcome, a.revision, now);
         return;
       case "upgrade-phase":
-        await setUpgradePhase(a.nodeId, a.phase, now);
+        await this.upgradePhase(a.nodeId, a.phase, now);
         return;
+    }
+  }
+
+  /** Move a node's upgrade on; entering `upgrading` sends it the signed release. */
+  private async upgradePhase(
+    nodeId: string,
+    phase: "draining" | "upgrading" | "rejoining" | "done",
+    now: number,
+  ): Promise<void> {
+    const set = await setUpgradePhase(nodeId, phase, now);
+    if (set.isOk() && phase === "upgrading") {
+      this.track(`upgrade:${nodeId}`, () => sendUpgrade(this.cfg, nodeId));
     }
   }
 

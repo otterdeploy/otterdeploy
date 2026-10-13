@@ -90,6 +90,14 @@ export const otterdNode = pgTable(
     upgradePhase: text("upgrade_phase"),
     upgradeFromIncarnation: text("upgrade_from_incarnation"),
     upgradeSince: bigint("upgrade_since", { mode: "number" }),
+    /** The signed release the rolling upgrade sends this node (`node.upgrade`). */
+    upgradeRelease: jsonb("upgrade_release").$type<Record<string, unknown>>(),
+    /**
+     * After a fence: the epoch the node still holds until it accepts its
+     * re-enrollment certificate over one recovery session.
+     */
+    recoveryEpoch: integer("recovery_epoch"),
+    reenrollCertificate: jsonb("reenroll_certificate").$type<Record<string, unknown>>(),
     enrolledAt: bigint("enrolled_at", { mode: "number" }).notNull(),
     updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },

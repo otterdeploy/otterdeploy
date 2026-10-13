@@ -33,6 +33,10 @@ export interface KnownNode {
   identityKey: string;
   identityKeyId: string;
   retired: boolean;
+  /** After a fence: the old epoch, allowed one recovery session to accept the new one. */
+  recoveryEpoch: number | null;
+  /** The current epoch was fenced: no session until the node is re-enrolled. */
+  fenced: boolean;
 }
 
 /** Features this hub speaks (none of the optional channels yet). */
@@ -49,6 +53,8 @@ export interface Pending {
   hello: Hello;
   welcome: Welcome;
   expected: SessionProof;
+  /** A recovery session at the node's previous epoch: it only carries the re-enrollment. */
+  recovery: boolean;
 }
 
 /** Validate `hello` and build the signed `welcome`, or the refusal. */
@@ -73,13 +79,19 @@ export function welcome(
   const node = ctx.node;
   if (!node) return Result.err(reject("unknown-node", `${hello.nodeId} is not enrolled`));
   if (node.retired) return Result.err(reject("revoked", `${hello.nodeId} is retired`));
-  if (hello.nodeEpoch !== node.nodeEpoch) {
+  const recovery = node.recoveryEpoch !== null && hello.nodeEpoch === node.recoveryEpoch;
+  if (hello.nodeEpoch !== node.nodeEpoch && !recovery) {
     return Result.err(
       reject("stale-epoch", `node epoch ${hello.nodeEpoch}, current ${node.nodeEpoch}`),
     );
   }
   if (hello.identityKeyId !== node.identityKeyId)
     return Result.err(reject("bad-proof", "unknown identity key"));
+  if (node.fenced && !recovery) {
+    return Result.err(
+      reject("stale-epoch", `epoch ${hello.nodeEpoch} was fenced: re-enroll the node first`),
+    );
+  }
   const sessionId = `sess-${randomNonce().slice(0, 24)}`;
   const base = {
     channel: hello.channel,
@@ -96,6 +108,7 @@ export function welcome(
   return Result.ok({
     hello,
     expected: { role: "node", ...base },
+    recovery,
     welcome: {
       type: "welcome",
       protocol: protocol.value,

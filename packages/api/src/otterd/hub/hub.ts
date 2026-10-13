@@ -36,6 +36,7 @@ import {
   type Socket,
 } from "./connection";
 import { authenticate, welcome } from "./handshake";
+import { recover } from "./recovery";
 import { sendRequest } from "./requests";
 import { telemetrySink } from "./telemetry";
 
@@ -126,6 +127,15 @@ export class Hub {
       return this.drop(conn, `rejected: ${ok.error.code}`);
     }
     clearTimeout(conn.timer);
+    if (pending.recovery) {
+      // Not awaited: the recovery's requests are answered by frames this
+      // connection's queue must stay free to handle.
+      void recover(conn, pending, node, this.cfg).then((done) => {
+        this.drop(conn, done ? "re-enrolled" : "recovery session ended without re-enrollment");
+        if (done) this.cfg.wake();
+      });
+      return;
+    }
     const session: Session = {
       sessionId: pending.welcome.sessionId,
       node,

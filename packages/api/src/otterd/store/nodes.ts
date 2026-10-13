@@ -1,4 +1,5 @@
 import type { MachineBinding, NodeAdminState, UpgradeView } from "@otterdeploy/otterd-cp";
+import type { SignedEnvelope } from "@otterdeploy/otterd-proto";
 
 /**
  * Node administration: cordon, drain, retire, fence policy and the rolling
@@ -60,6 +61,7 @@ export function setFence(
 /** Queue nodes for a rolling otterd upgrade; the planner runs them one at a time. */
 export function queueUpgrade(
   nodeIds: readonly string[],
+  release: SignedEnvelope,
   now: number,
   by: string,
 ): Promise<Result<void, StoreFailure>> {
@@ -69,6 +71,7 @@ export function queueUpgrade(
         .update(otterdNode)
         .set({
           upgradePhase: "queued",
+          upgradeRelease: release,
           upgradeFromIncarnation: null,
           upgradeSince: now,
           updatedAt: now,

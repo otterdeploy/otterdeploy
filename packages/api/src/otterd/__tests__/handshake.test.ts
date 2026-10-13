@@ -26,6 +26,8 @@ const known: KnownNode = {
   identityKey: nodeKey,
   identityKeyId: keyIdOf(nodeKey),
   retired: false,
+  recoveryEpoch: null,
+  fenced: false,
 };
 const hello: Hello = {
   type: "hello",
@@ -104,6 +106,16 @@ describe("hub handshake", () => {
   ] as const)("rejects %s", (_, h, n, code) => {
     const r = welcome({ ...hello, ...h }, { ...ctx, node: { ...known, ...n } });
     expect(r.isErr() && r.error.code).toBe(code);
+  });
+
+  it("lets a fenced node at its previous epoch in once, as a recovery session", () => {
+    const after = { ...known, nodeEpoch: 3, recoveryEpoch: 2 };
+    expect(welcome(hello, { ...ctx, node: after }).unwrap().recovery).toBe(true);
+    const r = welcome({ ...hello, nodeEpoch: 1 }, { ...ctx, node: after });
+    expect(r.isErr() && r.error.code).toBe("stale-epoch");
+    expect(welcome(hello, ctx).unwrap().recovery).toBe(false);
+    const fenced = welcome(hello, { ...ctx, node: { ...known, fenced: true } });
+    expect(fenced.isErr() && fenced.error.code).toBe("stale-epoch");
   });
 
   it("rejects an unknown node", () => {
