@@ -27,6 +27,13 @@ export * from "./edge-threat";
 // packages/api/src/edge-logs/partition.ts. Import its typed object directly
 // from "@otterdeploy/db/schema/edge-log" for queries.
 export * from "./git";
+// health_series / health_boot / health_ledger_anchor / health_rebuild_pending /
+// health_rejected / health_probe_r1d / health_meta / health_counters are
+// drizzle-managed. The partitioned health tables (raw, ledger, 10-minute and
+// hourly rollups) are intentionally NOT re-exported: like edge_log, drizzle-kit
+// can't express PARTITION BY. Import them from
+// "@otterdeploy/db/schema/health-data-partitioned".
+export * from "./health-data";
 export * from "./mesh";
 export * from "./notification";
 export * from "./notification-channel";
