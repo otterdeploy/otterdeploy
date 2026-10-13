@@ -217,6 +217,23 @@ enum PlatformCmd {
         #[arg(long)]
         manifest: PathBuf,
     },
+    /// Update the platform to a newer signed manifest (daemon stopped).
+    Update {
+        #[command(flatten)]
+        paths: Paths,
+        #[arg(long)]
+        manifest: PathBuf,
+    },
+    /// Roll back an update interrupted before the schema boundary (daemon stopped).
+    Rollback {
+        #[command(flatten)]
+        paths: Paths,
+    },
+    /// Continue an interrupted update forward at the next boot.
+    Resume {
+        #[command(flatten)]
+        paths: Paths,
+    },
 }
 
 fn keygen(paths: &Paths) -> Result<(), String> {
@@ -561,9 +578,47 @@ fn commit_update_if_pending(root: &Path) {
     }
 }
 
+async fn open_platform_offline(paths: &Paths) -> Result<Platform, String> {
+    let (state, _) = Journal::read_snapshot(&paths.journal).map_err(|e| e.to_string())?;
+    let id = state.identity.ok_or("the node journal has no identity")?;
+    let boot: BootId = otterd_sys::host::kernel_boot_id()
+        .map_err(|e| e.to_string())?
+        .parse()
+        .map_err(|e: otterd_proto::ids::IdError| e.to_string())?;
+    let incarnation = Incarnation::mint().map_err(|e| e.to_string())?;
+    open_platform(paths, id.recovery_key, boot, incarnation, false).await
+}
+
+/// `platform update` (with a manifest) or `platform rollback` (without).
+async fn platform_offline(paths: &Paths, manifest: Option<&Path>) -> Result<(), String> {
+    let p = open_platform_offline(paths).await?;
+    let id = match manifest {
+        Some(m) => {
+            let (state, _) = Journal::read_snapshot(&paths.journal).map_err(|e| e.to_string())?;
+            let host = otterd_sys::host::host_binding(None).map_err(|e| e.to_string())?;
+            p.update(&read_envelope(m)?, &host, state.revoked_below_term())
+                .await
+                .map_err(|e| e.to_string())?
+        }
+        None => p.rollback().await.map_err(|e| e.to_string())?,
+    };
+    println!(
+        "{}",
+        serde_json::json!({"update": id, "status": p.status()})
+    );
+    Ok(())
+}
+
+async fn platform_resume(paths: &Paths) -> Result<(), String> {
+    let p = open_platform_offline(paths).await?;
+    let id = p.request_resume().map_err(|e| e.to_string())?;
+    println!("{}", serde_json::json!({"resumeRequested": id}));
+    Ok(())
+}
+
 /// Boot the platform in the background, retrying while blocked; the tenant
 /// gate opens only once it is up.
-fn supervise_platform(node: Arc<Node>, platform: Platform, recovery: bool) {
+fn supervise_platform(node: Arc<Node>, platform: Arc<Platform>, recovery: bool) {
     tokio::spawn(async move {
         let host = match otterd_sys::host::host_binding(None) {
             Ok(h) => h,
@@ -611,6 +666,7 @@ fn connect(
     node: &Arc<Node>,
     reporter: &SlotReporter,
     upgrader: Option<Arc<Upgrader>>,
+    platform: Option<Arc<Platform>>,
     shutdown: watch::Receiver<bool>,
 ) -> Result<Option<Control>, String> {
     let Some(url) = &args.control_url else {
@@ -630,6 +686,9 @@ fn connect(
     if let Some(u) = upgrader {
         handler = handler.with_upgrader(u);
     }
+    if let Some(p) = platform {
+        handler = handler.with_platform(p);
+    }
     let handler = Arc::new(handler);
     let manager = Arc::new(ConnectionManager::new(
         TransportConfig::new(url.clone(), tls),
@@ -645,13 +704,14 @@ fn connect(
     Ok(Some(Control { outbox, handler }))
 }
 
-async fn run(args: RunArgs) -> Result<(), (u8, String)> {
+/// With `--platform`: close the tenant gate and boot the platform in the
+/// background.
+async fn start_platform(
+    args: &RunArgs,
+    node: &Arc<Node>,
+) -> Result<Option<Arc<Platform>>, (u8, String)> {
     let fail = |e: String| (1, e);
-    let node = Arc::new(start_node(&args).await?);
-    let progress = node.progress.clone();
-    let notifier = Notifier::from_env();
-    tokio::spawn(otterd::watchdog::run(progress.clone(), notifier.clone()));
-    if args.platform {
+    Ok(if args.platform {
         if let Ok(mut g) = node.gate.lock() {
             *g = TenantGate {
                 open: false,
@@ -676,12 +736,37 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
         )
         .await
         .map_err(fail)?;
-        supervise_platform(Arc::clone(&node), platform, args.platform_recovery);
-    }
+        let platform = Arc::new(platform);
+        supervise_platform(
+            Arc::clone(node),
+            Arc::clone(&platform),
+            args.platform_recovery,
+        );
+        Some(platform)
+    } else {
+        None
+    })
+}
+
+async fn run(args: RunArgs) -> Result<(), (u8, String)> {
+    let fail = |e: String| (1, e);
+    let node = Arc::new(start_node(&args).await?);
+    let progress = node.progress.clone();
+    let notifier = Notifier::from_env();
+    tokio::spawn(otterd::watchdog::run(progress.clone(), notifier.clone()));
+    let platform = start_platform(&args, &node).await?;
     let reporter = SlotReporter::default();
     let (shutdown, shutdown_rx) = watch::channel(false);
     let upgrader = upgrader(&args).map_err(fail)?;
-    let control = connect(&args, &node, &reporter, upgrader.clone(), shutdown_rx).map_err(fail)?;
+    let control = connect(
+        &args,
+        &node,
+        &reporter,
+        upgrader.clone(),
+        platform,
+        shutdown_rx,
+    )
+    .map_err(fail)?;
     let api_node = Arc::clone(&node);
     let api_session = control.as_ref().map(|c| Arc::clone(&c.handler));
     let api_socket = args.socket.clone();
@@ -755,6 +840,17 @@ async fn main() -> ExitCode {
             .map_err(|e| (1, e)),
         Cmd::Run(args) => run(*args).await,
         Cmd::Update(cmd) => update_cmd(cmd).map_err(|e| (1, e)),
+        Cmd::Platform(PlatformCmd::Update { paths, manifest }) => {
+            platform_offline(&paths, Some(&manifest))
+                .await
+                .map_err(|e| (1, e))
+        }
+        Cmd::Platform(PlatformCmd::Rollback { paths }) => {
+            platform_offline(&paths, None).await.map_err(|e| (1, e))
+        }
+        Cmd::Platform(PlatformCmd::Resume { paths }) => {
+            platform_resume(&paths).await.map_err(|e| (1, e))
+        }
         Cmd::Platform(PlatformCmd::Install { paths, manifest }) => {
             platform_install(&paths, &manifest)
                 .await

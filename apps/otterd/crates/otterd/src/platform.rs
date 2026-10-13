@@ -16,8 +16,8 @@ use otterd_journal::{NodeState, Submission};
 use otterd_proto::U53;
 use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
 use otterd_proto::identity::HostBinding;
-use otterd_proto::ids::{AttemptId, ContainerRef, Sha256Hex, SlotRef};
-use otterd_proto::journal::{EngineOutcome, Record, Retirement, WorkloadClass};
+use otterd_proto::ids::{AttemptId, ContainerRef, Sha256Hex, SlotRef, UpdateId};
+use otterd_proto::journal::{EngineOutcome, Record, Retirement, UpdatePhase, WorkloadClass};
 use otterd_proto::lifecycle::ProcessObservation;
 use otterd_proto::platform::{
     ManifestError, PlatformBootManifest, PlatformMember, PlatformPreflight, PlatformReadiness,
@@ -119,7 +119,7 @@ impl Platform {
         self.status.lock().map(|s| s.clone()).unwrap_or_default()
     }
 
-    fn update(&self, f: impl FnOnce(&mut PlatformStatus)) {
+    fn set_status(&self, f: impl FnOnce(&mut PlatformStatus)) {
         if let Ok(mut s) = self.status.lock() {
             f(&mut s);
         }
@@ -127,7 +127,7 @@ impl Platform {
 
     fn event(&self, msg: String) {
         tracing::info!(platform = %msg);
-        self.update(|s| {
+        self.set_status(|s| {
             s.events.push(msg);
             let over = s.events.len().saturating_sub(MAX_EVENTS);
             s.events.drain(..over);
@@ -164,6 +164,21 @@ impl Platform {
                 active.manifest_digest
             )));
         }
+        let digest = self.store(envelope)?;
+        self.engine
+            .journal()
+            .append(Record::ManifestActivated {
+                manifest_digest: digest.clone(),
+                manifest_revision: m.manifest_revision,
+                bootstrap_epoch: m.bootstrap_epoch,
+                authority_term: m.authority_term,
+            })
+            .await?;
+        Ok(digest)
+    }
+
+    /// Keep a signed manifest under its digest (root-only, atomic).
+    pub fn store(&self, envelope: &SignedEnvelope) -> Result<Sha256Hex, PlatformError> {
         let digest = envelope.payload_digest()?;
         let dir = self.cfg.dir.join("manifests");
         std::fs::DirBuilder::new()
@@ -189,15 +204,6 @@ impl Platform {
         std::fs::File::open(&dir)
             .and_then(|d| d.sync_all())
             .map_err(io(&dir))?;
-        self.engine
-            .journal()
-            .append(Record::ManifestActivated {
-                manifest_digest: digest.clone(),
-                manifest_revision: m.manifest_revision,
-                bootstrap_epoch: m.bootstrap_epoch,
-                authority_term: m.authority_term,
-            })
-            .await?;
         Ok(digest)
     }
 
@@ -207,11 +213,19 @@ impl Platform {
             .state()?
             .manifest
             .ok_or_else(|| PlatformError::Blocked("no active platform manifest".into()))?;
-        let path = self.manifest_path(&active.manifest_digest);
+        Ok((
+            active.manifest_digest.clone(),
+            self.load(&active.manifest_digest)?,
+        ))
+    }
+
+    /// A stored manifest, re-verified against its digest and the recovery key.
+    pub fn load(&self, digest: &Sha256Hex) -> Result<PlatformBootManifest, PlatformError> {
+        let path = self.manifest_path(digest);
         let bytes = std::fs::read(&path).map_err(io(&path))?;
         let envelope: SignedEnvelope =
             serde_json::from_slice(&bytes).map_err(|e| PlatformError::Blocked(e.to_string()))?;
-        if envelope.payload_digest()? != active.manifest_digest {
+        if &envelope.payload_digest()? != digest {
             return Err(PlatformError::Blocked(format!(
                 "{} does not hold the manifest its name says",
                 path.display()
@@ -221,7 +235,7 @@ impl Platform {
             std::slice::from_ref(&self.recovery_key),
             SignContext::PlatformBootManifest,
         )?;
-        Ok((active.manifest_digest, m))
+        Ok(m)
     }
 
     /// Boot the platform. `revoked_below_term` comes from the node journal: a
@@ -237,14 +251,14 @@ impl Platform {
             .boot_locked(host, revoked_below_term, recovery_mode)
             .await;
         match &result {
-            Ok(()) => self.update(|s| {
+            Ok(()) => self.set_status(|s| {
                 s.phase = "up".into();
                 s.blocked = None;
             }),
             Err(e) => {
                 let reason = e.to_string();
                 self.event(format!("blocked: {reason}"));
-                self.update(|s| {
+                self.set_status(|s| {
                     s.phase = "blocked".into();
                     s.blocked = Some(reason);
                 });
@@ -259,9 +273,31 @@ impl Platform {
         revoked_below_term: U53,
         recovery_mode: bool,
     ) -> Result<(), PlatformError> {
-        self.update(|s| s.phase = "preflight".into());
+        self.set_status(|s| s.phase = "preflight".into());
+        if let Some(u) = self.state()?.update
+            && !u.phase.is_terminal()
+        {
+            if u.irreversible || self.resume_marker().exists() {
+                self.event(format!(
+                    "resuming platform update {} forward from {:?}",
+                    u.update_id, u.phase
+                ));
+                self.forward_locked(
+                    &u.update_id,
+                    u.phase,
+                    &u.from_manifest_digest,
+                    &u.to_manifest_digest,
+                )
+                .await?;
+            } else {
+                return Err(PlatformError::Blocked(format!(
+                    "platform update {} was interrupted at {:?}, before the schema boundary: roll it back or resume it",
+                    u.update_id, u.phase
+                )));
+            }
+        }
         let (digest, m) = self.active()?;
-        self.update(|s| s.manifest_digest = Some(digest.clone()));
+        self.set_status(|s| s.manifest_digest = Some(digest.clone()));
         if m.authority_term < revoked_below_term {
             return Err(PlatformError::Blocked(format!(
                 "the manifest is for authority term {} but the recovery root revoked everything below {revoked_below_term}",
@@ -281,10 +317,193 @@ impl Platform {
         ));
         self.ensure_network(&m).await?;
         for member in order {
-            self.update(|s| s.phase = format!("starting {}", member.name));
+            self.set_status(|s| s.phase = format!("starting {}", member.name));
             self.ensure_member(&m, member, recovery_mode).await?;
         }
         Ok(())
+    }
+
+    fn resume_marker(&self) -> PathBuf {
+        self.cfg.dir.join("resume-forward")
+    }
+
+    async fn phase(
+        &self,
+        id: &UpdateId,
+        phase: UpdatePhase,
+        from: &Sha256Hex,
+        to: &Sha256Hex,
+    ) -> Result<(), PlatformError> {
+        self.engine
+            .journal()
+            .append(Record::UpdatePhaseEntered {
+                update_id: id.clone(),
+                phase,
+                from_manifest_digest: from.clone(),
+                to_manifest_digest: to.clone(),
+            })
+            .await?;
+        self.event(format!("update {id}: {phase:?}"));
+        Ok(())
+    }
+
+    /// Update to a newer signed revision that names the active manifest as its
+    /// predecessor. Every phase is journalled before its step runs to the
+    /// next one: `Staged` (manifest kept, images loaded) → `CpQuiesced` (the
+    /// control plane quiesced its writers before asking) → `CpStopped` →
+    /// `SchemaBoundary` (the new control plane migrates the schema as it
+    /// starts; from here only forward) → `NewCpStarted` (the new manifest is
+    /// active and its members are up, the control plane in recovery mode) →
+    /// `Committed`. An update interrupted before the boundary blocks boot until
+    /// it is rolled back or resumed; after it, boot resumes it forward.
+    pub async fn update(
+        &self,
+        envelope: &SignedEnvelope,
+        host: &HostBinding,
+        revoked_below_term: U53,
+    ) -> Result<UpdateId, PlatformError> {
+        let _run = self.run.lock().await;
+        if let Some(u) = self.state()?.update
+            && !u.phase.is_terminal()
+        {
+            return Err(PlatformError::Blocked(format!(
+                "platform update {} is in progress at {:?}",
+                u.update_id, u.phase
+            )));
+        }
+        let (from, active) = self.active()?;
+        let new: PlatformBootManifest = envelope.verify(
+            std::slice::from_ref(&self.recovery_key),
+            SignContext::PlatformBootManifest,
+        )?;
+        new.preflight()?;
+        new.check_host(host)?;
+        if new.manifest_revision <= active.manifest_revision {
+            return Err(PlatformError::Blocked(format!(
+                "revision {} is not newer than the active {}",
+                new.manifest_revision, active.manifest_revision
+            )));
+        }
+        if new.previous_manifest_digest.as_ref() != Some(&from) {
+            return Err(PlatformError::Blocked(
+                "the new manifest does not name the active one as its predecessor".into(),
+            ));
+        }
+        if new.authority_term < active.authority_term || new.authority_term < revoked_below_term {
+            return Err(PlatformError::Blocked(
+                "an update never lowers the authority term, nor uses a revoked one".into(),
+            ));
+        }
+        let to = self.store(envelope)?;
+        let id = UpdateId::mint().map_err(engine)?;
+        self.phase(&id, UpdatePhase::Staged, &from, &to).await?;
+        for m in &new.members {
+            self.ensure_image(m).await?;
+        }
+        self.forward_locked(&id, UpdatePhase::Staged, &from, &to)
+            .await?;
+        Ok(id)
+    }
+
+    async fn forward_locked(
+        &self,
+        id: &UpdateId,
+        reached: UpdatePhase,
+        from: &Sha256Hex,
+        to: &Sha256Hex,
+    ) -> Result<(), PlatformError> {
+        let old = self.load(from)?;
+        let new = self.load(to)?;
+        let control_plane = |m: &PlatformBootManifest| {
+            m.members
+                .iter()
+                .find(|m| m.role == otterd_proto::platform::PlatformRole::ControlPlane)
+                .cloned()
+                .ok_or_else(|| PlatformError::Blocked("no control plane member".into()))
+        };
+        let old_cp = control_plane(&old)?;
+        let steps = [
+            UpdatePhase::CpQuiesced,
+            UpdatePhase::CpStopped,
+            UpdatePhase::SchemaBoundary,
+            UpdatePhase::NewCpStarted,
+            UpdatePhase::Committed,
+        ];
+        for step in steps.into_iter().filter(|s| *s > reached) {
+            match step {
+                UpdatePhase::CpStopped => self.stop_member(&old_cp).await?,
+                UpdatePhase::NewCpStarted => {
+                    self.stop_member(&old_cp).await?;
+                    self.engine
+                        .journal()
+                        .append(Record::ManifestActivated {
+                            manifest_digest: to.clone(),
+                            manifest_revision: new.manifest_revision,
+                            bootstrap_epoch: new.bootstrap_epoch,
+                            authority_term: new.authority_term,
+                        })
+                        .await?;
+                    self.ensure_network(&new).await?;
+                    for m in new.preflight()? {
+                        self.ensure_member(&new, m, true).await?;
+                    }
+                }
+                UpdatePhase::Committed => {
+                    let _ = std::fs::remove_file(self.resume_marker());
+                }
+                _ => {}
+            }
+            self.phase(id, step, from, to).await?;
+        }
+        Ok(())
+    }
+
+    /// Stop and remove every container a member's slot created.
+    async fn stop_member(&self, m: &PlatformMember) -> Result<(), PlatformError> {
+        let slot = slot(m)?;
+        for (attempt, container) in self.created_containers(&slot)? {
+            self.stop_remove(&slot, &attempt, &container).await?;
+        }
+        Ok(())
+    }
+
+    /// Roll back an interrupted update. Refused after the schema boundary
+    /// (the journal enforces it too); the active manifest is unchanged, and the
+    /// next boot starts its control plane again.
+    pub async fn rollback(&self) -> Result<UpdateId, PlatformError> {
+        let _run = self.run.lock().await;
+        let u = self
+            .state()?
+            .update
+            .filter(|u| !u.phase.is_terminal())
+            .ok_or_else(|| PlatformError::Blocked("no platform update in progress".into()))?;
+        if u.irreversible {
+            return Err(PlatformError::Blocked(format!(
+                "update {} crossed the schema boundary: only forward, or disaster recovery",
+                u.update_id
+            )));
+        }
+        self.phase(
+            &u.update_id,
+            UpdatePhase::RolledBack,
+            &u.from_manifest_digest,
+            &u.to_manifest_digest,
+        )
+        .await?;
+        let _ = std::fs::remove_file(self.resume_marker());
+        Ok(u.update_id)
+    }
+
+    /// Ask the next boot to continue an interrupted update forward.
+    pub fn request_resume(&self) -> Result<UpdateId, PlatformError> {
+        let u = self
+            .state()?
+            .update
+            .filter(|u| !u.phase.is_terminal())
+            .ok_or_else(|| PlatformError::Blocked("no platform update in progress".into()))?;
+        let marker = self.resume_marker();
+        std::fs::write(&marker, u.update_id.as_str()).map_err(io(&marker))?;
+        Ok(u.update_id)
     }
 
     async fn ensure_network(&self, m: &PlatformBootManifest) -> Result<(), PlatformError> {
@@ -331,6 +550,7 @@ impl Platform {
         let slot = slot(m)?;
         self.retire_or_block(&slot).await?;
         let created = self.created_containers(&slot)?;
+        let config = container_config(manifest, m, recovery_mode);
         if let Some((attempt, container)) = created.last()
             && let Some(v) = self
                 .engine
@@ -339,13 +559,14 @@ impl Platform {
                 .map_err(engine)?
             && matches!(v.process, ProcessObservation::Running { .. })
             && self.image_of(&v.id).await? == m.image.id
+            && v.labels.get(LABEL_CONFIG).map(String::as_str) == fingerprint(&config)
             && self.ready(m, &v.id).await
         {
             self.event(format!(
                 "{}: attempt {attempt} running and ready; continued",
                 m.name
             ));
-            self.update(|s| {
+            self.set_status(|s| {
                 s.members.insert(m.name.clone(), "ready (continued)".into());
             });
             return Ok(());
@@ -375,7 +596,7 @@ impl Platform {
             .submit(
                 spec(EngineOp::Create {
                     name: name.clone(),
-                    config: container_config(manifest, m, recovery_mode),
+                    config,
                 }),
                 |s| no_unresolved(s, &slot),
             )
@@ -420,7 +641,7 @@ impl Platform {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
         self.event(format!("{}: ready", m.name));
-        self.update(|s| {
+        self.set_status(|s| {
             s.members.insert(m.name.clone(), "ready".into());
         });
         Ok(())
@@ -721,12 +942,30 @@ fn container_config(
         "HostConfig": {"Binds": binds, "PortBindings": bindings, "NetworkMode": manifest.network.name},
         "NetworkingConfig": {"EndpointsConfig": {manifest.network.name.clone(): {"IPAMConfig": {"IPv4Address": m.ip}}}},
     });
-    if !m.cmd.is_empty()
-        && let Some(obj) = body.as_object_mut()
-    {
-        obj.insert("Cmd".into(), serde_json::json!(m.cmd));
+    if let Some(obj) = body.as_object_mut() {
+        if !m.cmd.is_empty() {
+            obj.insert("Cmd".into(), serde_json::json!(m.cmd));
+        }
+        // What the member was created from: a running member is continued
+        // only when this is unchanged.
+        let fingerprint = Sha256Hex::digest(
+            serde_json::Value::Object(obj.clone())
+                .to_string()
+                .as_bytes(),
+        );
+        obj.insert(
+            "Labels".into(),
+            serde_json::json!({LABEL_CONFIG: fingerprint}),
+        );
     }
     body
+}
+
+/// Label carrying a platform member's create-config fingerprint.
+const LABEL_CONFIG: &str = "dev.otterdeploy.config";
+
+fn fingerprint(body: &serde_json::Value) -> Option<&str> {
+    body.get("Labels")?.get(LABEL_CONFIG)?.as_str()
 }
 
 /// Host checks before anything starts: the firewall baseline is loaded and
