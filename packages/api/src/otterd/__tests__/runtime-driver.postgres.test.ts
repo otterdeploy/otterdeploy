@@ -114,6 +114,25 @@ describe("otterd runtime driver state", () => {
       running: 1,
     });
 
+    // A frozen process holds the slot but does not serve.
+    const frozen = {
+      ...report,
+      attempts: [
+        {
+          ...report.attempts[0],
+          attemptId: "att_1",
+          ordinal: 1,
+          process: { state: "paused" as const, pid: 7 },
+          mutations: [{ mutationId: "mut_1", verb: "start" as const, state: "settled" as const }],
+        },
+      ],
+    };
+    (await applySlotReports(nodeId, `sess-${run}`, [frozen], NOW + 2)).unwrap();
+    expect((await statusByName([name])).unwrap().get(name)).toMatchObject({
+      status: "starting",
+      running: 0,
+    });
+
     (await setPaused(id, true, NOW + 2)).unwrap();
     expect((await statusByName([name])).unwrap().get(name)?.desiredPaused).toBe(true);
   });
