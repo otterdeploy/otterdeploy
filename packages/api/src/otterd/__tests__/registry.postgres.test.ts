@@ -4,6 +4,8 @@
  */
 import { db } from "@otterdeploy/db";
 import { otterdAuthority, otterdNode } from "@otterdeploy/db/schema/otterd";
+import { resource } from "@otterdeploy/db/schema/project";
+import { server } from "@otterdeploy/db/schema/server";
 import { seedSigner } from "@otterdeploy/otterd-cp";
 import {
   enrollCertificate,
@@ -19,7 +21,9 @@ import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import type { NodeRecord } from "../tools";
 
+import { seedOrganization, seedProject, seedService } from "../../__tests__/postgres-seed";
 import { type RegistryConfig, createEnrollToken, enroll } from "../registry";
+import { pinOf } from "../store/status";
 
 const NOW = 1_910_000_000_000;
 const signer = seedSigner(new Uint8Array(32).fill(3));
@@ -144,5 +148,56 @@ describe("otterd enrollment", () => {
     const r = await enroll(cfg(frozen), request(t.token), NOW);
     expect(r.isErr() && r.error._tag === "OtterdRefusal" && r.error.reason).toBe("anchor-frozen");
     expect((await db.select().from(otterdNode)).length).toBe(before);
+  });
+
+  it("links the node to the server row its token was minted for, and resolves a pinned resource to it", async () => {
+    const org = await seedOrganization("otterd-pin");
+    const [srv] = await db
+      .insert(server)
+      .values({
+        organizationId: org,
+        name: `srv-${run}`,
+        host: `10.0.0.${Math.floor(Math.random() * 200)}`,
+        cpuTotal: 2,
+        memTotalGb: 4,
+      })
+      .returning();
+    if (!srv) throw new Error("server not seeded");
+    const project = await seedProject(org);
+    const svc = await seedService({
+      projectId: project.projectId,
+      environmentId: project.mainEnvironmentId,
+      name: "pinned",
+    });
+    await db
+      .update(resource)
+      .set({ placementServerId: srv.id })
+      .where(eq(resource.id, svc.resourceId));
+    expect((await pinOf(svc.resourceId)).unwrap()).toEqual({
+      pinned: true,
+      nodeId: null,
+      serverId: srv.id,
+    });
+
+    const t = (
+      await createEnrollToken(
+        { roles: ["worker"], labels: {}, ttlMs: 600_000, by: "admin", serverId: srv.id },
+        NOW,
+      )
+    ).unwrap();
+    const done = (
+      await enroll(cfg(null), request(t.token, new Uint8Array(32).fill(14)), NOW)
+    ).unwrap();
+    expect((await pinOf(svc.resourceId)).unwrap()).toEqual({
+      pinned: true,
+      nodeId: done.nodeId,
+      serverId: srv.id,
+    });
+    const other = await seedService({
+      projectId: project.projectId,
+      environmentId: project.mainEnvironmentId,
+      name: "free",
+    });
+    expect((await pinOf(other.resourceId)).unwrap()).toEqual({ pinned: false });
   });
 });

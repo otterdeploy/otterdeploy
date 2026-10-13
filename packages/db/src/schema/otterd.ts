@@ -39,6 +39,8 @@ export const otterdAuthority = pgTable("otterd_authority", {
 /** Single-use, short-lived enrollment tokens; only the SHA-256 is stored. */
 export const otterdEnrollToken = pgTable("otterd_enroll_token", {
   tokenId: text("token_id").primaryKey(),
+  /** The `server` row this token enrolls, when the server was added first. */
+  serverId: text("server_id"),
   tokenHash: text("token_hash").notNull().unique(),
   roles: jsonb("roles").$type<string[]>().notNull(),
   labels: jsonb("labels").$type<Record<string, string>>().notNull(),
@@ -58,6 +60,8 @@ export const otterdNode = pgTable(
   "otterd_node",
   {
     nodeId: text("node_id").primaryKey(),
+    /** The `server` row this node is: where a pinned resource (`placement_server_id`) runs. */
+    serverId: text("server_id"),
     /** Enrollment order: the index of the node's global slots. */
     ordinal: integer("ordinal").notNull(),
     nodeEpoch: integer("node_epoch").notNull(),
@@ -101,7 +105,12 @@ export const otterdNode = pgTable(
     enrolledAt: bigint("enrolled_at", { mode: "number" }).notNull(),
     updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
-  (t) => [uniqueIndex("otterd_node_ordinal").on(t.ordinal)],
+  (t) => [
+    uniqueIndex("otterd_node_ordinal").on(t.ordinal),
+    uniqueIndex("otterd_node_server")
+      .on(t.serverId)
+      .where(sql`${t.serverId} is not null`),
+  ],
 );
 
 /** A scheduled service: the revision every slot should run. */
