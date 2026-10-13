@@ -102,6 +102,7 @@ async fn start_node(dir: &Path, key: SigningKey) -> Arc<Node> {
             staging_root: dir.join("stage"),
             stop_grace: Duration::from_secs(2),
             boot_barrier_profile: String::new(),
+            hold_bound: Duration::from_secs(300),
         },
         engine,
         key,

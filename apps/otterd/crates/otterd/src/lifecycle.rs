@@ -99,6 +99,10 @@ pub struct LifecycleConfig {
     /// profile validated for this Engine may retire Submitted work from an
     /// earlier kernel boot.
     pub boot_barrier_profile: String,
+    /// How long an earlier process's exclusive grant stays held (paused)
+    /// waiting for the control plane to adopt or stop it, before it is
+    /// stopped and certified.
+    pub hold_bound: Duration,
 }
 
 /// Whether tenant work may start. Closed on a platform host until the control
@@ -224,14 +228,33 @@ impl Node {
         }
         self.apply_boot_barrier().await?;
         let state = self.state()?;
-        let to_stop: Vec<GrantId> = state
-            .grants
-            .values()
-            .filter(|g| stopped_by_reconcile(g, &self.incarnation))
-            .map(|g| g.grant.grant_id.clone())
-            .collect();
-        for grant in to_stop {
-            let reason = "process restart: boot quarantine";
+        let now = now_ms().get();
+        let bound = u64::try_from(self.cfg.hold_bound.as_millis()).unwrap_or(u64::MAX);
+        let mut to_stop: Vec<(GrantId, &str)> = Vec::new();
+        let mut to_hold: Vec<GrantId> = Vec::new();
+        for g in state.grants.values() {
+            if !stopped_by_reconcile(g, &self.incarnation) {
+                continue;
+            }
+            let id = g.grant.grant_id.clone();
+            match &g.held {
+                _ if g.revoked.is_some() => to_stop.push((id, "revoked")),
+                Some(h) if h.incarnation == self.incarnation => {
+                    if now.saturating_sub(h.since_unix_ms.get()) > bound {
+                        to_stop.push((id, "held past its bound without adoption"));
+                    }
+                }
+                _ => to_hold.push(id),
+            }
+        }
+        for grant in to_hold {
+            match self.hold(&grant).await {
+                Ok(true) => {}
+                Ok(false) => to_stop.push((grant, "process restart: not eligible to be held")),
+                Err(e) => tracing::warn!(%grant, error = %e, "hold incomplete"),
+            }
+        }
+        for (grant, reason) in to_stop {
             if let Err(e) = self.try_stop_and_certify(&grant, reason).await {
                 tracing::warn!(%grant, error = %e, "quarantine stop incomplete");
             }
@@ -343,6 +366,9 @@ impl Node {
             ));
         }
         check_tenant_scope(&grant.slot, spec)?;
+        if let Some(attempt) = &grant.adopts_attempt {
+            return self.adopt(grant, attempt, op_id, spec_digest).await;
+        }
         let lock = self.slot_lock(&grant.slot)?;
         let _slot_guard = lock.lock().await;
         let state = self.state()?;
@@ -910,6 +936,193 @@ impl Node {
 
     // ---------------------------------------------------------------- reports
 
+    /// Hold an earlier process's exclusive grant: pause its running container
+    /// and journal the hold, instead of stopping it. `Ok(false)` when it is
+    /// not eligible (revoked term, unresolved submissions, Unknown holds, or
+    /// a container that is not the attempt's, not running, or restarts on
+    /// its own); the caller stops it as before.
+    async fn hold(&self, grant: &GrantId) -> Result<bool, NodeError> {
+        let lock = self.slot_lock(&self.grant_slot(grant)?)?;
+        let Ok(_slot_guard) = lock.try_lock() else {
+            return Ok(true);
+        };
+        let state = self.state()?;
+        let g = state
+            .grants
+            .get(grant)
+            .ok_or_else(|| NodeError::Internal(format!("grant {grant} vanished")))?;
+        if g.grant.authority_term < state.revoked_below_term() {
+            return Ok(false);
+        }
+        if state.slot_blockers(&g.grant.slot).iter().any(|b| {
+            matches!(
+                b,
+                Blocker::UnresolvedSubmission { .. } | Blocker::UnknownHold { .. }
+            )
+        }) {
+            return Ok(false);
+        }
+        let Some(attempt) = g.attempts.last().cloned() else {
+            return Ok(false);
+        };
+        let Some(container) = state.mutations_of_grant(grant).find_map(|m| {
+            match (&m.record.attempt_id, &m.submission) {
+                (
+                    a,
+                    Submission::Settled {
+                        outcome: EngineOutcome::Created { container },
+                    },
+                ) if a == &attempt => Some(container.clone()),
+                _ => None,
+            }
+        }) else {
+            return Ok(false);
+        };
+        let Some(v) = self.engine.inspect(container.as_ref()).await? else {
+            return Ok(false);
+        };
+        if !matches!(v.process, ProcessObservation::Running { .. }) || v.restart_policy != "no" {
+            return Ok(false);
+        }
+        let paused = match self
+            .engine
+            .submit(
+                MutationSpec {
+                    class: WorkloadClass::Tenant,
+                    slot: g.grant.slot.clone(),
+                    grant_id: Some(grant.clone()),
+                    attempt_id: attempt.clone(),
+                    op: EngineOp::Pause {
+                        container: container.clone(),
+                        name: v.name.clone(),
+                    },
+                },
+                |_| Ok(()),
+            )
+            .await?
+        {
+            SubmitResult::Settled {
+                outcome: EngineOutcome::Paused,
+                ..
+            } => true,
+            // Already paused by the previous process.
+            SubmitResult::Settled {
+                outcome: EngineOutcome::Refused { .. },
+                ..
+            } => self.is_paused(&container).await,
+            _ => return Ok(false),
+        };
+        self.engine
+            .journal()
+            .append(Record::GrantHeld {
+                grant_id: grant.clone(),
+                incarnation: self.incarnation.clone(),
+                container,
+                paused,
+                since_unix_ms: now_ms(),
+            })
+            .await?;
+        tracing::warn!(%grant, %attempt, paused, "held across the restart until the control plane adopts or stops it");
+        Ok(true)
+    }
+
+    async fn is_paused(&self, container: &ContainerRef) -> bool {
+        let Ok(r) = self
+            .engine
+            .docker()
+            .get(&format!("/containers/{container}/json"))
+            .await
+        else {
+            return false;
+        };
+        r.json::<serde_json::Value>().ok().is_some_and(|v| {
+            v.get("State").and_then(|s| s.get("Paused")) == Some(&serde_json::Value::Bool(true))
+        })
+    }
+
+    /// Adopt a held attempt under a new grant: the same container keeps
+    /// running (unpaused), now under the new, higher generation.
+    async fn adopt(
+        &self,
+        grant: &SlotGrant,
+        attempt: &AttemptId,
+        op_id: &OpId,
+        spec_digest: Sha256Hex,
+    ) -> Result<CommandResult, NodeError> {
+        let lock = self.slot_lock(&grant.slot)?;
+        let _slot_guard = lock.lock().await;
+        let state = self.state()?;
+        let (old, held) = state
+            .grants
+            .values()
+            .find_map(|o| {
+                let h = o.held.as_ref()?;
+                (!o.is_released() && &h.attempt_id == attempt && h.incarnation == self.incarnation)
+                    .then(|| (o.grant.grant_id.clone(), h.clone()))
+            })
+            .ok_or_else(|| NodeError::Refused(format!("no held attempt {attempt} to adopt")))?;
+        let Some(v) = self.engine.inspect(held.container.as_ref()).await? else {
+            return Err(NodeError::Refused(
+                "the held container is gone; stop the old grant".into(),
+            ));
+        };
+        if !matches!(v.process, ProcessObservation::Running { .. })
+            || v.id != held.container.to_string()
+        {
+            return Err(NodeError::Refused(
+                "the held container is not running; stop the old grant".into(),
+            ));
+        }
+        let journal = self.engine.journal();
+        journal
+            .append(Record::GrantAccepted {
+                grant: grant.clone(),
+                spec_digest,
+                op_id: op_id.clone(),
+            })
+            .await?;
+        journal
+            .append(Record::GrantAdopted {
+                grant_id: old.clone(),
+                by_grant: grant.grant_id.clone(),
+                attempt_id: attempt.clone(),
+            })
+            .await?;
+        journal
+            .append(Record::QuarantineCleared {
+                slot: grant.slot.clone(),
+                grant_id: grant.grant_id.clone(),
+                incarnation: self.incarnation.clone(),
+            })
+            .await?;
+        if held.paused || self.is_paused(&held.container).await {
+            let r = self
+                .engine
+                .submit(
+                    MutationSpec {
+                        class: WorkloadClass::Tenant,
+                        slot: grant.slot.clone(),
+                        grant_id: Some(grant.grant_id.clone()),
+                        attempt_id: attempt.clone(),
+                        op: EngineOp::Unpause {
+                            container: held.container.clone(),
+                            name: v.name.clone(),
+                        },
+                    },
+                    |_| Ok(()),
+                )
+                .await?;
+            if !matches!(r, SubmitResult::Settled { .. }) {
+                return Err(NodeError::Internal(format!("unpause unresolved: {r:?}")));
+            }
+        }
+        tracing::info!(old = %old, new = %grant.grant_id, %attempt, "held attempt adopted");
+        Ok(CommandResult::Applied {
+            grant_id: grant.grant_id.clone(),
+            attempt_id: attempt.clone(),
+        })
+    }
+
     /// Journalled state of every slot, for `workload.inspect` and slot reports.
     pub fn slot_reports(&self) -> Result<Vec<SlotReport>, NodeError> {
         let state = self.state()?;
@@ -977,10 +1190,14 @@ impl Node {
                         })
                         .map(|h| h.record.hold_id.clone())
                         .collect(),
-                    held: g.held.as_ref().map(|h| HeldAttempt {
-                        attempt_id: h.attempt_id.clone(),
-                        paused: h.paused,
-                    }),
+                    held: g
+                        .held
+                        .as_ref()
+                        .filter(|_| !g.is_released())
+                        .map(|h| HeldAttempt {
+                            attempt_id: h.attempt_id.clone(),
+                            paused: h.paused,
+                        }),
                 }
             })
             .collect())

@@ -1367,9 +1367,17 @@ impl NodeState {
         &'a self,
         grant: &'a GrantId,
     ) -> impl Iterator<Item = &'a MutationState> + 'a {
-        self.mutations
-            .values()
-            .filter(move |m| m.record.grant_id.as_ref() == Some(grant))
+        // An adopted attempt's earlier mutations were recorded under the
+        // grant that started it; they belong to its adopter now too.
+        let adopted: Vec<&AttemptId> = self
+            .grants
+            .get(grant)
+            .and_then(|g| g.grant.adopts_attempt.as_ref())
+            .into_iter()
+            .collect();
+        self.mutations.values().filter(move |m| {
+            m.record.grant_id.as_ref() == Some(grant) || adopted.contains(&&m.record.attempt_id)
+        })
     }
 
     pub fn mutations_of_slot<'a>(

@@ -97,6 +97,7 @@ async fn start_node(dir: &Path) -> Node {
             staging_root: dir.join("stage"),
             stop_grace: Duration::from_secs(2),
             boot_barrier_profile: String::new(),
+            hold_bound: Duration::from_secs(300),
         },
         engine,
         SigningKey::from_bytes(&NODE),
@@ -445,9 +446,16 @@ async fn apply_stop_quarantine_and_capability_rules() {
     let state = node.engine.journal().snapshot().unwrap();
     let g3s = &state.grants[&id::<otterd_proto::ids::GrantId>("g3")];
     assert!(
-        g3s.is_released(),
-        "boot quarantine stopped and certified the old incarnation's grant"
+        !g3s.is_released() && g3s.held.as_ref().is_some_and(|h| h.paused),
+        "the old incarnation's exclusive grant is held and paused"
     );
+    // The control plane decides to stop it: certified.
+    assert!(matches!(
+        node.stop(&id("g3"), "moved", &id("op-stop-3"), None)
+            .await
+            .unwrap(),
+        CommandResult::Stopped { .. }
+    ));
     assert!(docker_ps(&format!("label=dev.otterdeploy.attempt={a3}")).is_empty());
     // A fresh grant for this incarnation runs.
     let g5 = grant(&node, "g5", 5);
