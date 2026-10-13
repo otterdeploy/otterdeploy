@@ -580,3 +580,205 @@ async fn node_keys_rotate_over_the_session() {
     shutdown.send(true).unwrap();
     tokio::time::timeout(5 * SEC, task).await.unwrap().unwrap();
 }
+
+/// Serve fixed bodies by path on loopback, as a release mirror would.
+fn mirror(files: Vec<(String, Vec<u8>)>) -> String {
+    use std::io::{Read as _, Write as _};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!(
+        "http://127.0.0.1:{}/otterd",
+        listener.local_addr().unwrap().port()
+    );
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut s) = stream else { continue };
+            let mut buf = [0u8; 4096];
+            let n = s.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]).into_owned();
+            let path = req.split_whitespace().nth(1).unwrap_or("/").to_owned();
+            match files.iter().find(|(p, _)| format!("/otterd{p}") == path) {
+                Some((_, body)) => {
+                    let _ = write!(
+                        s,
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    );
+                    let _ = s.write_all(body);
+                }
+                None => {
+                    let _ = s.write_all(
+                        b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    );
+                }
+            }
+        }
+    });
+    base
+}
+
+#[tokio::test]
+#[ignore = "needs root and Docker on Linux"]
+async fn node_upgrade_stages_only_a_verified_release() {
+    use otterd::upgrade::Upgrader;
+    use otterd_proto::release::{ReleaseArtifact, ReleaseKey, ReleaseKeySet, ReleaseManifest};
+    use otterd_proto::version::VersionRange;
+    use otterd_update::{Layout, SlotInfo};
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let dir = tempfile::tempdir().unwrap();
+    let node = start_node(dir.path(), SigningKey::from_bytes(&NODE)).await;
+    let release_key = SigningKey::from_bytes(&[5; 32]);
+    let keys_path = dir.path().join("release-keys.json");
+    std::fs::write(
+        &keys_path,
+        serde_json::to_vec(&ReleaseKeySet {
+            serial: U53::ONE,
+            keys: vec![ReleaseKey {
+                key: PublicKey::from_verifying_key(&release_key.verifying_key()),
+                not_before_unix_ms: None,
+                not_after_unix_ms: None,
+            }],
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&keys_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let layout = Layout::new(dir.path().join("lib"));
+    layout
+        .install(
+            b"old-binary",
+            SlotInfo {
+                version: "1.0.0".into(),
+                sha256: Sha256Hex::digest(b"old-binary"),
+                protocol: VersionRange { min: 1, max: 1 },
+                journal_format: 1,
+            },
+        )
+        .unwrap();
+    let arch = std::env::consts::ARCH;
+    let file = |v: &str| format!("/v{v}/otterd-linux-{arch}");
+    let base = mirror(vec![
+        (file("1.1.0"), b"new-binary".to_vec()),
+        (file("1.3.0"), b"something else".to_vec()),
+    ]);
+    let upgrader =
+        Arc::new(Upgrader::new(Layout::new(dir.path().join("lib")), keys_path, &base).unwrap());
+    let release = |v: &str, body: &[u8], protocol: u16, signer: &SigningKey| {
+        SignedEnvelope::sign(
+            signer,
+            SignContext::ReleaseManifest,
+            &ReleaseManifest {
+                version: v.into(),
+                artifacts: vec![ReleaseArtifact {
+                    arch: arch.into(),
+                    sha256: Sha256Hex::digest(body),
+                    size: U53::new(u64::try_from(body.len()).unwrap()).unwrap(),
+                }],
+                protocol: VersionRange {
+                    min: protocol,
+                    max: protocol,
+                },
+                journal_format: 1,
+                min_rollback_version: "1.0.0".into(),
+                issued_at_unix_ms: otterd_journal::now_unix_ms(),
+            },
+        )
+        .unwrap()
+    };
+
+    let mut cp = FakeCp::start(SigningKey::from_bytes(&CP), public(NODE))
+        .await
+        .unwrap();
+    let mut cfg = TransportConfig::new(cp.url.clone(), client_config(&cp.trust).unwrap());
+    cfg.backoff_min = Duration::from_millis(50);
+    let handler = Arc::new(
+        ControlHandler::new(Arc::clone(&node), SlotReporter::default())
+            .with_upgrader(Arc::clone(&upgrader)),
+    );
+    let manager = Arc::new(ConnectionManager::new(
+        cfg,
+        handler,
+        Arc::new(NodeIdentitySource::new(Arc::clone(&node), "test")),
+    ));
+    let (shutdown, rx) = watch::channel(false);
+    let m = Arc::clone(&manager);
+    let task = tokio::spawn(async move { m.run(rx).await });
+    let mut s = cp.session(10 * SEC).await.expect("session");
+    let sid = s.session_id.clone();
+    let failed = |f: ControlFrame| {
+        matches!(
+            f,
+            ControlFrame::Response {
+                outcome: OpOutcome::Failed { .. },
+                ..
+            }
+        )
+    };
+    let upgrade = |env: SignedEnvelope| Command::NodeUpgrade { release: env };
+
+    // Unknown signer, a protocol this session does not speak, a mirror serving other bytes.
+    s.send(&request(
+        CP,
+        &sid,
+        1,
+        "op-u1",
+        1,
+        &upgrade(release(
+            "1.1.0",
+            b"new-binary",
+            1,
+            &SigningKey::from_bytes(&[9; 32]),
+        )),
+    ))
+    .await;
+    assert!(failed(response(&mut s, 1).await));
+    s.send(&request(
+        CP,
+        &sid,
+        2,
+        "op-u2",
+        2,
+        &upgrade(release("1.1.0", b"new-binary", 2, &release_key)),
+    ))
+    .await;
+    assert!(failed(response(&mut s, 2).await));
+    s.send(&request(
+        CP,
+        &sid,
+        3,
+        "op-u3",
+        3,
+        &upgrade(release("1.3.0", b"what was signed", 1, &release_key)),
+    ))
+    .await;
+    assert!(failed(response(&mut s, 3).await));
+    assert!(layout.state().unwrap().pending.is_none(), "nothing staged");
+
+    // The real release: staged in slot b, then the daemon asks to restart.
+    s.send(&request(
+        CP,
+        &sid,
+        4,
+        "op-u4",
+        4,
+        &upgrade(release("1.1.0", b"new-binary", 1, &release_key)),
+    ))
+    .await;
+    let result = completed(response(&mut s, 4).await);
+    assert!(
+        matches!(&result, CommandResult::Document { schema, .. } if schema == "otterd/upgrade-staged/v1"),
+        "{result:?}"
+    );
+    tokio::time::timeout(SEC, upgrader.restart_requested())
+        .await
+        .expect("restart requested");
+    let st = layout.state().unwrap();
+    assert_eq!(st.pending.as_ref().unwrap().version, "1.1.0");
+    assert_eq!(
+        std::fs::read(layout.binary(otterd_update::Slot::B)).unwrap(),
+        b"new-binary"
+    );
+
+    shutdown.send(true).unwrap();
+    tokio::time::timeout(5 * SEC, task).await.unwrap().unwrap();
+}

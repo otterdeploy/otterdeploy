@@ -17,6 +17,7 @@
 //! Steps 1–4 refuse without any side effect or journal record.
 
 use crate::lifecycle::{Node, NodeError};
+use crate::upgrade::Upgrader;
 use otterd_identity::rotation::valid_cp_keys;
 use otterd_journal::OpState;
 use otterd_proto::U53;
@@ -28,6 +29,7 @@ use otterd_proto::command::{Command, CommandResult, OpOutcome, OperationRecord, 
 use otterd_proto::envelope::{SignContext, SignedEnvelope};
 use otterd_proto::ids::{OpId, SessionId, Sha256Hex};
 use otterd_proto::journal::{HighWaterKind, Record};
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -40,6 +42,8 @@ pub struct Session {
     /// refuses every new privileged operation.
     pub clock: Option<ClockBound>,
     pub monitor_only: bool,
+    /// The negotiated protocol version.
+    pub protocol: u16,
 }
 
 /// A request's answer.
@@ -58,6 +62,7 @@ pub enum Answer {
 #[derive(Debug, Default)]
 pub struct Dispatcher {
     replay: Mutex<ReplayGuard>,
+    upgrader: Option<Arc<Upgrader>>,
 }
 
 fn refuse(error: CapabilityError) -> Answer {
@@ -69,6 +74,15 @@ impl Dispatcher {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// A dispatcher that can run `node.upgrade`.
+    #[must_use]
+    pub fn with_upgrader(upgrader: Arc<Upgrader>) -> Self {
+        Self {
+            upgrader: Some(upgrader),
+            ..Self::default()
+        }
     }
 
     pub async fn handle(
@@ -104,7 +118,16 @@ impl Dispatcher {
         if let Err(e) = claim {
             return malformed(format!("claim: {e}"));
         }
-        let outcome = match run(node, &cap, &command, &payload_hash).await {
+        let outcome = match run(
+            node,
+            &cap,
+            &command,
+            &payload_hash,
+            self.upgrader.as_deref(),
+            session,
+        )
+        .await
+        {
             Ok(result) => OpOutcome::Completed { result },
             Err(NodeError::Refused(message)) => OpOutcome::Failed {
                 code: "refused".into(),
@@ -240,8 +263,21 @@ async fn run(
     cap: &Capability,
     command: &Command,
     payload_hash: &Sha256Hex,
+    upgrader: Option<&Upgrader>,
+    session: &Session,
 ) -> Result<CommandResult, NodeError> {
     match command {
+        Command::NodeUpgrade { release } => {
+            let upgrader = upgrader.ok_or_else(|| {
+                NodeError::Refused("this node is not installed for A/B updates".into())
+            })?;
+            let clock = session
+                .clock
+                .ok_or_else(|| NodeError::Refused("no bounded clock".into()))?;
+            upgrader
+                .upgrade(release, clock.now_unix_ms, session.protocol)
+                .await
+        }
         Command::WorkloadApply { grant, spec } => {
             if cap.binding.as_ref().is_some_and(|b| {
                 b.grant_id != grant.grant_id

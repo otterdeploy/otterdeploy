@@ -114,6 +114,7 @@ fn session() -> Session {
             uncertainty_ms: U53::from_const(100),
         }),
         monitor_only: false,
+        protocol: 1,
     }
 }
 

@@ -1108,6 +1108,7 @@ dependencies = [
  "otterd-sys",
  "otterd-transport",
  "otterd-update",
+ "reqwest",
  "serde",
  "serde_json",
  "tempfile",

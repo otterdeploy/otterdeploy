@@ -16,6 +16,7 @@ use otterd::TenantGate;
 use otterd::keys::KeyRotator;
 use otterd::platform::{Platform, PlatformConfig};
 use otterd::session::{ControlHandler, NodeIdentitySource, SlotReporter};
+use otterd::upgrade::Upgrader;
 use otterd::{LifecycleConfig, Node, Progress};
 use otterd_engine::{DockerClient, EngineAdapter, JournalHandle, engine_incarnation};
 use otterd_identity::{KeyStore, NodeKeyset};
@@ -136,6 +137,23 @@ struct RunArgs {
     /// opening the tenant gate.
     #[arg(long, env = "OTTERD_PLATFORM")]
     platform: bool,
+    /// Where the A/B slots live.
+    #[arg(long, env = "OTTERD_UPDATE_ROOT", default_value = "/usr/lib/otterd")]
+    update_root: PathBuf,
+    /// The pinned release keys.
+    #[arg(
+        long,
+        env = "OTTERD_RELEASE_KEYS",
+        default_value = "/etc/otterd/release-keys.json"
+    )]
+    release_keys: PathBuf,
+    /// Where `node.upgrade` downloads release binaries from.
+    #[arg(
+        long,
+        env = "OTTERD_RELEASE_URL",
+        default_value = "https://get.otterdeploy.com/otterd"
+    )]
+    release_url: String,
     /// Start the platform's control plane in recovery mode.
     #[arg(long, env = "OTTERD_PLATFORM_RECOVERY")]
     platform_recovery: bool,
@@ -518,10 +536,18 @@ fn update_cmd(cmd: UpdateCmd) -> Result<(), String> {
     Ok(())
 }
 
+/// The A/B upgrader, when this node was installed with `otterd update install`.
+fn upgrader(args: &RunArgs) -> Result<Option<Arc<Upgrader>>, String> {
+    let layout = otterd_update::Layout::new(&args.update_root);
+    if layout.state().is_err() {
+        return Ok(None);
+    }
+    Upgrader::new(layout, args.release_keys.clone(), &args.release_url).map(|u| Some(Arc::new(u)))
+}
+
 /// A pending A/B update commits once this binary completed a healthy pass.
-fn commit_update_if_pending() {
-    let root = std::env::var("OTTERD_UPDATE_ROOT").unwrap_or_else(|_| "/usr/lib/otterd".into());
-    let layout = otterd_update::Layout::new(&root);
+fn commit_update_if_pending(root: &Path) {
+    let layout = otterd_update::Layout::new(root);
     if layout.state().is_err() {
         return;
     }
@@ -584,6 +610,7 @@ fn connect(
     args: &RunArgs,
     node: &Arc<Node>,
     reporter: &SlotReporter,
+    upgrader: Option<Arc<Upgrader>>,
     shutdown: watch::Receiver<bool>,
 ) -> Result<Option<Control>, String> {
     let Some(url) = &args.control_url else {
@@ -597,11 +624,13 @@ fn connect(
         (None, false) => Trust::PublicRoots,
     };
     let tls = client_config(&trust).map_err(|e| e.to_string())?;
-    let handler = Arc::new(
-        ControlHandler::new(Arc::clone(node), reporter.clone()).with_key_rotation(Arc::new(
-            KeyRotator::new(KeyStore::new(&args.paths.keys_dir)),
-        )),
+    let mut handler = ControlHandler::new(Arc::clone(node), reporter.clone()).with_key_rotation(
+        Arc::new(KeyRotator::new(KeyStore::new(&args.paths.keys_dir))),
     );
+    if let Some(u) = upgrader {
+        handler = handler.with_upgrader(u);
+    }
+    let handler = Arc::new(handler);
     let manager = Arc::new(ConnectionManager::new(
         TransportConfig::new(url.clone(), tls),
         Arc::clone(&handler),
@@ -651,7 +680,8 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
     }
     let reporter = SlotReporter::default();
     let (shutdown, shutdown_rx) = watch::channel(false);
-    let control = connect(&args, &node, &reporter, shutdown_rx).map_err(fail)?;
+    let upgrader = upgrader(&args).map_err(fail)?;
+    let control = connect(&args, &node, &reporter, upgrader.clone(), shutdown_rx).map_err(fail)?;
     let api_node = Arc::clone(&node);
     let api_session = control.as_ref().map(|c| Arc::clone(&c.handler));
     let api_socket = args.socket.clone();
@@ -674,13 +704,26 @@ async fn run(args: RunArgs) -> Result<(), (u8, String)> {
                 }
                 progress.pass_completed();
                 if progress.snapshot().passes == 1 {
-                    commit_update_if_pending();
+                    commit_update_if_pending(&args.update_root);
                 }
                 if let Some(c) = &control {
                     reporter.after_pass(&node, &c.outbox);
                 }
                 let _ = notifier.status(&format!("passes={} engine={}", progress.snapshot().passes,
                     node.engine_reachable.load(std::sync::atomic::Ordering::SeqCst)));
+            }
+            () = async {
+                match &upgrader {
+                    Some(u) => u.restart_requested().await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                let _ = shutdown.send(true);
+                let _ = notifier.stopping();
+                tracing::warn!("restarting into the staged release");
+                // Let the upgrade's answer reach the control plane first.
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                return Ok(());
             }
             _ = term.recv() => {
                 let _ = shutdown.send(true);
