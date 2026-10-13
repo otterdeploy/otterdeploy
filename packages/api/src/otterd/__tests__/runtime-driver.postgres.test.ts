@@ -133,6 +133,21 @@ describe("otterd runtime driver state", () => {
       running: 0,
     });
 
+    // The Engine refused the create (no such image): failed, not starting forever.
+    const refused = {
+      ...report,
+      attempts: [
+        {
+          attemptId: "att_1",
+          ordinal: 1,
+          process: { state: "absent" as const },
+          mutations: [{ mutationId: "mut_c", verb: "create" as const, state: "settled" as const }],
+        },
+      ],
+    };
+    (await applySlotReports(nodeId, `sess-${run}`, [refused], NOW + 3)).unwrap();
+    expect((await statusByName([name])).unwrap().get(name)?.status).toBe("error");
+
     (await setPaused(id, true, NOW + 2)).unwrap();
     expect((await statusByName([name])).unwrap().get(name)?.desiredPaused).toBe(true);
   });
