@@ -28,6 +28,8 @@ function healthOf(r: SlotReport): Health {
     (a, b) => (a === undefined || b.ordinal > a.ordinal ? b : a),
     undefined,
   );
+  // `paused` is a frozen process: live for exclusivity (it is never released
+  // without a stop certificate), but not running, healthy or serving.
   const state = newest?.process.state;
   // A node that does not observe processes in its reports says `unknown`;
   // then a running grant whose newest attempt's start settled counts as running.

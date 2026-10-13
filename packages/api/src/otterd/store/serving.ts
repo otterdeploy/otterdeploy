@@ -36,7 +36,11 @@ export interface ServingTarget {
   attempts: ServingAttempt[];
 }
 
-/** Every VIP service's current backends: the newest attempt of each running, unrevoked grant. */
+/**
+ * Every VIP service's current backends: the newest attempt of each unrevoked
+ * grant whose process runs now. A paused process holds its slot but takes no
+ * new flows.
+ */
 export function servingTargets(): Promise<Result<ServingTarget[], StoreFailure>> {
   return Result.tryPromise({
     try: async () => {
@@ -54,7 +58,13 @@ export function servingTargets(): Promise<Result<ServingTarget[], StoreFailure>>
       const grants = await db
         .select()
         .from(otterdGrant)
-        .where(and(eq(otterdGrant.state, "running"), isNull(otterdGrant.revokedAt)));
+        .where(
+          and(
+            eq(otterdGrant.state, "running"),
+            isNotNull(otterdGrant.runningSince),
+            isNull(otterdGrant.revokedAt),
+          ),
+        );
       const scopes = new Map((await db.select().from(otterdScope)).map((s) => [s.scopeId, s]));
       return services.flatMap(({ otterd_service: svc, otterd_service_revision: rev }) => {
         const spec = serviceSpec.safeParse(rev.spec);

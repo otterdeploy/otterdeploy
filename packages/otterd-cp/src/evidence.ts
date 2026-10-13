@@ -72,6 +72,7 @@ export function verifyStopCertificate(
   if (missing.length > 0) {
     return refuse("incomplete", `attempts not covered: ${missing.join(", ")}`);
   }
+  // Anything but a positive stop is live: running, paused (frozen) or unknown.
   const running = c.containers.filter(
     (o) => !["absent", "created", "exited"].includes(o.process.state),
   );

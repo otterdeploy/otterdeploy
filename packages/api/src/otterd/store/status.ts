@@ -67,7 +67,8 @@ export function statusByName(
         if (!s.serviceName) continue;
         const mine = grants.filter((g) => g.resourceId === s.resourceId && !g.orphan);
         const current = mine.filter((g) => g.specRevision === s.revision);
-        const running = current.filter((g) => g.state === "running" && !g.failed).length;
+        // Serving now: a paused (frozen) process holds the slot but serves nothing.
+        const running = current.filter((g) => g.runningSince !== null && !g.failed).length;
         const status: ServiceStatus["status"] = current.some((g) => g.failed)
           ? "error"
           : running > 0

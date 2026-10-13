@@ -57,6 +57,11 @@ describe("stop certificates", () => {
       "not-stopped",
     ],
     [
+      "a paused (frozen) container",
+      signed(cert({ containers: [{ container: "c1", process: { state: "paused", pid: 9 } }] })),
+      "not-stopped",
+    ],
+    [
       "an unknown container",
       signed(
         cert({ containers: [{ container: "c1", process: { state: "unknown", reason: "hung" } }] }),
