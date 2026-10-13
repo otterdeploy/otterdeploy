@@ -209,6 +209,39 @@ services:
       redis:
         condition: service_healthy
 
+  # ── otterd control plane (opt-in) ─────────────────────────────────────────
+  # The scheduler and the hub otterd nodes dial. Only installs that chose the
+  # otterd runtime start it (`--profile otterd`); every other install never
+  # does. Same image as `server`, running the control-plane process from
+  # source. It has no Docker socket: nodes run the workloads, and it talks to
+  # them only over their authenticated control sessions on 7443, under a
+  # private CA the installer creates (the enroll script pins it). It does not
+  # sit behind Caddy, so it never depends on the edge it manages.
+  otterd-cp:
+    image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/server:${OTTERDEPLOY_VERSION:-latest}
+    profiles: ["otterd"]
+    working_dir: /app
+    command: ["bun", "packages/api/src/otterd/main.ts"]
+    restart: unless-stopped
+    ports:
+      - "${OTTERD_CP_BIND:-0.0.0.0}:${OTTERD_CP_PORT:-7443}:7443"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-otterdeploy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-otterdeploy}
+      REDIS_URL: redis://redis:6379
+      OTTERD_CP_LISTEN_PORT: "7443"
+      # Keys and certificates, written by the installer (0600, root) and
+      # mounted read-only.
+      OTTERD_CP_TLS_CERT: /etc/otterd-cp/server.pem
+      OTTERD_CP_TLS_KEY: /etc/otterd-cp/server.key
+      OTTERD_CP_SIGNING_KEY: /etc/otterd-cp/signing.key
+    volumes:
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/otterd-cp:/etc/otterd-cp:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # ── edge proxy ────────────────────────────────────────────────────────────
   caddy:
     # Custom image: Caddy + the CrowdSec bouncer plugin + Staticfile support

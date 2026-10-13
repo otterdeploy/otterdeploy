@@ -15,10 +15,19 @@
  * The platform's compose services. Each key is a DNS alias on the shared
  * network. Read from docker-compose.yml (dev) and docker-compose.prod.yml
  * (what install.sh runs): `postgres`, `redis`, `server`, `builder`, `caddy`,
- * `crowdsec`. packages/api/src/caddy/__tests__/directive-reach-internal.test.ts
- * parses both files and fails when a service appears there but not here.
+ * `crowdsec`, and `otterd-cp` for the otterd runtime.
+ * packages/api/src/caddy/__tests__/directive-reach-internal.test.ts parses
+ * both files and fails when a service appears there but not here.
  */
-const PLATFORM_SERVICES = ["postgres", "redis", "server", "builder", "caddy", "crowdsec"] as const;
+const PLATFORM_SERVICES = [
+  "postgres",
+  "redis",
+  "server",
+  "builder",
+  "caddy",
+  "crowdsec",
+  "otterd-cp",
+] as const;
 
 /**
  * Every exact name that is the platform:
