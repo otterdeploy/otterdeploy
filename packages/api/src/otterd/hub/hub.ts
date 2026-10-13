@@ -12,6 +12,7 @@
 import {
   type Command,
   type ControlFrame,
+  type PlatformReport,
   type SignedEnvelope,
   DEFAULT_LIMITS,
   controlFrame,
@@ -41,6 +42,8 @@ const TOUCH_EVERY_MS = 1_000;
 
 export class Hub {
   private readonly sessions = new Map<string, Connection>();
+  /** The platform state each node last reported with its slots. */
+  private readonly platforms = new Map<string, PlatformReport>();
   private readonly telemetry: ReturnType<typeof telemetrySink>;
 
   constructor(private readonly cfg: HubConfig) {
@@ -190,6 +193,7 @@ export class Hub {
         });
         return;
       case "slotReports": {
+        if (frame.platform) this.platforms.set(s.node.nodeId, frame.platform);
         const r = await applySlotReports(s.node.nodeId, s.sessionId, frame.slots, this.cfg.now());
         if (r.isOk() && r.value > 0) this.cfg.wake();
         return;
@@ -214,6 +218,11 @@ export class Hub {
       default:
         if (HANDSHAKE_FRAMES.has(frame.type)) this.drop(conn, `${frame.type} after ready`);
     }
+  }
+
+  /** The platform state the node last reported, if it hosts a platform. */
+  platformOf(nodeId: string): PlatformReport | null {
+    return this.platforms.get(nodeId) ?? null;
   }
 
   /** The live control session of a node, if it has one. */

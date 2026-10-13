@@ -17,6 +17,8 @@
  *   OTTERD_RECOVER_BIN           `otterd-recover` path
  *   OTTERD_ANCHOR_CONFIG / OTTERD_ANCHOR_ENROLLMENT_KEY
  *                                off-node anchor; absent = local-only profile
+ *   OTTERDEPLOY_RECOVERY         "1" while the node runs it in recovery mode after a
+ *                                platform update (it then sends platform.recovered)
  *   OTTERD_ANCHOR_ACCESS_KEY / _SECRET_KEY, HCLOUD_TOKEN
  *                                passed only to `otterd-recover`
  */
@@ -32,6 +34,7 @@ import { adminRoutes } from "./admin";
 import { Controller } from "./controller";
 import { type Connection, Hub } from "./hub/hub";
 import { Leadership } from "./leader";
+import { recoveryLeave } from "./recovery-leave";
 import { nodeRow } from "./store/nodes";
 import { isFenced } from "./store/reenroll";
 import { clearStaleSessions } from "./store/reports";
@@ -57,6 +60,9 @@ const config = z
     OTTERD_RECOVER_BIN: z.string().default("/usr/local/bin/otterd-recover"),
     OTTERD_ANCHOR_CONFIG: z.string().optional(),
     OTTERD_ANCHOR_ENROLLMENT_KEY: z.string().optional(),
+    /** Set by the node for a freshly updated platform's first control plane. */
+    OTTERDEPLOY_RECOVERY: z.string().optional(),
+    DB_MIGRATIONS_DIR: z.string().optional(),
   })
   .parse(env);
 
@@ -138,6 +144,15 @@ controller = new Controller({
   signer,
   installId: config.OTTERD_CP_INSTALL_ID,
   authorityTerm: () => term,
+  ...(config.OTTERDEPLOY_RECOVERY === "1"
+    ? {
+        leaveRecovery: recoveryLeave({
+          hub,
+          now,
+          ...(config.DB_MIGRATIONS_DIR ? { migrationsDir: config.DB_MIGRATIONS_DIR } : {}),
+        }),
+      }
+    : {}),
 });
 
 const admin = adminRoutes({
