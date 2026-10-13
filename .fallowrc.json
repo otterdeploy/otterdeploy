@@ -19,6 +19,9 @@
     // preview is the only caller of reads as an unused file, and the surfaces
     // still waiting to be migrated are exactly those.
     "apps/web/src/preview/main.tsx",
+    // The otterd control-plane process, started on its own until it is wired
+    // into the server at the otterd release.
+    "packages/api/src/otterd/main.ts",
     // One-shot operator/CI scripts, invoked by path from package.json scripts.
     "scripts/**/*.{ts,js,mjs}",
     "apps/*/scripts/**/*.{ts,js,mjs}",

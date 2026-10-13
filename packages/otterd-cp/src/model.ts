@@ -135,7 +135,11 @@ export interface HeldAttempt {
 export interface Retirement {
   grantId: string;
   evidenceId: string;
-  kind: "stop-certificate" | "provider-power-off" | "manual-fence";
+  /**
+   * `refused`: the node answered the grant's own apply with a definitive
+   * refusal and no side effects, so the grant never started anything.
+   */
+  kind: "stop-certificate" | "provider-power-off" | "manual-fence" | "refused";
 }
 
 export interface ServiceView {
