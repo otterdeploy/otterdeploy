@@ -40,6 +40,7 @@ export * from "./notification-channel";
 export * from "./orphaned-resource";
 export * from "./otterd";
 export * from "./otterd-network";
+export * from "./otterd-migration";
 export * from "./platform";
 export * from "./project";
 export * from "./platform-metric";

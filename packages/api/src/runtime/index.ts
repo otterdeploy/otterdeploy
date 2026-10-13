@@ -9,6 +9,7 @@ import type { RuntimeDriver } from "./types";
  */
 import { dockerDriver } from "./docker-driver";
 import { otterdDriver } from "./otterd-driver";
+import { ownerAware } from "./owner-router";
 import { swarmDriver } from "./swarm-driver";
 
 // Read the mode straight off process.env (not the validated `@otterdeploy/env`
@@ -22,10 +23,13 @@ function mode(): "docker" | "swarm" | "otterd" {
   return raw === "swarm" || raw === "otterd" ? raw : "docker";
 }
 
+/** Plain Docker, with each resource routed by its owner while the install moves onto otterd. */
+const dockerInstall = ownerAware(dockerDriver);
+
 /** The active runtime driver for this process. */
 export function runtime(): RuntimeDriver {
   const m = mode();
-  return m === "swarm" ? swarmDriver : m === "otterd" ? otterdDriver : dockerDriver;
+  return m === "swarm" ? swarmDriver : m === "otterd" ? otterdDriver : dockerInstall;
 }
 
 /** True when running on Swarm (scale mode), used to gate replicas>1 etc. */

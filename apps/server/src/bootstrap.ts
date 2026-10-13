@@ -17,6 +17,7 @@ import {
 } from "@otterdeploy/api/edge-logs";
 import { edgeLogPersistEnabled } from "@otterdeploy/api/lib/platform-runtime-settings";
 import { ensureServerIp, ensureServerIpv6 } from "@otterdeploy/api/lib/server-ip";
+import { migrationFinalized } from "@otterdeploy/api/otterd/migration/store";
 import { runProvisionJob } from "@otterdeploy/api/routers/server/provision-runner";
 import { runServiceRollout } from "@otterdeploy/api/routers/service/rollout";
 import { finalizeUpdateRunOnBoot } from "@otterdeploy/api/routers/system/apply";
@@ -208,10 +209,12 @@ async function bootstrap() {
       }),
   });
 
-  // The otterd runtime schedules through its own control plane; a Swarm on
-  // this host would only be state nothing uses.
+  // The otterd runtime schedules through its own control plane, as does an
+  // install whose migration onto otterd is finalized; a Swarm on this host
+  // would only be state nothing uses.
   const swarm = await Result.tryPromise({
-    try: () => (env.DEPLOY_RUNTIME === "otterd" ? Promise.resolve(null) : initializeSwarm()),
+    try: async () =>
+      env.DEPLOY_RUNTIME === "otterd" || (await migrationFinalized()) ? null : initializeSwarm(),
     catch: (cause) => new BootstrapError({ step: "swarm", cause }),
   });
   swarm.match({

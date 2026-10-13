@@ -366,6 +366,9 @@ export const env = createEnv({
     // otterd runtime: where nodes dial the otterd control plane, as written
     // into .env by the installer. Printed into the node enroll command.
     OTTERD_CP_CONTROL_URL: z.string().startsWith("wss://").optional(),
+    // The otterd control plane's install-admin token. Also guards the
+    // migration admin API this server serves; unset ⇒ that API is off.
+    OTTERD_CP_ADMIN_TOKEN: z.string().min(32).optional(),
     // The install edge serving install.sh and otterd releases.
     OTTERDEPLOY_GET_ORIGIN: z.url().default("https://get.otterdeploy.com"),
 

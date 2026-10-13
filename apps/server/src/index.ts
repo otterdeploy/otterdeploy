@@ -60,6 +60,7 @@ import { registerAnalyticsRoutes } from "./handlers/analytics";
 import { completeNodeEnrollmentHandler, redeemNodeEnrollmentHandler } from "./handlers/enrollment";
 import { createInstallNodeHandler } from "./handlers/install-node";
 import { liveSocketHandler } from "./handlers/live";
+import { registerMigrationRoutes } from "./handlers/otterd-migration";
 import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
 
@@ -406,6 +407,8 @@ app.get(
   ),
 );
 app.post("/api/node-enrollments/:id/complete", completeNodeEnrollmentHandler);
+// Moving this install's workloads onto otterd (admin token; off when unset).
+registerMigrationRoutes(app);
 
 // ─── Local source upload ───────────────────────────────────────────
 // `otterdeploy deploy` streams a source tarball here for a `source: "upload"`
