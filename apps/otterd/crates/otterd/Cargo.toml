@@ -16,12 +16,12 @@ path = "src/main.rs"
 bytes.workspace = true
 clap.workspace = true
 ed25519-dalek.workspace = true
-hex.workspace = true
 http.workspace = true
 http-body-util.workspace = true
 hyper = { workspace = true, features = ["server"] }
 hyper-util.workspace = true
 otterd-engine.workspace = true
+otterd-identity.workspace = true
 otterd-journal.workspace = true
 otterd-proto.workspace = true
 otterd-sys.workspace = true
@@ -33,6 +33,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
 tempfile.workspace = true
 
 [lints]
