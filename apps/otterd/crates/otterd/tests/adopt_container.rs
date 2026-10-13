@@ -297,7 +297,7 @@ async fn a_plain_docker_container_is_adopted_in_place_then_given_back() {
     );
 
     // Another adopted container is stopped by the control plane instead:
-    // certified like any otterd attempt.
+    // certified like any otterd attempt, but kept so a rollback can start it.
     let pg_b = legacy_postgres("adopt-legacy-b");
     docker(&["update", "--restart=no", &pg_b]);
     apply(&node, &grant(&node, "g-b", "ad-b", 1, Some(&pg_b), None))
@@ -315,12 +315,29 @@ async fn a_plain_docker_container_is_adopted_in_place_then_given_back() {
         .unwrap();
     assert_eq!(cert.containers[0].container.as_str(), pg_b);
     assert!(cert.containers[0].process.is_positively_stopped());
+    assert!(cert.containers[0].retained, "the certificate says retained");
+    let (_, status, _) = state_of(&pg_b);
+    assert_eq!(status, "exited", "stopped, not removed");
     assert!(
         node.release_adoption(&gid("g-b"), &EngineRestartPolicy::Always)
             .await
             .is_err(),
         "a stopped adoption cannot be given back"
     );
+    // otterd never starts a retained container again.
+    node.reconcile().await.unwrap();
+    node.reconcile().await.unwrap();
+    assert_eq!(state_of(&pg_b).1, "exited");
+    // Only an explicit remove deletes it, and a retry is harmless.
+    assert_eq!(node.remove(&gid("g-b")).await.unwrap(), CommandResult::Done);
+    let gone = Command::new("docker")
+        .args(["inspect", &pg_b])
+        .output()
+        .unwrap();
+    assert!(!gone.status.success(), "removed");
+    assert_eq!(node.remove(&gid("g-b")).await.unwrap(), CommandResult::Done);
+    // A grant that is not stopped cannot be removed.
+    assert!(node.remove(&gid("g-a2-missing")).await.is_err());
 
     // Across an otterd restart an adopted container is held and paused like
     // any exclusive attempt, then adopted by the next grant: never restarted.

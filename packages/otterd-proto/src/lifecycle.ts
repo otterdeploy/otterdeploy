@@ -112,7 +112,14 @@ export const stopCertificate = z.strictObject({
   grantId: wireId,
   opId: wireId,
   attemptIds: z.array(wireId),
-  containers: z.array(z.strictObject({ container: wireId, process: processObservation })),
+  containers: z.array(
+    z.strictObject({
+      container: wireId,
+      process: processObservation,
+      /** Stopped but kept (an adopted container); only `workload.remove` deletes it. */
+      retained: z.boolean().optional(),
+    }),
+  ),
   cgroupsEmpty: z.boolean(),
   mutationInventoryDigest: sha256Hex,
   mutationCount: u32,

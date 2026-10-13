@@ -306,6 +306,7 @@ async fn run(
             let grace = stop_grace_ms.map(|ms| Duration::from_millis(ms.get()));
             node.stop(grant_id, reason, &cap.op_id, grace).await
         }
+        Command::WorkloadRemove { grant_id } => node.remove(grant_id).await,
         Command::WorkloadReleaseAdoption {
             grant_id,
             restart_policy,

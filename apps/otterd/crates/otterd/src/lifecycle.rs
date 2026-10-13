@@ -766,6 +766,60 @@ impl Node {
         Ok(released)
     }
 
+    /// `workload.remove`: delete a stopped grant's retained (adopted)
+    /// containers. Their processes stay stopped; nothing restarts them.
+    /// Idempotent.
+    pub async fn remove(&self, grant_id: &GrantId) -> Result<CommandResult, NodeError> {
+        let lock = self.slot_lock(&self.grant_slot(grant_id)?)?;
+        let _slot_guard = lock.lock().await;
+        let state = self.state()?;
+        let g = state
+            .grants
+            .get(grant_id)
+            .ok_or_else(|| NodeError::Refused(format!("unknown grant {grant_id}")))?;
+        if g.certificate.is_none() {
+            return Err(NodeError::Refused(format!(
+                "grant {grant_id} has no stop certificate; stop it first"
+            )));
+        }
+        let (Some(container), Some(attempt)) = (g.adopted_container.clone(), g.attempts.first())
+        else {
+            return Ok(CommandResult::Done);
+        };
+        let Some(v) = self.engine.inspect(container.as_str()).await? else {
+            return Ok(CommandResult::Done);
+        };
+        if !v.process.is_positively_stopped() {
+            return Err(NodeError::Refused(format!(
+                "container {container} is {:?}, not stopped",
+                v.process
+            )));
+        }
+        let r = self
+            .engine
+            .submit(
+                MutationSpec {
+                    class: WorkloadClass::Tenant,
+                    slot: g.grant.slot.clone(),
+                    grant_id: Some(grant_id.clone()),
+                    attempt_id: attempt.clone(),
+                    op: EngineOp::Remove {
+                        container: container.clone(),
+                        name: v.name.clone(),
+                    },
+                },
+                |_| Ok(()),
+            )
+            .await?;
+        match r {
+            SubmitResult::Settled {
+                outcome: EngineOutcome::Removed | EngineOutcome::Absent,
+                ..
+            } => Ok(CommandResult::Done),
+            other => Err(NodeError::Internal(format!("remove unresolved: {other:?}"))),
+        }
+    }
+
     fn check_gate(&self) -> Result<(), NodeError> {
         let gate = self
             .gate
@@ -999,6 +1053,12 @@ impl Node {
         // Every container any mutation could have produced, including creates
         // whose answer was lost (found by their immutable attempt name).
         let mut targets: BTreeMap<String, (AttemptId, String)> = BTreeMap::new();
+        // An adopted container is stopped but kept, so a rollback can start
+        // it again; only `workload.remove` deletes it.
+        let adopted = state
+            .grants
+            .get(grant)
+            .and_then(|g| g.adopted_container.clone());
         if let Some(g) = state.grants.get(grant)
             && let (Some(c), Some(a)) = (&g.adopted_container, g.attempts.first())
         {
@@ -1046,8 +1106,10 @@ impl Node {
                     )
                     .await?;
             }
+            let retained = adopted.as_ref() == Some(&container);
             let view = self.engine.inspect(id).await?;
-            if view_obs(view.as_ref()).is_positively_stopped()
+            if !retained
+                && view_obs(view.as_ref()).is_positively_stopped()
                 && view.is_some()
                 && self.unresolved_starts(grant)?.is_empty()
             {
@@ -1067,6 +1129,7 @@ impl Node {
                 cgroups_empty = false;
             }
             observed.push(ContainerObservation {
+                retained,
                 container,
                 process: view_obs(view.as_ref()),
             });

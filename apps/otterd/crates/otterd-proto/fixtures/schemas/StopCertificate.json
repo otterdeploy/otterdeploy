@@ -27,6 +27,35 @@
         "index": 0,
         "resourceId": "res_pg"
       }
+    },
+    {
+      "attemptIds": [
+        "att_0123456789abcdef0123456789abcdef"
+      ],
+      "bootId": "4c1d1b7e-1d8a-4f0b-9d3e-000000000001",
+      "cgroupsEmpty": true,
+      "containers": [
+        {
+          "container": "otterd-res_pg-0-att_0123",
+          "process": {
+            "exitCode": 0,
+            "state": "exited"
+          },
+          "retained": true
+        }
+      ],
+      "grantId": "grant_1",
+      "installId": "inst_1",
+      "issuedAtUnixMs": 1791000000000,
+      "mutationCount": 4,
+      "mutationInventoryDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "nodeEpoch": 3,
+      "nodeId": "node_1",
+      "opId": "op_stop_1",
+      "slot": {
+        "index": 0,
+        "resourceId": "res_pg"
+      }
     }
   ],
   "schema": "StopCertificate"
