@@ -18,12 +18,14 @@ otterd-identity = { path = "crates/otterd-identity" }
 otterd-journal = { path = "crates/otterd-journal" }
 otterd-proto = { path = "crates/otterd-proto" }
 otterd-sys = { path = "crates/otterd-sys" }
+otterd-transport = { path = "crates/otterd-transport" }
 
 base64 = "0.22"
 bytes = "1"
 clap = { version = "4", features = ["derive", "env"] }
 crc32c = "0.6"
 ed25519-dalek = { version = "2", features = ["std"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 getrandom = "0.3"
 hex = "0.4"
 hickory-proto = { version = "0.26", default-features = false, features = ["std"] }
@@ -50,6 +52,7 @@ tokio = { version = "1", features = [
   "io-util",
 ] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 x25519-dalek = { version = "2", features = ["static_secrets"] }

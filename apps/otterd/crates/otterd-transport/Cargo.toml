@@ -1,0 +1,36 @@
+[package]
+name = "otterd-transport"
+description = "otterd's outbound control-plane connection: authenticated WSS session, bounded clock, credit flow control, reconnects"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[features]
+# An in-process control plane for tests of this crate and of the daemon.
+test-cp = ["dep:rcgen", "dep:tokio-rustls"]
+
+[dependencies]
+ed25519-dalek.workspace = true
+futures-util.workspace = true
+getrandom.workspace = true
+otterd-identity.workspace = true
+otterd-proto.workspace = true
+otterd-sys.workspace = true
+rcgen = { workspace = true, optional = true }
+rustls.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-rustls = { workspace = true, optional = true }
+tokio-tungstenite.workspace = true
+tracing.workspace = true
+webpki-roots.workspace = true
+
+[dev-dependencies]
+otterd-transport = { workspace = true, features = ["test-cp"] }
+
+[lints]
+workspace = true

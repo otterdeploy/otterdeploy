@@ -122,7 +122,7 @@ hash for the capability, which is the only correct way to build a request.
 |---|---|---|
 | `slotReports {seq, quarantined, engineReachable, slots}` | node → CP | Journalled slot state after `ready` and on every change. `engineReachable` is a reconcile result, never a startup gate: dockerd's inspect can hang while containerd is blocked. |
 | `leaseRequest` / `lease {renewal}` | node → CP / CP → node | The node records its nonce and `CLOCK_BOOTTIME` send instant before sending; the signed `LeaseRenewal` consumes that nonce once and its duration counts from the send instant. One outstanding request per scope. |
-| `telemetry` / `telemetryAck {batchId, disposition, credit}` | node → CP / CP → node | `SampleBatch`, credit-limited. `deferred` = keep buffering and retry; `refused` = drop and count. |
+| `telemetry` / `telemetryAck {batchId, disposition, credit}` | node → CP / CP → node | `SampleBatch`, credit-limited: a batch consumes one item per probe result, metric sample, marker and signal; `welcome` grants `telemetryCredit` items and each ack returns `credit` more, never beyond that window. The node never sends beyond credit, and control frames always go first. `deferred` = keep buffering and retry; `refused` = drop and count. |
 | `discovery {from, to, message}` | relayed by the CP | A `DiscoveryMessage` when the peer path is down. The CP can carry but never answer a challenge. |
 | `authority {document}` | CP → node | A signed serving set, membership revision or authority revocation. |
 
