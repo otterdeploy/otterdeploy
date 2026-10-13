@@ -325,3 +325,8 @@ export class UntracedDeleteError extends TaggedError("UntracedDeleteError")<{
     });
   }
 }
+
+export class ProjectResourceDeleteError extends TaggedError("ProjectResourceDeleteError")<{
+  message: string;
+  resourceName: string;
+}>() {}

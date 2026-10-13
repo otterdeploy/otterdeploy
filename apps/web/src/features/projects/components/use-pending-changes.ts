@@ -156,10 +156,19 @@ export function usePendingChanges(projectId: ProjectId, environment: string | un
       clearPendingFrameworksForProject(projectId);
     },
     onSuccess: async (_res, only) => {
+      await refreshAll();
+      const refreshed = await diff.refetch();
+      if (refreshed.isError) {
+        toast.error("Discard saved, but pending changes could not be refreshed. Reload to verify.");
+        return;
+      }
+      if (!only?.length && refreshed.data?.changes.some((change) => change.kind !== "no-op")) {
+        toast.warning("Changes still remain after discard. Review them before applying.");
+        return;
+      }
       toast.success(
         only?.length ? `Discarded the change to ${only[0].name}` : "Pending changes discarded",
       );
-      await refreshAll();
     },
     onError: (err) => toast.error(toastMessage(err, "Discard failed")),
   });

@@ -5,50 +5,33 @@
  */
 
 import type { EnvironmentId, ProjectId, ServerId } from "@otterdeploy/shared/id";
-import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
 import { type NixpacksConfig } from "@otterdeploy/db/schema";
-import { environment, preview, resource } from "@otterdeploy/db/schema/project";
 import { panic, Result } from "better-result";
-import { and, count, eq, inArray } from "drizzle-orm";
 import * as z from "zod";
 
 import type { OrgRef } from "../scopes";
 
-import { reconcile } from "../../caddy";
-import { removeProjectDir } from "../../lib/data-dir";
-import { destroySwarmPostgres } from "../../runtime/db";
 import {
   ProjectConflictError,
   ProjectEnvironmentUnavailableError,
-  ProjectHasServicesError,
   ProjectNotFoundError,
 } from "./errors";
-import { projectNetworkCandidates, removeProjectNetworks } from "./project-networks";
 import { normalizeCustomDomain } from "./projects-bindings";
 import {
   countEnabledRoutesByProject,
   countResourcesByProject,
   createProjectRecord,
-  deleteProjectRecord,
   getProjectBySlugInOrg,
   getProjectInOrg,
   isProjectSlugTaken,
-  listDatabaseResourceRecords,
   listProjectRecordsByOrg,
   setProjectGraphLayout,
   suggestFreeProjectSlug,
   updateProjectRecord,
 } from "./queries";
 import { countRunningServicesByProject } from "./running-services";
-import {
-  buildContainerName,
-  isUniqueViolation,
-  sanitizeProjectSlug,
-  type Project,
-  type ProjectListItem,
-} from "./views";
+import { isUniqueViolation, type Project, type ProjectListItem } from "./views";
 
 export async function listProjects(input: OrgRef): Promise<ProjectListItem[]> {
   const [records, resourceTallies, routeTallies, running] = await Promise.all([
@@ -213,103 +196,4 @@ export async function saveProjectGraphLayout(
   return Result.ok({ ok: true });
 }
 
-export async function deleteProject(
-  input: { id: ProjectId } & OrgRef,
-  log: RequestLogger,
-): Promise<Result<{ ok: true }, ProjectNotFoundError | ProjectHasServicesError>> {
-  const project = await getProjectInOrg({
-    projectId: input.id,
-    organizationId: input.organizationId,
-  });
-  if (!project) {
-    return Result.err(new ProjectNotFoundError({ projectId: input.id }));
-  }
-
-  // Refuse while service/compose resources exist. This teardown handles the
-  // project's databases itself (below), but service runtimes. Containers,
-  // built images, buildx caches, volumes. Are only reclaimed by the
-  // per-resource delete path; dropping the rows via FK cascade would orphan
-  // them on the host. Safest honest behavior: refuse with the count so the
-  // operator deletes the services first.
-  const [serviceRow] = await db
-    .select({ n: count() })
-    .from(resource)
-    .where(and(eq(resource.projectId, input.id), inArray(resource.type, ["service", "compose"])));
-  const serviceCount = serviceRow?.n ?? 0;
-  if (serviceCount > 0) {
-    log.set({ teardown: { refused: "services_exist", serviceCount } });
-    return Result.err(new ProjectHasServicesError({ projectId: input.id, serviceCount }));
-  }
-
-  const projectSlug = sanitizeProjectSlug(project.slug);
-  const dbRecords = await listDatabaseResourceRecords(input.id);
-  // Preview branch containers are named `<name>-<preview slug>`. Resolve the
-  // slugs so project deletion reaps them too, not just the base containers.
-  const previewRows = await db
-    .select({ id: preview.id, slug: preview.slug })
-    .from(preview)
-    .where(eq(preview.projectId, input.id));
-  const previewSlugById = new Map(previewRows.map((r) => [r.id, r.slug]));
-  // Read before the delete cascades the environment rows away: each
-  // additional environment has an overlay network of its own.
-  const environments = await db
-    .select({ id: environment.id, slug: environment.slug })
-    .from(environment)
-    .where(eq(environment.projectId, input.id));
-
-  // 1. Tear down each child postgres Swarm service before dropping DB rows.
-  //    FK cascade handles preview / resource / database_resource / proxy_route.
-  for (const record of dbRecords) {
-    const previewSlug = record.resource.previewId
-      ? previewSlugById.get(record.resource.previewId)
-      : undefined;
-    const serviceName = buildContainerName({
-      stored: record.database.serviceName,
-      engine: record.database.engine,
-      projectSlug,
-      resourceName: previewSlug ? `${record.resource.name}-${previewSlug}` : record.resource.name,
-    });
-    await destroySwarmPostgres({ serviceName }, log);
-  }
-
-  // 2. Delete the project row, FKs cascade to children.
-  const deleted = await deleteProjectRecord({
-    projectId: input.id,
-    organizationId: input.organizationId,
-  });
-  if (!deleted) {
-    return Result.err(new ProjectNotFoundError({ projectId: input.id }));
-  }
-
-  // 3. Refresh Caddy so removed proxy routes drop out of the live config.
-  await reconcile(log);
-
-  // 4. Remove the project's overlay networks (main + one per environment).
-  //    One still in use, or a daemon that is unreachable, goes to the orphan
-  //    GC rather than failing a delete that has already committed.
-  const networks = await removeProjectNetworks(
-    projectNetworkCandidates({
-      slug: project.slug,
-      environments,
-      mainEnvironmentId: project.environmentId,
-    }),
-    { organizationId: input.organizationId, projectId: input.id },
-    log,
-  );
-
-  // 5. Drop the project's whole host subtree
-  //    (`orgs/<org>/projects/<prj>/`: envs, resources, DR escape hatch).
-  //    Guarded + best-effort; no-op when the data folder isn't in use.
-  await removeProjectDir(input.organizationId, input.id);
-
-  log.set({
-    teardown: {
-      swarmServicesDestroyed: dbRecords.length,
-      networksRemoved: networks.removed,
-      networksDeferred: networks.deferred,
-      projectDeleted: true,
-    },
-  });
-
-  return Result.ok({ ok: true });
-}
+export { deleteProject } from "./project-delete";

@@ -138,6 +138,7 @@ const updateProjectInput = z.object({
 
 const deleteProjectInput = z.object({
   id: projectIdField,
+  deleteContents: z.boolean().optional(),
 });
 
 const saveGraphLayoutInput = z.object({
@@ -207,6 +208,11 @@ export const projectContractSlice = {
       // Refused while service/compose resources exist. Their runtimes are
       // only reclaimed by the per-resource delete path, so a project delete
       // underneath them would orphan containers/images on the host.
+      RESOURCE_DELETE_FAILED: {
+        status: 409,
+        message: "Project resource could not be deleted" as const,
+        data: z.object({ resourceName: z.string() }),
+      },
       CONFLICT: {
         status: 409,
         message: "Project still has services. Delete them first" as const,
