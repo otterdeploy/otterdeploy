@@ -22,6 +22,7 @@ export const FEATURES = [
   "probe-executor",
   "discovery-relay",
   "platform-bootstrap",
+  "key-rotation",
 ] as const;
 export const feature = z.enum(FEATURES);
 export type Feature = z.infer<typeof feature>;

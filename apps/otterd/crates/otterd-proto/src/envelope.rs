@@ -69,11 +69,14 @@ pub enum SignContext {
     /// Off-node recovery anchor records.
     #[serde(rename = "otterd/anchor/v1")]
     Anchor,
+    /// Control-plane acceptance of a node key rotation.
+    #[serde(rename = "otterd/key-rotation-ack/v1")]
+    KeyRotationAck,
 }
 
 impl SignContext {
     /// Every context, for exhaustive fixtures.
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 18] = [
         Self::Session,
         Self::Capability,
         Self::Lease,
@@ -91,6 +94,7 @@ impl SignContext {
         Self::Membership,
         Self::PeerAnswer,
         Self::Anchor,
+        Self::KeyRotationAck,
     ];
 
     /// The exact bytes mixed into the signing input.
@@ -114,6 +118,7 @@ impl SignContext {
             Self::Membership => "otterd/membership/v1",
             Self::PeerAnswer => "otterd/peer-answer/v1",
             Self::Anchor => "otterd/anchor/v1",
+            Self::KeyRotationAck => "otterd/key-rotation-ack/v1",
         }
     }
 }

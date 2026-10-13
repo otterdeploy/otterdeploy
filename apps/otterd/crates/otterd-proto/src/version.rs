@@ -102,15 +102,19 @@ pub enum Feature {
     DiscoveryRelay,
     /// Platform bootstrap supervision.
     PlatformBootstrap,
+    /// Node key rotation and control-plane signing-key transitions over the
+    /// control channel. Without it, keys change only by re-enrollment.
+    KeyRotation,
 }
 
 impl Feature {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Bulk,
         Self::RealtimeMetrics,
         Self::ProbeExecutor,
         Self::DiscoveryRelay,
         Self::PlatformBootstrap,
+        Self::KeyRotation,
     ];
 }
 

@@ -1,0 +1,13 @@
+{
+  "cases": [
+    {
+      "acceptedAtUnixMs": 1791000000000,
+      "identityKeyId": "72456720412037a6b339f884ce6d91bb",
+      "installId": "inst_1",
+      "keyEpoch": 2,
+      "nodeEpoch": 3,
+      "nodeId": "node_1"
+    }
+  ],
+  "schema": "KeyRotationAck"
+}

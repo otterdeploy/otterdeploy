@@ -5,8 +5,8 @@ use crate::{KeyError, NodeKeyset};
 use otterd_proto::U53;
 use otterd_proto::envelope::{EnvelopeError, PublicKey, SignContext, SignedEnvelope};
 use otterd_proto::identity::{
-    CpKeyTransition, CrossSigned, EnrollRequest, HostBinding, HostFacts, KeyRotation, NodeRole,
-    TrustedKey,
+    CpKeyTransition, CrossSigned, EnrollRequest, HostBinding, HostFacts, KeyRotation,
+    KeyRotationAck, NodeRole, TrustedKey,
 };
 use otterd_proto::ids::{InstallId, NodeId, Nonce};
 use otterd_proto::num::UnixMs;
@@ -34,6 +34,8 @@ pub enum RotationError {
     EpochNotRaised { have: U53, got: U53 },
     #[error("no control-plane key is valid now")]
     NoValidKey,
+    #[error("the acknowledgement names another key or key epoch")]
+    AckMismatch,
 }
 
 /// The rotation statement for `old` → `new`, signed by both identity keys over
@@ -127,29 +129,40 @@ pub fn valid_cp_keys(trusted: &[TrustedKey], now: UnixMs) -> Vec<PublicKey> {
         .collect()
 }
 
-/// Apply a control-plane signing-key transition. It must be signed by the
-/// outgoing key while that key is still valid; the incoming key is added with
-/// a higher epoch, the outgoing key stays valid only until
-/// `oldValidUntilUnixMs`, and keys already past their validity are dropped.
+/// Apply a control-plane signing-key transition. The outgoing key must sign
+/// it while that key is still valid, and the incoming key must sign the same
+/// bytes; the incoming key is added with a higher epoch, the outgoing key stays
+/// valid only until `oldValidUntilUnixMs`, and keys already past their
+/// validity are dropped.
 pub fn apply_cp_transition(
     trusted: &[TrustedKey],
-    transition: &SignedEnvelope,
+    transition: &CrossSigned,
     install_id: &InstallId,
     now: UnixMs,
-) -> Result<Vec<TrustedKey>, RotationError> {
+) -> Result<(CpKeyTransition, Vec<TrustedKey>), RotationError> {
     let valid = valid_cp_keys(trusted, now);
     if valid.is_empty() {
         return Err(RotationError::NoValidKey);
     }
-    let t: CpKeyTransition = transition.verify(&valid, SignContext::CpKeyTransition)?;
-    if &t.install_id != install_id {
-        return Err(RotationError::WrongNode);
-    }
-    if transition.key_id != t.from_key_id {
+    let old_bytes = transition
+        .by_old
+        .verify_bytes(&valid, SignContext::CpKeyTransition)?;
+    let t: CpKeyTransition = serde_json::from_slice(&old_bytes).map_err(EnvelopeError::from)?;
+    if transition.by_old.key_id != t.from_key_id {
         return Err(RotationError::NotSignedByOutgoing {
             want: t.from_key_id,
-            got: transition.key_id.clone(),
+            got: transition.by_old.key_id.clone(),
         });
+    }
+    let new_bytes = transition.by_new.verify_bytes(
+        std::slice::from_ref(&t.to.key),
+        SignContext::CpKeyTransition,
+    )?;
+    if old_bytes != new_bytes {
+        return Err(RotationError::PayloadMismatch);
+    }
+    if &t.install_id != install_id {
+        return Err(RotationError::WrongNode);
     }
     let have = trusted.iter().map(|k| k.epoch).max().unwrap_or(U53::ZERO);
     if t.to.epoch <= have {
@@ -174,8 +187,32 @@ pub fn apply_cp_transition(
             k
         })
         .collect();
-    out.push(t.to);
-    Ok(out)
+    out.push(t.to.clone());
+    Ok((t, out))
+}
+
+/// Verify the control plane's acceptance of `rotation`: signed by a
+/// control-plane key valid at `now`, for exactly this node and new key.
+pub fn verify_rotation_ack(
+    ack: &SignedEnvelope,
+    cp_keys: &[TrustedKey],
+    rotation: &KeyRotation,
+    now: UnixMs,
+) -> Result<KeyRotationAck, RotationError> {
+    let a: KeyRotationAck =
+        ack.verify(&valid_cp_keys(cp_keys, now), SignContext::KeyRotationAck)?;
+    if a.install_id != rotation.install_id
+        || a.node_id != rotation.node_id
+        || a.node_epoch != rotation.node_epoch
+    {
+        return Err(RotationError::WrongNode);
+    }
+    if a.key_epoch != rotation.new_keys.key_epoch
+        || a.identity_key_id != rotation.new_keys.identity.key_id()
+    {
+        return Err(RotationError::AckMismatch);
+    }
+    Ok(a)
 }
 
 /// The enrollment request, signed by the new identity key so the control
@@ -277,6 +314,13 @@ mod tests {
         (k, t)
     }
 
+    fn cross(old: &SigningKey, new: &SigningKey, t: &CpKeyTransition) -> CrossSigned {
+        CrossSigned {
+            by_old: SignedEnvelope::sign(old, SignContext::CpKeyTransition, t).unwrap(),
+            by_new: SignedEnvelope::sign(new, SignContext::CpKeyTransition, t).unwrap(),
+        }
+    }
+
     #[test]
     fn cp_key_transitions_overlap_then_expire() {
         let (inst, _) = ids();
@@ -288,10 +332,10 @@ mod tests {
             to: new.clone(),
             old_valid_until_unix_ms: U53::from_const(2_000),
         };
-        let env = SignedEnvelope::sign(&old_key, SignContext::CpKeyTransition, &t).unwrap();
-        let keys = apply_cp_transition(
+        let both = cross(&old_key, &new_key, &t);
+        let (_, keys) = apply_cp_transition(
             std::slice::from_ref(&old),
-            &env,
+            &both,
             &inst,
             U53::from_const(1_000),
         )
@@ -304,19 +348,93 @@ mod tests {
         );
         // Replaying it does not raise the epoch again.
         assert!(matches!(
-            apply_cp_transition(&keys, &env, &inst, U53::from_const(1_500)),
+            apply_cp_transition(&keys, &both, &inst, U53::from_const(1_500)),
             Err(RotationError::EpochNotRaised { .. })
         ));
-        // Signed by the incoming key itself: refused.
-        let self_signed = SignedEnvelope::sign(&new_key, SignContext::CpKeyTransition, &t).unwrap();
+        // The incoming key must sign too.
+        let (stranger, _) = cp(3, 2, None);
+        assert!(matches!(
+            apply_cp_transition(
+                std::slice::from_ref(&old),
+                &cross(&old_key, &stranger, &t),
+                &inst,
+                U53::from_const(1_000)
+            ),
+            Err(RotationError::Envelope(EnvelopeError::UntrustedKey { .. }))
+        ));
+        // Signed by a trusted key that is not the outgoing one it names.
         let with_new = [old.clone(), new.clone()];
         assert!(matches!(
-            apply_cp_transition(&with_new, &self_signed, &inst, U53::from_const(1_000)),
-            Err(RotationError::NotSignedByOutgoing { .. } | RotationError::EpochNotRaised { .. })
+            apply_cp_transition(
+                &with_new,
+                &cross(&new_key, &new_key, &t),
+                &inst,
+                U53::from_const(1_000)
+            ),
+            Err(RotationError::NotSignedByOutgoing { .. })
         ));
         // Too late: the outgoing key had already expired.
         let (_, expired) = cp(1, 1, Some(500));
-        assert!(apply_cp_transition(&[expired], &env, &inst, U53::from_const(1_000)).is_err());
+        assert!(matches!(
+            apply_cp_transition(&[expired], &both, &inst, U53::from_const(1_000)),
+            Err(RotationError::NoValidKey)
+        ));
+    }
+
+    #[test]
+    fn a_rotation_ack_must_name_the_new_key() {
+        let (inst, node) = ids();
+        let (cp_key, cp_trusted) = cp(1, 1, None);
+        let one = NodeKeyset::generate(U53::ONE).unwrap();
+        let two = NodeKeyset::generate(U53::from_const(2)).unwrap();
+        let cs = cross_sign(&one, &two, &inst, &node, U53::ONE, "scheduled").unwrap();
+        let id1 = one.identity_public();
+        let rotation = verify_rotation(
+            &cs,
+            Enrolled {
+                install_id: &inst,
+                node_id: &node,
+                identity: &id1,
+                key_epoch: U53::ONE,
+            },
+        )
+        .unwrap();
+        let ack = |key_epoch: u64, id: &PublicKey| {
+            SignedEnvelope::sign(
+                &cp_key,
+                SignContext::KeyRotationAck,
+                &KeyRotationAck {
+                    install_id: inst.clone(),
+                    node_id: node.clone(),
+                    node_epoch: U53::ONE,
+                    key_epoch: U53::from_const(key_epoch),
+                    identity_key_id: id.key_id(),
+                    accepted_at_unix_ms: U53::from_const(1),
+                },
+            )
+            .unwrap()
+        };
+        let trusted = std::slice::from_ref(&cp_trusted);
+        let now = U53::from_const(10);
+        assert!(
+            verify_rotation_ack(&ack(2, &two.identity_public()), trusted, &rotation, now).is_ok()
+        );
+        assert!(matches!(
+            verify_rotation_ack(&ack(2, &id1), trusted, &rotation, now),
+            Err(RotationError::AckMismatch)
+        ));
+        assert!(matches!(
+            verify_rotation_ack(&ack(3, &two.identity_public()), trusted, &rotation, now),
+            Err(RotationError::AckMismatch)
+        ));
+        // Signed by the node itself, not the control plane.
+        let self_ack = SignedEnvelope::sign(
+            two.identity(),
+            SignContext::KeyRotationAck,
+            &serde_json::json!({}),
+        )
+        .unwrap();
+        assert!(verify_rotation_ack(&self_ack, trusted, &rotation, now).is_err());
     }
 
     #[test]

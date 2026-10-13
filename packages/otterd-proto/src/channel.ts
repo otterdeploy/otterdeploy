@@ -9,7 +9,7 @@ import { capabilityError } from "./capability";
 import { opOutcome } from "./command";
 import { discoveryMessage } from "./discovery";
 import { signedEnvelope } from "./envelope";
-import { hostFacts } from "./identity";
+import { crossSigned, hostFacts } from "./identity";
 import { leaseRequest, slotReport } from "./lifecycle";
 import { batchDisposition, sampleBatch } from "./metrics";
 import { keyId, nonce, u16, u32, u53, wireId } from "./primitives";
@@ -137,6 +137,10 @@ export const controlFrame = z.discriminatedUnion("type", [
   f("telemetryAck", { batchId: wireId, disposition: batchDisposition, credit: u32 }),
   f("discovery", { from: wireId, to: wireId, message: discoveryMessage }),
   f("authority", { document: signedEnvelope }),
+  f("keyRotation", { statement: crossSigned }),
+  f("keyRotationAck", { ack: signedEnvelope }),
+  f("cpKeyTransition", { transition: crossSigned }),
+  f("cpKeyTransitionAck", { keyId, epoch: u53 }),
   f("ping", { seq: u32, nodeMonoMs: u53 }),
   f("pong", { seq: u32, nodeMonoMs: u53, cpUnixMs: u53 }),
   f("goAway", { code: rejectCode, message: z.string(), reconnectAfterMs: u53.optional() }),

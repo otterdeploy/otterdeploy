@@ -40,6 +40,7 @@ import {
   enrollCertificate,
   enrollRequest,
   keyRotation,
+  keyRotationAck,
 } from "./identity";
 import { journalEntry } from "./journal";
 import { leaseRenewal, slotGrant, slotReport, stopCertificate } from "./lifecycle";
@@ -70,6 +71,7 @@ const SCHEMAS: Record<string, z.ZodType> = {
   HealthCheck: healthCheck,
   JournalEntry: journalEntry,
   KeyRotation: keyRotation,
+  KeyRotationAck: keyRotationAck,
   LeaseRenewal: leaseRenewal,
   Membership: membership,
   OpOutcome: opOutcome,
