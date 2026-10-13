@@ -24,8 +24,8 @@ import type {
 } from "./types";
 
 import { putService, setPaused } from "../otterd/store/services";
-import { type ServiceStatus, claimForOtterd, statusByName } from "../otterd/store/status";
-import { databaseToSpec, serviceToSpec } from "../otterd/translate";
+import { type ServiceStatus, claimForOtterd, pinOf, statusByName } from "../otterd/store/status";
+import { type Placement, databaseToSpec, serviceToSpec } from "../otterd/translate";
 
 const now = (): number => Temporal.Now.instant().epochMilliseconds;
 const SERVICE_WAIT_MS = 120_000;
@@ -84,12 +84,24 @@ const runtimeStatus = (
   errorMessage: s.status === "error" ? "a new attempt exited; see the service's logs" : null,
 });
 
+/** The resource's pinned server as an otterd node; a pin with no enrolled node is refused. */
+async function placementOf(resourceId: string): Promise<Placement> {
+  const pin = await pinOf(resourceId);
+  if (pin.isErr()) throw new OtterdRuntimeError(pin.error.message);
+  if (!pin.value.pinned) return { nodeId: null };
+  if (pin.value.nodeId === null) {
+    throw new OtterdRuntimeError(`server ${pin.value.serverId} has no enrolled otterd node`, 409);
+  }
+  return { nodeId: pin.value.nodeId };
+}
+
 async function apply(
   resourceId: string,
   serviceName: string,
-  translated: ReturnType<typeof serviceToSpec>,
+  translate: (placement: Placement) => ReturnType<typeof serviceToSpec>,
   waitMs: number,
 ): Promise<ServiceStatus> {
+  const translated = translate(await placementOf(resourceId));
   if (translated.isErr())
     throw new OtterdRuntimeError(`spec refused: ${translated.error.detail}`, 400);
   const claimed = await claimForOtterd(resourceId);
@@ -119,7 +131,7 @@ export const otterdDriver: RuntimeDriver = {
     const s = await apply(
       spec.resourceId,
       spec.serviceName,
-      serviceToSpec(spec, { nodeId: null }),
+      (placement) => serviceToSpec(spec, placement),
       SERVICE_WAIT_MS,
     );
     return runtimeStatus(spec.serviceName, scopeOf(spec.projectSlug, spec.networkScopeSuffix), s);
@@ -156,7 +168,7 @@ export const otterdDriver: RuntimeDriver = {
     const s = await apply(
       input.resourceId,
       input.serviceName,
-      databaseToSpec(input, { nodeId: null }),
+      (p) => databaseToSpec(input, p),
       DATABASE_WAIT_MS,
     );
     return {

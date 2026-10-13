@@ -54,6 +54,8 @@ const bodies = {
       .int()
       .positive()
       .default(15 * 60_000),
+    /** The `server` row the node is: links it for pinned resources. */
+    serverId: z.string().min(1).optional(),
   }),
   admin: z.object({ state: z.enum(["active", "cordoned", "draining", "retired"]) }),
   fence: z.object({

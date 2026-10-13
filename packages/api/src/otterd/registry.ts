@@ -47,7 +47,14 @@ const sha256 = (s: string): string => createHash("sha256").update(s).digest("hex
 
 /** Mint a single-use enrollment token. Only its hash is stored; the token is shown once. */
 export function createEnrollToken(
-  opts: { roles: string[]; labels: Record<string, string>; ttlMs: number; by: string },
+  opts: {
+    roles: string[];
+    labels: Record<string, string>;
+    ttlMs: number;
+    by: string;
+    /** The `server` row this token enrolls, when it was added first. */
+    serverId?: string | null;
+  },
   now: number,
 ): Promise<Result<{ tokenId: string; token: string; expiresAt: number }, StoreFailure>> {
   const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
@@ -59,6 +66,7 @@ export function createEnrollToken(
       await db.insert(otterdEnrollToken).values({
         tokenId,
         tokenHash: sha256(token),
+        serverId: opts.serverId ?? null,
         roles: opts.roles,
         labels: opts.labels,
         createdBy: opts.by,
@@ -157,6 +165,7 @@ export async function enroll(
         const reserve = 512 * 1024 ** 2;
         await tx.insert(otterdNode).values({
           nodeId,
+          serverId: claimed.value.serverId,
           ordinal: Number(next),
           nodeEpoch: 1,
           keyEpoch: r.keys.keyEpoch,

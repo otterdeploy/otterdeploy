@@ -5,7 +5,7 @@
  * otterd owns the resource.
  */
 import { db } from "@otterdeploy/db";
-import { otterdGrant, otterdService } from "@otterdeploy/db/schema/otterd";
+import { otterdGrant, otterdNode, otterdService } from "@otterdeploy/db/schema/otterd";
 import { resource } from "@otterdeploy/db/schema/project";
 import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
@@ -102,6 +102,34 @@ export function claimForOtterd(resourceId: string): Promise<Result<boolean, Stor
       // run otterd from the start: no legacy workload exists to hand over.
       await db.update(resource).set({ runtimeOwner: "otterd" }).where(eq(resource.id, id.data));
       return true;
+    },
+  });
+}
+
+export type Pin = { pinned: false } | { pinned: true; nodeId: string | null; serverId: string };
+
+/**
+ * Where a resource must run: its `placement_server_id` resolved to the
+ * enrolled otterd node of that server. A pin to a server with no enrolled
+ * node resolves to `nodeId: null`, which the caller refuses rather than
+ * running the resource anywhere else.
+ */
+export function pinOf(resourceId: string): Promise<Result<Pin, StoreFailure>> {
+  return Result.tryPromise({
+    catch: toStoreFailure,
+    try: async (): Promise<Pin> => {
+      const id = idSchema.resource.safeParse(resourceId);
+      if (!id.success) return { pinned: false };
+      const [row] = await db
+        .select({ serverId: resource.placementServerId })
+        .from(resource)
+        .where(eq(resource.id, id.data));
+      if (!row?.serverId) return { pinned: false };
+      const [node] = await db
+        .select({ nodeId: otterdNode.nodeId })
+        .from(otterdNode)
+        .where(and(eq(otterdNode.serverId, row.serverId), ne(otterdNode.admin, "retired")));
+      return { pinned: true, nodeId: node?.nodeId ?? null, serverId: row.serverId };
     },
   });
 }
