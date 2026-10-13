@@ -84,6 +84,22 @@ enum Cmd {
     /// A/B binary updates.
     #[command(subcommand)]
     Update(UpdateCmd),
+    /// Print a signed enrollment request for the control plane: this node's
+    /// public keys, host binding and facts, and the single-use token, signed
+    /// by the node identity key.
+    Enroll {
+        #[command(flatten)]
+        paths: Paths,
+        /// The single-use enrollment token from the control plane.
+        #[arg(long, env = "OTTERD_ENROLL_TOKEN")]
+        token: String,
+        /// Requested roles (`worker`, `edge`, `build`, `registry`, `monitor`, `platform`).
+        #[arg(long = "role", default_value = "worker")]
+        roles: Vec<String>,
+        /// Bind the request to the Hetzner Cloud server id from its metadata service.
+        #[arg(long)]
+        hetzner: bool,
+    },
     /// Create the node keys.
     Keygen {
         #[command(flatten)]
@@ -234,6 +250,44 @@ enum PlatformCmd {
         #[command(flatten)]
         paths: Paths,
     },
+}
+
+async fn enroll(paths: &Paths, token: &str, roles: &[String], hetzner: bool) -> Result<(), String> {
+    let keys = KeyStore::new(&paths.keys_dir)
+        .current()
+        .map_err(|e| e.to_string())?;
+    let roles = roles
+        .iter()
+        .map(|r| {
+            serde_json::from_value(serde_json::Value::String(r.clone()))
+                .map_err(|_| format!("unknown role {r}"))
+        })
+        .collect::<Result<Vec<otterd_proto::identity::NodeRole>, String>>()?;
+    let provider = otterd_sys::host::HetznerMetadata;
+    let host = otterd_sys::host::host_binding(
+        hetzner.then_some(&provider as &dyn otterd_sys::host::ProviderIdentity),
+    )
+    .map_err(|e| e.to_string())?;
+    if hetzner && host.provider.is_none() {
+        return Err("the Hetzner metadata service did not name this server".into());
+    }
+    let mut facts = otterd_sys::host::host_facts().map_err(|e| e.to_string())?;
+    let mut docker = DockerClient::new(&paths.docker_socket, Duration::from_secs(5));
+    facts.docker_version = docker.negotiate().await.ok().map(|v| v.version);
+    let request = otterd_identity::rotation::enroll_request(
+        &keys,
+        token,
+        host,
+        facts,
+        roles,
+        env!("CARGO_PKG_VERSION"),
+    )
+    .map_err(|e| e.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&request).map_err(|e| e.to_string())?
+    );
+    Ok(())
 }
 
 fn keygen(paths: &Paths) -> Result<(), String> {
@@ -840,6 +894,14 @@ async fn main() -> ExitCode {
             .map_err(|e| (1, e)),
         Cmd::Run(args) => run(*args).await,
         Cmd::Update(cmd) => update_cmd(cmd).map_err(|e| (1, e)),
+        Cmd::Enroll {
+            paths,
+            token,
+            roles,
+            hetzner,
+        } => enroll(&paths, &token, &roles, hetzner)
+            .await
+            .map_err(|e| (1, e)),
         Cmd::Platform(PlatformCmd::Update { paths, manifest }) => {
             platform_offline(&paths, Some(&manifest))
                 .await
