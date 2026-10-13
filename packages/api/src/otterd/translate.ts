@@ -87,7 +87,7 @@ export function serviceToSpec(
     mode: { kind: "replicated", replicas: spec.replicas },
     task: {
       container: {
-        image: { reference: spec.image },
+        image: { reference: spec.image, ...(spec.imageDigest ? { digest: spec.imageDigest } : {}) },
         ...(spec.entrypoint ? { command: spec.entrypoint } : {}),
         ...(spec.command ? { args: spec.command } : {}),
         env: literalEnv(spec.env),

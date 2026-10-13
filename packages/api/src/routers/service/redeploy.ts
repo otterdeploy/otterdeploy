@@ -130,6 +130,9 @@ export interface RedeployOptions {
   /** Use this image in the spec instead of the stored serviceResource.image.
    *  Preview builds pass their built tag here so they don't clobber the base. */
   imageOverride?: string;
+  /** The build worker's handoff: the built image's content digest when it
+   *  was pushed to a registry, null when it exists only on the build host. */
+  imageDigest?: string | null;
 }
 
 /** Roll one service (see redeployOneNow), after any roll of it already under
@@ -186,6 +189,7 @@ async function redeployOneNow(
     sanitizeSlug(projectSlug),
     previewScope,
     opts?.imageOverride,
+    opts?.imageDigest,
   );
   // runtime().update() THROWS on any Docker/Swarm infra error (unreachable
   // manager, image pull failure, …). Exactly like provisionFresh's provision

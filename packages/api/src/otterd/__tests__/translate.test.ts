@@ -81,6 +81,12 @@ describe("serviceToSpec", () => {
     ]);
   });
 
+  it("runs a pushed image by its digest", () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const s = serviceToSpec(service({ imageDigest: digest }), { nodeId: null }).unwrap();
+    expect(s.task.container.image).toEqual({ reference: "ghcr.io/acme/web:1.2.3", digest });
+  });
+
   it("a pinned server is a hard node constraint and stays put", () => {
     const pinned = serviceToSpec(service(), { nodeId: "w1-abc" }).unwrap();
     expect(pinned.task.placement.nodes).toEqual(["w1-abc"]);

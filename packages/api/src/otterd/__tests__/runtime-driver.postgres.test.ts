@@ -11,6 +11,7 @@ import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import type { ContainerSpec } from "../../runtime/types";
 
+import { placementOf } from "../../runtime/otterd-driver";
 import { admitGrant, markSent } from "../store/grants";
 import { applySlotReports } from "../store/reports";
 import { putService, setPaused } from "../store/services";
@@ -150,5 +151,31 @@ describe("otterd runtime driver state", () => {
 
     (await setPaused(id, true, NOW + 2)).unwrap();
     expect((await statusByName([name])).unwrap().get(name)?.desiredPaused).toBe(true);
+  });
+
+  it("keeps a registry-less build on the build host, and refuses a pin elsewhere", async () => {
+    const primary = `primary-${run}`;
+    await db.insert(otterdNode).values({
+      nodeId: primary,
+      ordinal: 13_000_000 + Math.floor(Math.random() * 1e6),
+      nodeEpoch: 1,
+      keyEpoch: 1,
+      identityKey: publicKeyFromSeed(new Uint8Array(32).fill(22)),
+      identityKeyId: "3".repeat(32),
+      roles: ["worker"],
+      labels: { "otterdeploy.primary": "true" },
+      arch: "x86_64",
+      host: {},
+      facts: {},
+      allocatableNanoCpus: 2e9,
+      allocatableMemoryBytes: 4 * 1024 ** 3,
+      enrolledAt: NOW + 1_000_000,
+      updatedAt: NOW,
+    });
+    // Not a resource row: unpinned.
+    expect(await placementOf(`res_loc${run}`, "otterdeploy-local/web:abc")).toEqual({
+      nodeId: primary,
+    });
+    expect(await placementOf(`res_loc${run}`, "ghcr.io/acme/web:abc")).toEqual({ nodeId: null });
   });
 });

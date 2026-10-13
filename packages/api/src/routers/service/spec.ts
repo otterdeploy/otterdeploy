@@ -40,6 +40,18 @@ async function grantedMounts(record: ServiceRecord): Promise<ServiceRecord["moun
   return withoutUngrantedHostBinds(record.mounts, grants);
 }
 
+const SHA256_DIGEST = /^sha256:[0-9a-f]{64}$/;
+
+/** The deployed image's digest: the build's handoff for an override, else the stored one. */
+function imageDigestOf(
+  record: ServiceRecord,
+  imageOverride: string | null | undefined,
+  override: string | null | undefined,
+): { imageDigest?: string } {
+  const digest = imageOverride ? override : record.service.imageDigest;
+  return digest && SHA256_DIGEST.test(digest) ? { imageDigest: digest } : {};
+}
+
 export async function buildSwarmSpec(
   record: ServiceRecord,
   resolvedEnv: Record<string, string>,
@@ -54,6 +66,9 @@ export async function buildSwarmSpec(
   // the shared serviceResource.image column (which would clobber production's
   // image pointer). Omitted → the resource's stored image.
   imageOverride?: string | null,
+  // The build worker's handoff for an overridden image: its pushed digest,
+  // or null when it went to no registry.
+  imageDigestOverride?: string | null,
 ): Promise<SwarmServiceSpec> {
   const previewId = previewIdOf(preview);
   if (previewId) await ensurePreviewDatabaseAccess(previewId);
@@ -127,6 +142,7 @@ export async function buildSwarmSpec(
     // A distinct network namespace for each environment and preview.
     networkScopeSuffix: networkScopeSuffix(preview),
     image,
+    ...imageDigestOf(record, imageOverride, imageDigestOverride),
     // Exec form as stored, except behind Railpack's `bash -c` entrypoint where
     // it has to be one shell line. See start-command.ts.
     command: containerCommand(record.service),

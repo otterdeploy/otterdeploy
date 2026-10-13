@@ -6,6 +6,11 @@
  * wait for the target revision to run (or fail) and report like the other
  * drivers; `inspect` reads the scheduler's state.
  *
+ * The build worker hands images over the same way (`redeployOne` →
+ * `runtime().update`): the built image reference, its digest when it was
+ * pushed, and the wait on the rollout. A registry-less build stays on the
+ * build host (see `placementOf`).
+ *
  * Selected with `DEPLOY_RUNTIME=otterd`, which only a fresh install sets;
  * resources deployed through it are owned by otterd (`runtime_owner`).
  * Database branching is not offered on otterd yet (501, as on Swarm).
@@ -24,8 +29,15 @@ import type {
 } from "./types";
 
 import { putService, setPaused } from "../otterd/store/services";
-import { type ServiceStatus, claimForOtterd, pinOf, statusByName } from "../otterd/store/status";
+import {
+  type ServiceStatus,
+  buildHostNode,
+  claimForOtterd,
+  pinOf,
+  statusByName,
+} from "../otterd/store/status";
 import { type Placement, databaseToSpec, serviceToSpec } from "../otterd/translate";
+import { isLocalImage } from "../swarm/local-image-placement";
 
 const now = (): number => Temporal.Now.instant().epochMilliseconds;
 const SERVICE_WAIT_MS = 120_000;
@@ -85,7 +97,7 @@ const runtimeStatus = (
 });
 
 /** The resource's pinned server as an otterd node; a pin with no enrolled node is refused. */
-async function placementOf(resourceId: string): Promise<Placement> {
+async function pinnedNode(resourceId: string): Promise<Placement> {
   const pin = await pinOf(resourceId);
   if (pin.isErr()) throw new OtterdRuntimeError(pin.error.message);
   if (!pin.value.pinned) return { nodeId: null };
@@ -95,13 +107,39 @@ async function placementOf(resourceId: string): Promise<Placement> {
   return { nodeId: pin.value.nodeId };
 }
 
+/**
+ * Where the resource may run. A registry-less image the builder produced
+ * exists only on the build host, and no node can fetch it from anywhere
+ * else, so it runs there: unpinned, it is pinned to the build host, and a
+ * pin to another server is refused until the image goes to a registry.
+ */
+export async function placementOf(resourceId: string, image: string | null): Promise<Placement> {
+  const pinned = await pinnedNode(resourceId);
+  if (image === null || !isLocalImage(image)) return pinned;
+  const host = await buildHostNode();
+  if (host.isErr()) throw new OtterdRuntimeError(host.error.message);
+  if (host.value === null) {
+    throw new OtterdRuntimeError(
+      `${image} was built locally, but no build host node is enrolled`,
+      409,
+    );
+  }
+  if (pinned.nodeId !== null && pinned.nodeId !== host.value) {
+    throw new OtterdRuntimeError(
+      `${image} exists only on the build host; set an image repository to run it on another server`,
+      409,
+    );
+  }
+  return { nodeId: host.value };
+}
+
 async function apply(
-  resourceId: string,
-  serviceName: string,
+  resource: { resourceId: string; serviceName: string; image: string | null },
   translate: (placement: Placement) => ReturnType<typeof serviceToSpec>,
   waitMs: number,
 ): Promise<ServiceStatus> {
-  const translated = translate(await placementOf(resourceId));
+  const { resourceId, serviceName } = resource;
+  const translated = translate(await placementOf(resourceId, resource.image));
   if (translated.isErr())
     throw new OtterdRuntimeError(`spec refused: ${translated.error.detail}`, 400);
   const claimed = await claimForOtterd(resourceId);
@@ -128,12 +166,7 @@ export const otterdDriver: RuntimeDriver = {
   kind: "otterd",
 
   async provision(spec: ContainerSpec, _log?: RequestLogger): Promise<RuntimeStatus> {
-    const s = await apply(
-      spec.resourceId,
-      spec.serviceName,
-      (placement) => serviceToSpec(spec, placement),
-      SERVICE_WAIT_MS,
-    );
+    const s = await apply(spec, (placement) => serviceToSpec(spec, placement), SERVICE_WAIT_MS);
     return runtimeStatus(spec.serviceName, scopeOf(spec.projectSlug, spec.networkScopeSuffix), s);
   },
   update(spec: ContainerSpec, log?: RequestLogger): Promise<RuntimeStatus> {
@@ -166,8 +199,7 @@ export const otterdDriver: RuntimeDriver = {
 
   async provisionDatabase(input: DatabaseSpec): Promise<DatabaseStatus> {
     const s = await apply(
-      input.resourceId,
-      input.serviceName,
+      { resourceId: input.resourceId, serviceName: input.serviceName, image: input.image ?? null },
       (p) => databaseToSpec(input, p),
       DATABASE_WAIT_MS,
     );

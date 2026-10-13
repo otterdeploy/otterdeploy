@@ -391,6 +391,7 @@ function runBuildSteps(
       await redeployOne(ctx.project.id, ctx.resource.id, ctx.project.slug, undefined, {
         previewId: ctx.deployment.previewId ?? undefined,
         imageOverride: isPreview ? image.shaTag : undefined,
+        imageDigest,
       })
     ).mapError((cause) => new SwarmUpdateError(cause));
     sink.system(`swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`);

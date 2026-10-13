@@ -17,6 +17,9 @@ import { isSwarmNodeId } from "./placement";
 /** The namespace the builder tags registry-less images under. */
 const LOCAL_IMAGE_NAMESPACE = "otterdeploy-local/";
 
+/** Built by this install's builder and pushed nowhere: only the build host has it. */
+export const isLocalImage = (image: string): boolean => image.startsWith(LOCAL_IMAGE_NAMESPACE);
+
 /** The node a service's tasks are pinned to: the operator's pin, else the
  *  local node for a registry-less image, else none. */
 export function placementForImage(input: {
@@ -25,7 +28,7 @@ export function placementForImage(input: {
   localNodeId: unknown;
 }): string | null {
   if (input.placementNodeId) return input.placementNodeId;
-  if (!input.image.startsWith(LOCAL_IMAGE_NAMESPACE)) return null;
+  if (!isLocalImage(input.image)) return null;
   return isSwarmNodeId(input.localNodeId) ? input.localNodeId : null;
 }
 
@@ -34,7 +37,7 @@ export async function pinLocalImage<T extends { image: string; placementNodeId?:
   docker: Docker,
   spec: T,
 ): Promise<T> {
-  if (spec.placementNodeId || !spec.image.startsWith(LOCAL_IMAGE_NAMESPACE)) return spec;
+  if (spec.placementNodeId || !isLocalImage(spec.image)) return spec;
   const info = await docker.system.info();
   if (info.isErr()) return spec;
   const placementNodeId = placementForImage({
