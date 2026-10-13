@@ -327,9 +327,60 @@ impl Node {
             }
         }
         self.observe().await;
+        self.unpause_late_pauses().await;
         let holds = self.check_holds().await;
         self.sync_network();
         holds
+    }
+
+    /// A pause sent by an earlier process can reach the Engine after this
+    /// process held, and the control plane adopted, the attempt. The
+    /// container is then frozen under a grant nobody holds. Unpause it.
+    async fn unpause_late_pauses(&self) {
+        let Ok(state) = self.state() else {
+            return;
+        };
+        let paused = |c: &ContainerRef| {
+            self.observations.lock().ok().is_some_and(|m| {
+                m.get(c)
+                    .is_some_and(|o| matches!(o.process, ProcessObservation::Paused { .. }))
+            })
+        };
+        let frozen: Vec<(GrantId, SlotRef, AttemptId, ContainerRef)> = state
+            .grants
+            .values()
+            .filter(|g| !g.is_released() && !g.start_revoked() && g.held.is_none())
+            .flat_map(|g| {
+                g.attempts.iter().filter_map(|a| {
+                    let c = state.attempt_container(a)?;
+                    Some((g.grant.grant_id.clone(), g.grant.slot.clone(), a.clone(), c))
+                })
+            })
+            .filter(|(.., c)| paused(c))
+            .collect();
+        for (grant, slot, attempt, container) in frozen {
+            tracing::warn!(%grant, %container, "container frozen by a pause nobody holds; unpausing");
+            let r = self
+                .engine
+                .submit(
+                    MutationSpec {
+                        class: WorkloadClass::Tenant,
+                        slot,
+                        grant_id: Some(grant.clone()),
+                        attempt_id: attempt,
+                        op: EngineOp::Unpause {
+                            container: container.clone(),
+                            name: container.to_string(),
+                        },
+                    },
+                    |_| Ok(()),
+                )
+                .await;
+            if let Err(e) = r {
+                tracing::warn!(%grant, error = %e, "unpause failed; retried next pass");
+            }
+            let _ = self.observe_container(&container).await;
+        }
     }
 
     // ---------------------------------------------------------- observation
@@ -512,10 +563,7 @@ impl Node {
                 .map_or_else(|| record.object_name.clone(), ToString::to_string);
             let quiet = match self.engine.inspect(&target).await? {
                 None => true,
-                Some(v) => {
-                    v.restart_policy == "no"
-                        && !matches!(v.process, ProcessObservation::Running { .. })
-                }
+                Some(v) => v.restart_policy == "no" && !v.process.is_live(),
             };
             if !quiet {
                 tracing::warn!(mutation = %record.mutation_id, "boot barrier refused: object running or restart policy not `no`");
@@ -1193,7 +1241,9 @@ impl Node {
             if let Some(v) = &view
                 && matches!(
                     v.process,
-                    ProcessObservation::Running { .. } | ProcessObservation::Unknown { .. }
+                    ProcessObservation::Running { .. }
+                        | ProcessObservation::Paused { .. }
+                        | ProcessObservation::Unknown { .. }
                 )
             {
                 self.engine
@@ -1478,7 +1528,7 @@ impl Node {
         let Some(v) = self.engine.inspect(container.as_ref()).await? else {
             return Ok(false);
         };
-        if !matches!(v.process, ProcessObservation::Running { .. }) || v.restart_policy != "no" {
+        if !v.process.is_live() || v.restart_policy != "no" {
             return Ok(false);
         }
         let paused = match self
@@ -1583,9 +1633,7 @@ impl Node {
                 "the held container is gone; stop the old grant".into(),
             ));
         };
-        if !matches!(v.process, ProcessObservation::Running { .. })
-            || v.id != held.container.to_string()
-        {
+        if !v.process.is_live() || v.id != held.container.to_string() {
             return Err(NodeError::Refused(
                 "the held container is not running; stop the old grant".into(),
             ));

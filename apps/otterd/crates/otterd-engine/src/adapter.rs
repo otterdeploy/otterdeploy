@@ -589,7 +589,8 @@ pub fn view_from_inspect(v: &serde_json::Value) -> ContainerView {
         .and_then(serde_json::Value::as_u64)
         .and_then(|p| u32::try_from(p).ok());
     let process = match (status.as_str(), pid) {
-        ("running" | "paused" | "restarting", Some(pid)) => ProcessObservation::Running { pid },
+        ("paused", Some(pid)) => ProcessObservation::Paused { pid },
+        ("running" | "restarting", Some(pid)) => ProcessObservation::Running { pid },
         ("created", _) => ProcessObservation::Created,
         ("exited" | "dead", _) => ProcessObservation::Exited {
             exit_code: v
@@ -736,6 +737,12 @@ mod tests {
         });
         let view = view_from_inspect(&v);
         assert_eq!(view.process, ProcessObservation::Running { pid: 7 });
+        let frozen = serde_json::json!({"Id": "y", "State": {"Status": "paused", "Pid": 9}});
+        assert_eq!(
+            view_from_inspect(&frozen).process,
+            ProcessObservation::Paused { pid: 9 },
+            "a frozen container never reads as running"
+        );
         assert_eq!(view.name, "od-a");
         assert_eq!(view.restart_policy, "no");
         assert_eq!(view.bind_sources, vec!["/run/otterd/stage/h1".to_owned()]);

@@ -173,6 +173,11 @@ pub enum ProcessObservation {
     Running {
         pid: u32,
     },
+    /// The process exists but is frozen (the Engine's pause). Never reported
+    /// as running: a frozen workload serves nothing.
+    Paused {
+        pid: u32,
+    },
     #[serde(rename_all = "camelCase")]
     Exited {
         exit_code: i64,
@@ -188,6 +193,12 @@ impl ProcessObservation {
     #[must_use]
     pub fn is_positively_stopped(&self) -> bool {
         matches!(self, Self::Absent | Self::Created | Self::Exited { .. })
+    }
+
+    /// A process exists, running or frozen.
+    #[must_use]
+    pub fn is_live(&self) -> bool {
+        matches!(self, Self::Running { .. } | Self::Paused { .. })
     }
 }
 

@@ -89,6 +89,8 @@ export const processObservation = z.discriminatedUnion("state", [
   z.strictObject({ state: z.literal("absent") }),
   z.strictObject({ state: z.literal("created") }),
   z.strictObject({ state: z.literal("running"), pid: u32 }),
+  /** The process exists but is frozen; never reported as running. */
+  z.strictObject({ state: z.literal("paused"), pid: u32 }),
   z.strictObject({ state: z.literal("exited"), exitCode: i64 }),
   z.strictObject({ state: z.literal("unknown"), reason: z.string() }),
 ]);

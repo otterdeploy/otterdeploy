@@ -18,7 +18,6 @@ use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
 use otterd_proto::identity::HostBinding;
 use otterd_proto::ids::{AttemptId, ContainerRef, Sha256Hex, SlotRef, UpdateId};
 use otterd_proto::journal::{EngineOutcome, Record, Retirement, UpdatePhase, WorkloadClass};
-use otterd_proto::lifecycle::ProcessObservation;
 use otterd_proto::platform::{
     ManifestError, PlatformBootManifest, PlatformMember, PlatformPreflight, PlatformReadiness,
     PlatformReport, PlatformUpdateReport,
@@ -594,7 +593,7 @@ impl Platform {
                 .inspect(container.as_ref())
                 .await
                 .map_err(engine)?
-            && matches!(v.process, ProcessObservation::Running { .. })
+            && v.process.is_live()
             && self.image_of(&v.id).await? == m.image.id
             && v.labels.get(LABEL_CONFIG).map(String::as_str) == fingerprint(&config)
             && self.ready(m, &v.id).await
@@ -728,10 +727,7 @@ impl Platform {
                 .map_or_else(|| mu.record.object_name.clone(), ToString::to_string);
             let quiet = match self.engine.inspect(&target).await.map_err(engine)? {
                 None => true,
-                Some(v) => {
-                    v.restart_policy == "no"
-                        && !matches!(v.process, ProcessObservation::Running { .. })
-                }
+                Some(v) => v.restart_policy == "no" && !v.process.is_live(),
             };
             if boot_id != &boot && !profile.is_empty() && quiet {
                 self.engine
@@ -780,7 +776,7 @@ impl Platform {
             attempt_id: attempt.clone(),
             op,
         };
-        if matches!(v.process, ProcessObservation::Running { .. }) {
+        if v.process.is_live() {
             let r = self
                 .engine
                 .submit(

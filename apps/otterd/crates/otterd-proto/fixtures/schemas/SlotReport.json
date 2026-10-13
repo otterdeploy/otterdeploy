@@ -112,6 +112,41 @@
         "resourceId": "res_pg"
       },
       "state": "running"
+    },
+    {
+      "attempts": [
+        {
+          "attemptId": "att_0123456789abcdef0123456789abcdef",
+          "container": "otterd-res_pg-0-att_0123",
+          "mutations": [
+            {
+              "mutationId": "mut_00000000000000000000000000000001",
+              "state": "settled",
+              "verb": "create"
+            },
+            {
+              "mutationId": "mut_00000000000000000000000000000002",
+              "state": "settled",
+              "verb": "start"
+            }
+          ],
+          "observedSinceUnixMs": 1791000000000,
+          "ordinal": 1,
+          "process": {
+            "pid": 4242,
+            "state": "paused"
+          }
+        }
+      ],
+      "generation": 4,
+      "grantId": "grant_1",
+      "quarantined": false,
+      "revoked": false,
+      "slot": {
+        "index": 0,
+        "resourceId": "res_pg"
+      },
+      "state": "running"
     }
   ],
   "schema": "SlotReport"

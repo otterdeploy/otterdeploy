@@ -556,7 +556,9 @@ fn schemas() {
     observed["attempts"][0]["process"] = json!({"state": "running", "pid": 4242});
     observed["attempts"][0]["observedSinceUnixMs"] = json!(1_791_000_000_000_u64);
     observed["attempts"][0]["mutations"][1]["state"] = json!("settled");
-    schema_file::<SlotReport>("SlotReport", vec![slot_report(), held, observed]);
+    let mut frozen = observed.clone();
+    frozen["attempts"][0]["process"] = json!({"state": "paused", "pid": 4242});
+    schema_file::<SlotReport>("SlotReport", vec![slot_report(), held, observed, frozen]);
     let mut retained = stop_certificate();
     retained["containers"][0]["retained"] = json!(true);
     schema_file::<StopCertificate>("StopCertificate", vec![stop_certificate(), retained]);
