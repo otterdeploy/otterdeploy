@@ -1,0 +1,24 @@
+{
+  "name": "@otterdeploy/otterd-cp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "bun test ./src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@otterdeploy/otterd-proto": "workspace:*",
+    "better-result": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
