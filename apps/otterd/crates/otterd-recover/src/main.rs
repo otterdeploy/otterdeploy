@@ -11,6 +11,7 @@ use otterd_proto::U53;
 use otterd_proto::envelope::SignedEnvelope;
 use otterd_proto::identity::HostBinding;
 use otterd_proto::ids::{InstallId, NodeId};
+use otterd_proto::platform::PlatformBootManifest;
 use otterd_recover::{RecoverError, authority, journal, keys, now_ms};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -54,6 +55,31 @@ enum Cmd {
     /// External fencing.
     #[command(subcommand)]
     Fence(FenceCmd),
+    /// Sign or check a platform boot manifest with the recovery key.
+    #[command(subcommand)]
+    Manifest(ManifestCmd),
+}
+
+#[derive(Debug, Subcommand)]
+enum ManifestCmd {
+    /// Validate the boot closure, then sign.
+    Sign {
+        #[arg(long)]
+        key: PathBuf,
+        /// Unsigned `PlatformBootManifest` (JSON).
+        #[arg(long)]
+        input: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Verify a signed manifest and print its digest and start order.
+    Verify {
+        /// Recovery public key (base64).
+        #[arg(long)]
+        public: String,
+        #[arg(long)]
+        input: PathBuf,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -362,6 +388,37 @@ async fn fence(cmd: FenceCmd) -> Result<Value, RecoverError> {
     })
 }
 
+fn manifest(cmd: ManifestCmd) -> Result<Value, RecoverError> {
+    let order = |m: &PlatformBootManifest| -> Result<Vec<String>, RecoverError> {
+        Ok(m.preflight()
+            .map_err(|e| RecoverError::Refused(e.to_string()))?
+            .into_iter()
+            .map(|m| m.name.clone())
+            .collect())
+    };
+    match cmd {
+        ManifestCmd::Sign { key, input, out } => {
+            let m: PlatformBootManifest = read_json(&input)?;
+            let order = order(&m)?;
+            let env = SignedEnvelope::sign(
+                &keys::read(&key)?,
+                otterd_proto::SignContext::PlatformBootManifest,
+                &m,
+            )?;
+            write_json(&out, &env)?;
+            Ok(json!({"manifest": out, "digest": env.payload_digest()?, "order": order}))
+        }
+        ManifestCmd::Verify { public, input } => {
+            let env: SignedEnvelope = read_json(&input)?;
+            let m: PlatformBootManifest = env.verify(
+                &[keys::public(&public)?],
+                otterd_proto::SignContext::PlatformBootManifest,
+            )?;
+            Ok(json!({"digest": env.payload_digest()?, "order": order(&m)?}))
+        }
+    }
+}
+
 fn authority_cmd(cmd: AuthorityCmd) -> Result<Value, RecoverError> {
     match cmd {
         AuthorityCmd::Sign {
@@ -421,6 +478,7 @@ async fn run(cli: Cli) -> Result<Value, RecoverError> {
         Cmd::Authority(cmd) => authority_cmd(cmd),
         Cmd::Anchor { config, command } => anchor(&config, command).await,
         Cmd::Fence(cmd) => fence(cmd).await,
+        Cmd::Manifest(cmd) => manifest(cmd),
     }
 }
 

@@ -8,6 +8,7 @@ pub mod container;
 pub mod dispatch;
 pub mod keys;
 pub mod lifecycle;
+pub mod platform;
 pub mod session;
 pub mod watchdog;
 
