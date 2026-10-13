@@ -28,7 +28,8 @@ use otterd_proto::command::{Command, CommandResult, OpOutcome};
 use otterd_proto::envelope::{PublicKey, SignContext, SignedEnvelope};
 use otterd_proto::identity::KeyRotationAck;
 use otterd_proto::identity::{
-    AuthorityRevocation, CpKeyTransition, CrossSigned, HostBinding, TrustedKey,
+    AuthorityRevocation, CpKeyTransition, CrossSigned, EnrollCertificate, HostBinding, NodeRole,
+    TrustedKey,
 };
 use otterd_proto::ids::{Incarnation, Nonce, SessionId, Sha256Hex, SlotRef};
 use otterd_proto::journal::Record;
@@ -783,4 +784,85 @@ async fn node_upgrade_stages_only_a_verified_release() {
 
     shutdown.send(true).unwrap();
     tokio::time::timeout(5 * SEC, task).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+#[ignore = "needs root and Docker on Linux"]
+async fn a_reenrollment_reconnects_so_the_session_carries_the_new_epoch() {
+    let dir = tempfile::tempdir().unwrap();
+    let node = start_node(dir.path(), SigningKey::from_bytes(&NODE)).await;
+    let mut cp = FakeCp::start(SigningKey::from_bytes(&CP), public(NODE))
+        .await
+        .unwrap();
+    let mut cfg = TransportConfig::new(cp.url.clone(), client_config(&cp.trust).unwrap());
+    cfg.backoff_min = Duration::from_millis(50);
+    cfg.backoff_max = Duration::from_millis(200);
+    let manager = Arc::new(ConnectionManager::new(
+        cfg,
+        Arc::new(ControlHandler::new(
+            Arc::clone(&node),
+            SlotReporter::default(),
+        )),
+        Arc::new(NodeIdentitySource::new(Arc::clone(&node), "test")),
+    ));
+    let (shutdown, rx) = watch::channel(false);
+    let m = Arc::clone(&manager);
+    let task = tokio::spawn(async move { m.run(rx).await });
+
+    let mut s = cp.session(10 * SEC).await.expect("session");
+    assert_eq!(s.hello.node_epoch, U53::ONE);
+    let sid = s.session_id.clone();
+    let cert = EnrollCertificate {
+        install_id: id("inst"),
+        node_id: id("node-sess"),
+        node_epoch: U53::from_const(2),
+        authority_term: U53::ONE,
+        roles: vec![NodeRole::Worker],
+        identity_key_id: public(NODE).key_id(),
+        key_epoch: U53::ONE,
+        host: HostBinding {
+            machine_id: "m".into(),
+            product_uuid: None,
+            provider: None,
+        },
+        cp_keys: vec![TrustedKey {
+            key: public(CP),
+            epoch: U53::ONE,
+            not_after_unix_ms: None,
+        }],
+        recovery_key: public(RECOVERY),
+        control_url: cp.url.clone(),
+        anchor: None,
+        issued_at_unix_ms: otterd_journal::now_unix_ms(),
+        reason: "re-enrolled".into(),
+    };
+    let certificate =
+        SignedEnvelope::sign(&SigningKey::from_bytes(&CP), SignContext::Enroll, &cert).unwrap();
+    s.send(&request(
+        CP,
+        &sid,
+        1,
+        "op-reenroll",
+        1,
+        &Command::NodeReenroll { certificate },
+    ))
+    .await;
+
+    // The answer arrives on the old session, then the node closes it and
+    // connects again; the new handshake binds the new epoch.
+    assert!(matches!(
+        completed(response(&mut s, 1).await),
+        CommandResult::Done
+    ));
+    let drained = tokio::time::timeout(10 * SEC, async { while s.recv().await.is_some() {} });
+    assert!(
+        drained.await.is_ok(),
+        "the old session ends after the answer"
+    );
+    let again = cp.session(10 * SEC).await.expect("a new session");
+    assert_ne!(again.session_id, sid);
+    assert_eq!(again.hello.node_epoch, U53::from_const(2));
+
+    let _ = shutdown.send(true);
+    task.await.unwrap();
 }

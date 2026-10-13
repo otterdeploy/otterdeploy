@@ -251,6 +251,8 @@ impl<H: Handler, I: IdentitySource> ConnectionManager<H, I> {
                         let (telemetry, telemetry_rx) = mpsc::channel(TELEMETRY_QUEUE);
                         self.outbox.set(Some(Channels { control, telemetry }));
                         self.sessions.send_replace(Some(session.clone()));
+                        let bound = id.node_epoch;
+                        let identity = Arc::clone(&self.identity);
                         let ended = conn::serve(
                             ws,
                             session,
@@ -260,6 +262,12 @@ impl<H: Handler, I: IdentitySource> ConnectionManager<H, I> {
                             telemetry_rx,
                             &self.sessions,
                             &mut shutdown,
+                            move || {
+                                identity
+                                    .identity()
+                                    .ok()
+                                    .is_none_or(|now| now.node_epoch == bound)
+                            },
                         )
                         .await;
                         self.outbox.set(None);
