@@ -9,9 +9,13 @@
 //!   configuration error. Neither is ever counted as the target failing.
 //! - [`wire`]: the boundary to `otterd_proto::health`.
 
+pub mod adapter;
 pub mod admission;
 pub mod outcome;
+pub mod spec;
 pub mod wire;
 
+pub use adapter::{AttemptOutput, CertificateInfo, Resolver, run_attempt};
 pub use admission::{Admission, Admitted, Pool, Profile, RoundSpec};
 pub use outcome::{Attempt, HealthState, RoundOutcome, fold};
+pub use spec::ProbeSpec;
