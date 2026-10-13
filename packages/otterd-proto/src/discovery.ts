@@ -2,7 +2,7 @@
  * Discovery documents: owner snapshots, freshness challenges,
  * serving sets, membership and peer reachability. Mirror of `discovery.rs`.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { signedEnvelope } from "./envelope";
 import { keyId, nonce, sha256Hex, slotRef, u16, u32, u53, wireId } from "./primitives";

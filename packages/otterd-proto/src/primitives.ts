@@ -5,7 +5,7 @@
  * Integers are JSON numbers capped at 2^53 − 1 so they survive a double; ids
  * are opaque, validated strings; digests and nonces are lowercase hex.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 /** A non-negative integer no larger than `Number.MAX_SAFE_INTEGER` (Rust `U53`). */
 export const u53 = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);

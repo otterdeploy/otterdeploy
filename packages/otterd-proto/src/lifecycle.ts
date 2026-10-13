@@ -3,7 +3,7 @@
  * submission states, stop certificates, barrier evidence and leases. Mirror of
  * `lifecycle.rs`.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { nonce, sha256Hex, slotRef, u32, u53, i64, wireId } from "./primitives";
 import { disconnectAction, restartPolicy } from "./spec";

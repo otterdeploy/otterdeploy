@@ -6,7 +6,7 @@ import { Result } from "better-result";
  * both sides (checked against `fixtures/vectors.json`).
  */
 import { createHash, createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
-import { z } from "zod";
+import * as z from "zod";
 
 import { keyId, publicKey } from "./primitives";
 

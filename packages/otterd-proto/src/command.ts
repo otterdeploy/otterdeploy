@@ -5,7 +5,7 @@
  * `health.configure`, and the stream binding. The storage, backup, firewall,
  * proxy and platform-update arguments are provisional and owned by those components.
  */
-import { z } from "zod";
+import * as z from "zod";
 
 import { capabilityError, verb } from "./capability";
 import { sha256HexOf, signedEnvelope } from "./envelope";

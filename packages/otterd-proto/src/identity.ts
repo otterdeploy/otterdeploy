@@ -1,5 +1,5 @@
 /** Node identity, enrollment and key rotation; mirror of `identity.rs`. */
-import { z } from "zod";
+import * as z from "zod";
 
 import { signedEnvelope } from "./envelope";
 import { keyId, nonce, publicKey, u32, u53, wireId } from "./primitives";
