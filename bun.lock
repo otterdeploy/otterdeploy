@@ -270,6 +270,7 @@
         "@otterdeploy/email": "workspace:*",
         "@otterdeploy/env": "workspace:*",
         "@otterdeploy/jobs": "workspace:*",
+        "@otterdeploy/otterd-proto": "workspace:*",
         "@otterdeploy/shared": "workspace:*",
         "better-result": "^2.9.2",
         "cron-parser": "^4.9.0",
