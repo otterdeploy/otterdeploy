@@ -13,7 +13,10 @@ pub mod addr;
 pub mod cmd;
 pub mod firewall;
 pub mod ids;
+pub mod integrations;
 pub mod ipam;
+pub mod mesh;
 pub mod policy;
+pub mod rotation;
 
 pub use addr::Ipv4Net;
