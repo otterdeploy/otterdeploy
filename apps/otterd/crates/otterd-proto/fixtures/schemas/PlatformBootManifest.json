@@ -1,0 +1,134 @@
+{
+  "cases": [
+    {
+      "authorityTerm": 2,
+      "bootstrapEpoch": 1,
+      "compatibleRollback": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ],
+      "host": {
+        "machineId": "0f5e3c2a9b8d4e1f8a7b6c5d4e3f2a1b",
+        "provider": {
+          "provider": "hetzner",
+          "serverId": "4711"
+        }
+      },
+      "installId": "inst_1",
+      "manifestRevision": 3,
+      "members": [
+        {
+          "data": [
+            {
+              "readOnly": false,
+              "root": "/var/lib/otterd/platform/pg",
+              "target": "/var/lib/postgresql/data"
+            }
+          ],
+          "image": {
+            "archive": "/var/lib/otterd/platform-images/pg.tar",
+            "archiveSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "reference": "postgres:17"
+          },
+          "ip": "10.250.0.2",
+          "name": "pg",
+          "readiness": {
+            "argv": [
+              "pg_isready",
+              "-U",
+              "postgres"
+            ],
+            "kind": "exec"
+          },
+          "role": "postgres"
+        },
+        {
+          "image": {
+            "archive": "/var/lib/otterd/platform-images/redis.tar",
+            "archiveSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "reference": "redis:7"
+          },
+          "ip": "10.250.0.3",
+          "name": "redis",
+          "readiness": {
+            "kind": "tcp",
+            "port": 6379
+          },
+          "role": "redis"
+        },
+        {
+          "dependsOn": [
+            "pg",
+            "redis"
+          ],
+          "env": {
+            "DATABASE_URL": "postgres://pg:5432/otterdeploy"
+          },
+          "image": {
+            "archive": "/var/lib/otterd/platform-images/server.tar",
+            "archiveSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "reference": "otterdeploy/server:1.4.0"
+          },
+          "ip": "10.250.0.4",
+          "name": "cp",
+          "publish": [
+            {
+              "containerPort": 3000,
+              "hostIp": "127.0.0.1",
+              "hostPort": 3000
+            }
+          ],
+          "readiness": {
+            "kind": "http",
+            "path": "/health",
+            "port": 3000
+          },
+          "recoveryEnv": {
+            "OTTERDEPLOY_RECOVERY": "1"
+          },
+          "role": "control-plane"
+        },
+        {
+          "cmd": [
+            "tunnel",
+            "run"
+          ],
+          "dependsOn": [
+            "cp"
+          ],
+          "essentialConnector": true,
+          "image": {
+            "archive": "/var/lib/otterd/platform-images/tunnel.tar",
+            "archiveSha256": "8888888888888888888888888888888888888888888888888888888888888888",
+            "id": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "reference": "cloudflare/cloudflared:2026.1"
+          },
+          "ip": "10.250.0.5",
+          "name": "tunnel",
+          "readiness": {
+            "kind": "tcp",
+            "port": 20241
+          },
+          "role": "connector"
+        }
+      ],
+      "network": {
+        "gateway": "10.250.0.1",
+        "name": "otterd-platform",
+        "subnet": "10.250.0.0/24"
+      },
+      "preflight": {
+        "forbidUnits": [
+          "otterdeploy-compose.service"
+        ],
+        "requireNftTable": "inet otterd_base"
+      },
+      "previousManifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "recoveryListener": "127.0.0.1:3900",
+      "schema": 1
+    }
+  ],
+  "schema": "PlatformBootManifest"
+}

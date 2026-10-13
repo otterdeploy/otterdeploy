@@ -63,7 +63,7 @@ holds envelopes both languages reproduce byte for byte.
 | `otterd/cp-key-transition/v1` | CP, old and new key | `CpKeyTransition` |
 | `otterd/stop-certificate/v1` | node | `StopCertificate` |
 | `otterd/authority-revoke/v1` | offline recovery key | `AuthorityRevocation` |
-| `otterd/platform-boot-manifest/v1` | install admin / recovery key | platform boot manifest (daemon core) |
+| `otterd/platform-boot-manifest/v1` | install recovery key | `PlatformBootManifest` |
 | `otterd/release-manifest/v1` | release key | release manifest (daemon core) |
 | `otterd/owner-snapshot/v1` | owner node | `OwnerSnapshot` |
 | `otterd/challenge-answer/v1` | owner node | `ChallengeAnswer` |
@@ -314,6 +314,31 @@ cacheEncryption, wireguard}`.
 - **Authority revocation**: `AuthorityRevocation {belowTerm, nodes?}` signed by
   the offline recovery key; delivered by the recovery tool over the control
   channel or written to disk from a rescue system.
+
+## Platform boot manifest (`platform.rs`)
+
+On a host that runs the control plane itself, otterd starts the platform from
+a `PlatformBootManifest` signed by the install's recovery key: no control
+plane, no registry. Platform membership comes only from this document.
+
+- `installId`, `host` (the one machine it boots; a cloned disk elsewhere
+  refuses), `bootstrapEpoch`, `manifestRevision`, `authorityTerm`,
+  `previousManifestDigest?`, `compatibleRollback` (digests it may roll back to).
+- `network {name, subnet, gateway}`, `recoveryListener?`,
+  `preflight {requireNftTable?, forbidUnits}`.
+- `members[]`: `name`, `role` (`postgres`, `redis`, `control-plane`, `edge`,
+  `connector`), `image {reference, id: sha256:…, archive, archiveSha256}` (a
+  local archive, loaded when the id is missing), `cmd`, `env`, `recoveryEnv`
+  (only while the control plane runs in recovery mode), `data [{root, target,
+  readOnly}]`, fixed `ip`, `publish`, `dependsOn`, `readiness` (`tcp`, `exec`,
+  `http`), and `essentialConnector` (required for a connector).
+
+`preflight()` (Rust) refuses before anything starts: an unknown schema,
+duplicate members, unknown dependencies, cycles, anything but exactly one
+control plane whose dependency closure holds Postgres and Redis, a non-digest
+image id, an unsigned connector, and data roots outside
+`/var/lib/otterd/platform` or overlapping another. It returns the start order.
+The TypeScript mirror covers the document's shape.
 
 ## Discovery (`discovery.rs`)
 

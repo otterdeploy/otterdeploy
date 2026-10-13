@@ -23,6 +23,7 @@ pub mod journal;
 pub mod lifecycle;
 pub mod metrics;
 pub mod num;
+pub mod platform;
 pub mod spec;
 pub mod version;
 
