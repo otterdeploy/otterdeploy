@@ -17,6 +17,7 @@
 //! Steps 1–4 refuse without any side effect or journal record.
 
 use crate::lifecycle::{Node, NodeError};
+use crate::platform::Platform;
 use crate::upgrade::Upgrader;
 use otterd_identity::rotation::valid_cp_keys;
 use otterd_journal::OpState;
@@ -63,6 +64,7 @@ pub enum Answer {
 pub struct Dispatcher {
     replay: Mutex<ReplayGuard>,
     upgrader: Option<Arc<Upgrader>>,
+    platform: Option<Arc<Platform>>,
 }
 
 fn refuse(error: CapabilityError) -> Answer {
@@ -74,6 +76,13 @@ impl Dispatcher {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Also run `platform.update` on this host's platform.
+    #[must_use]
+    pub fn and_platform(mut self, platform: Option<Arc<Platform>>) -> Self {
+        self.platform = platform;
+        self
     }
 
     /// A dispatcher that can run `node.upgrade`.
@@ -118,16 +127,7 @@ impl Dispatcher {
         if let Err(e) = claim {
             return malformed(format!("claim: {e}"));
         }
-        let outcome = match run(
-            node,
-            &cap,
-            &command,
-            &payload_hash,
-            self.upgrader.as_deref(),
-            session,
-        )
-        .await
-        {
+        let outcome = match run(node, &cap, &command, &payload_hash, self, session).await {
             Ok(result) => OpOutcome::Completed { result },
             Err(NodeError::Refused(message)) => OpOutcome::Failed {
                 code: "refused".into(),
@@ -263,12 +263,37 @@ async fn run(
     cap: &Capability,
     command: &Command,
     payload_hash: &Sha256Hex,
-    upgrader: Option<&Upgrader>,
+    services: &Dispatcher,
     session: &Session,
 ) -> Result<CommandResult, NodeError> {
     match command {
+        Command::PlatformUpdate { manifest } => {
+            let platform = services
+                .platform
+                .clone()
+                .ok_or_else(|| NodeError::Refused("this host runs no platform".into()))?;
+            let host = otterd_sys::host::host_binding(None)
+                .map_err(|e| NodeError::Internal(e.to_string()))?;
+            let revoked = node.state()?.revoked_below_term();
+            let digest = manifest
+                .payload_digest()
+                .map_err(|e| NodeError::Refused(e.to_string()))?;
+            let manifest = manifest.clone();
+            // The update stops the control plane that asked for it: run it on
+            // its own and answer now; progress is in the platform status.
+            tokio::spawn(async move {
+                match platform.update(&manifest, &host, revoked).await {
+                    Ok(id) => tracing::info!(update = %id, "platform update committed"),
+                    Err(e) => tracing::error!(error = %e, "platform update stopped"),
+                }
+            });
+            Ok(CommandResult::Document {
+                schema: "otterd/platform-update-started/v1".into(),
+                body: serde_json::json!({"manifestDigest": digest}),
+            })
+        }
         Command::NodeUpgrade { release } => {
-            let upgrader = upgrader.ok_or_else(|| {
+            let upgrader = services.upgrader.as_deref().ok_or_else(|| {
                 NodeError::Refused("this node is not installed for A/B updates".into())
             })?;
             let clock = session

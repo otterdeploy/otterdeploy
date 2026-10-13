@@ -8,6 +8,7 @@
 use crate::dispatch::{Answer, Dispatcher, Session};
 use crate::keys::KeyRotator;
 use crate::lifecycle::{Node, NodeError};
+use crate::platform::Platform;
 use crate::upgrade::Upgrader;
 use otterd_identity::rotation::apply_cp_transition;
 use otterd_proto::U53;
@@ -32,6 +33,7 @@ pub struct ControlHandler {
     reports: SlotReporter,
     rotator: Option<Arc<KeyRotator>>,
     upgrader: Option<Arc<Upgrader>>,
+    platform: Option<Arc<Platform>>,
     outbox: OnceLock<Outbox>,
     /// The live session negotiated `key-rotation`.
     rotation_enabled: AtomicBool,
@@ -46,6 +48,7 @@ impl ControlHandler {
             reports,
             rotator: None,
             upgrader: None,
+            platform: None,
             outbox: OnceLock::new(),
             rotation_enabled: AtomicBool::new(false),
         }
@@ -65,10 +68,18 @@ impl ControlHandler {
         self
     }
 
+    /// Run `platform.update` on this host's platform.
+    #[must_use]
+    pub fn with_platform(mut self, platform: Arc<Platform>) -> Self {
+        self.platform = Some(platform);
+        self
+    }
+
     fn new_dispatcher(&self) -> Dispatcher {
         self.upgrader
             .clone()
             .map_or_else(Dispatcher::new, Dispatcher::with_upgrader)
+            .and_platform(self.platform.clone())
     }
 
     /// The transport's outbox, once the connection manager exists.
