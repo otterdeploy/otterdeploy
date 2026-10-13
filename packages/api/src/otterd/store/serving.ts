@@ -111,8 +111,13 @@ export function servingTargets(): Promise<Result<ServingTarget[], StoreFailure>>
 
 export type ServingRow = typeof otterdServing.$inferSelect;
 
+/** Field by field: jsonb returns object keys in its own order. */
+const attemptKey = (a: ServingAttempt) =>
+  [a.grantId, a.attemptId, a.nodeId, a.nodeEpoch, a.address].join("|");
+
 const sameAttempts = (a: ServingAttempt[], b: ServingAttempt[]) =>
-  a.length === b.length && a.every((x, i) => JSON.stringify(x) === JSON.stringify(b[i]));
+  a.length === b.length &&
+  a.every((x, i) => b[i] !== undefined && attemptKey(x) === attemptKey(b[i]));
 
 /** The stored set, raised to a new revision when its backends changed. */
 export function recordServing(
