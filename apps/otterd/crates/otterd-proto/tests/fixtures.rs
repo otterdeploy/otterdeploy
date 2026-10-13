@@ -676,14 +676,27 @@ fn schemas() {
     );
     schema_file::<ReleaseManifest>(
         "ReleaseManifest",
-        vec![json!({
+        vec![
+            json!({
             "version": "1.4.0",
             "artifacts": [
                 {"arch": "x86_64", "sha256": "a".repeat(64), "size": 18_234_112},
                 {"arch": "aarch64", "sha256": "b".repeat(64), "size": 17_100_800}
             ],
             "protocol": {"min": 1, "max": 1}, "journalFormat": 1,
-            "minRollbackVersion": "1.3.0", "issuedAtUnixMs": 1_791_000_000_000_u64})],
+            "minRollbackVersion": "1.3.0", "issuedAtUnixMs": 1_791_000_000_000_u64}),
+            json!({
+            "version": "1.5.0",
+            "artifacts": [
+                {"name": "otterd", "arch": "x86_64", "sha256": "a".repeat(64), "size": 18_234_112},
+                {"name": "otterd-guard", "arch": "x86_64", "sha256": "c".repeat(64), "size": 2_101_248},
+                {"name": "otterd-recover", "arch": "x86_64", "sha256": "d".repeat(64), "size": 6_291_456},
+                {"name": "otterd-net", "arch": "x86_64", "sha256": "e".repeat(64), "size": 7_340_032},
+                {"name": "otterd-dns", "arch": "x86_64", "sha256": "f".repeat(64), "size": 3_145_728}
+            ],
+            "protocol": {"min": 1, "max": 1}, "journalFormat": 1,
+            "minRollbackVersion": "1.4.0", "issuedAtUnixMs": 1_791_000_000_000_u64}),
+        ],
     );
     schema_file::<ReleaseKeySet>(
         "ReleaseKeySet",

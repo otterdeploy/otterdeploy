@@ -72,6 +72,7 @@ fn release(name: &str, version: &str, binary: &Path, signer: [u8; 32]) -> PathBu
     let r = ReleaseManifest {
         version: version.into(),
         artifacts: vec![ReleaseArtifact {
+            name: None,
             arch: std::env::consts::ARCH.into(),
             sha256: Sha256Hex::digest(&bytes),
             size: U53::new(u64::try_from(bytes.len()).unwrap()).unwrap(),

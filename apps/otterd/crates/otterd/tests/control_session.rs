@@ -675,6 +675,7 @@ async fn node_upgrade_stages_only_a_verified_release() {
             &ReleaseManifest {
                 version: v.into(),
                 artifacts: vec![ReleaseArtifact {
+                    name: None,
                     arch: arch.into(),
                     sha256: Sha256Hex::digest(body),
                     size: U53::new(u64::try_from(body.len()).unwrap()).unwrap(),

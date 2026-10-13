@@ -325,6 +325,7 @@ mod tests {
         ReleaseManifest {
             version: v.into(),
             artifacts: vec![ReleaseArtifact {
+                name: None,
                 arch: "x86_64".into(),
                 sha256: Sha256Hex::digest(bin),
                 size: U53::new(u64::try_from(bin.len()).unwrap()).unwrap(),
