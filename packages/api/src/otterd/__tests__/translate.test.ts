@@ -125,6 +125,7 @@ describe("databaseToSpec", () => {
     expect(env.TZ).toBe("UTC");
     expect(env.POSTGRES_PASSWORD).toBe("s3cret");
     expect(s.endpoint.aliases).toEqual(["od-shop-db", "db"]);
+    expect(s.endpoint.ports).toEqual([{ protocol: "tcp", targetPort: 5432, publish: "internal" }]);
     expect(s.update.order).toBe("stop-first");
   });
 });

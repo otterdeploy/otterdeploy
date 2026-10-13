@@ -174,6 +174,7 @@ export function databaseToSpec(
       placement: placement.nodeId ? { nodes: [placement.nodeId] } : {},
     },
     endpoint: {
+      ports: [{ protocol: "tcp", targetPort: adapter.port, publish: "internal" }],
       aliases: [input.serviceName, input.hostnameAlias],
       scopes: [`${input.projectSlug}${input.networkScopeSuffix ?? ""}`],
     },

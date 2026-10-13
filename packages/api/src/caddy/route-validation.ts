@@ -41,8 +41,8 @@ const DATABASE_NAME =
  */
 /** Who this route is allowed to point at, by identity rather than by string. */
 function upstreamViolation(route: ProxyRouteInput): string | null {
-  if (route.upstreamVip !== undefined && (route.type !== "http" || !IPV4.test(route.upstreamVip))) {
-    return "service address is not an IPv4 literal on an HTTP route";
+  if (route.upstreamVip !== undefined && !IPV4.test(route.upstreamVip)) {
+    return "service address is not an IPv4 literal";
   }
   if (route.projectId === "control-plane") {
     return ["server", "host.docker.internal"].includes(route.upstreamHost)

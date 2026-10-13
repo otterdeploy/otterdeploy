@@ -35,6 +35,7 @@ import { applySlotReports } from "../store/reports";
 import { putService } from "../store/services";
 import { markServingSent, recordServing, servingTargets } from "../store/serving";
 import { acknowledgeAuthority } from "../store/serving-ack";
+import { databaseToSpec } from "../translate";
 
 const NOW = 1_950_000_000_000;
 const seed = new Uint8Array(32).fill(9);
@@ -300,5 +301,53 @@ describe("otterd node network state", () => {
     ]);
     expect(route?.upstreamVip).toBe(svc?.vipAddress);
     expect(route && buildHttpBlock(route)).toContain(`${svc?.vipAddress}:8080`);
+  });
+
+  it("a public database route dials the database's VIP, found by its internal hostname", async () => {
+    const id = `net-db-${run}`;
+    const db1 = databaseToSpec(
+      {
+        engine: "postgres",
+        resourceId: id,
+        serviceName: `od-p${run}-db`,
+        volumeName: `otterdeploy-pg-${run}`,
+        hostnameAlias: `db-${run}.otterdeploy.internal`,
+        databaseName: "app",
+        username: "app",
+        password: "pw",
+        projectSlug: `p${run}`,
+        networkScopeSuffix: "",
+        deploymentId: "dep_1",
+      },
+      { nodeId: null },
+    ).unwrap();
+    (await putService({ ...db1, endpoint: { ...db1.endpoint, scopes: [scope] } }, NOW)).unwrap();
+    const g = (
+      await admitGrant({
+        resourceId: id,
+        slotIndex: 0,
+        nodeId: n1,
+        exclusive: true,
+        surge: false,
+        specRevision: 1,
+        reason: "test",
+        now: NOW,
+      })
+    ).unwrap();
+    const vip = g.network?.vip?.address;
+    expect(vip).toMatch(/^172\.31\./);
+    const [route] = await withServiceVips([
+      {
+        projectId: "prj_1",
+        type: "layer4",
+        domain: "db.example.com",
+        upstreamHost: `db-${run}.otterdeploy.internal`,
+        upstreamPort: 5432,
+        protocol: "tcp",
+        layer4Alpn: "postgresql",
+        usesAcme: false,
+      },
+    ]);
+    expect(route?.upstreamVip).toBe(vip);
   });
 });
