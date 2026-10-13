@@ -1226,6 +1226,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "otterd-net"
+version = "0.1.0"
+dependencies = [
+ "otterd-proto",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "otterd-probe"
 version = "0.1.0"
 dependencies = [
