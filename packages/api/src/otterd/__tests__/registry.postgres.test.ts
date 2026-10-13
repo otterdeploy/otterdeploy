@@ -200,4 +200,48 @@ describe("otterd enrollment", () => {
     });
     expect((await pinOf(other.resourceId)).unwrap()).toEqual({ pinned: false });
   });
+
+  it("resolves a resource pinned to the bootstrap localhost row to the primary node", async () => {
+    const org = await seedOrganization("otterd-primary");
+    const [local] = await db
+      .insert(server)
+      .values({
+        organizationId: org,
+        name: "localhost",
+        host: "127.0.0.1",
+        cpuTotal: 2,
+        memTotalGb: 4,
+      })
+      .returning();
+    if (!local) throw new Error("server not seeded");
+    const project = await seedProject(org);
+    const svc = await seedService({
+      projectId: project.projectId,
+      environmentId: project.mainEnvironmentId,
+      name: "on-primary",
+    });
+    await db
+      .update(resource)
+      .set({ placementServerId: local.id })
+      .where(eq(resource.id, svc.resourceId));
+    const t = (
+      await createEnrollToken(
+        {
+          roles: ["worker"],
+          labels: { "otterdeploy.primary": "true" },
+          ttlMs: 600_000,
+          by: "installer",
+        },
+        NOW + 10,
+      )
+    ).unwrap();
+    const done = (
+      await enroll(cfg(null), request(t.token, new Uint8Array(32).fill(15)), NOW + 10)
+    ).unwrap();
+    expect((await pinOf(svc.resourceId)).unwrap()).toEqual({
+      pinned: true,
+      nodeId: done.nodeId,
+      serverId: local.id,
+    });
+  });
 });
