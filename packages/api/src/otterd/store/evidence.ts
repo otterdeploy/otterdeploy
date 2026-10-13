@@ -22,6 +22,7 @@ import {
 } from "@otterdeploy/otterd-cp";
 import { Result } from "better-result";
 import { and, eq, isNull, ne } from "drizzle-orm";
+import * as z from "zod";
 
 import type { FenceRow } from "./rows";
 
@@ -87,6 +88,10 @@ export function recordStopCertificate(
  * (before claiming it, or claimed and refused before any Engine request):
  * the grant never started anything and may be released.
  */
+const refusedOutcome = z.object({
+  answer: z.object({ outcome: z.object({ code: z.string(), message: z.string() }) }),
+});
+
 export function recordRefusal(
   grantId: string,
   opId: string,
@@ -101,6 +106,15 @@ export function recordRefusal(
       .for("update");
     if (!g) throw refusal("unknown-grant", `no grant ${grantId}`);
     if (g.opId !== opId) throw refusal("op-mismatch", `${opId} is not the apply of ${grantId}`);
+    // A definitive failure names its reason: kept on the grant for the deploy status.
+    const failed = refusedOutcome.safeParse(answer);
+    if (failed.success) {
+      const { code, message } = failed.data.answer.outcome;
+      await tx
+        .update(otterdGrant)
+        .set({ failure: { code, message } })
+        .where(eq(otterdGrant.grantId, grantId));
+    }
     const evidenceId = `refused_${grantId}`;
     await tx
       .insert(otterdEvidence)

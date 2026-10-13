@@ -15,7 +15,7 @@ import { acknowledge } from "./quarantine";
 import { allocateEndpoint, allocateScope } from "./scopes";
 
 /** A scope's network on one node: a /27 unit, 29 attempt addresses. */
-export const SCOPE_LEN = 27;
+const SCOPE_LEN = 27;
 
 export interface AttemptPlace {
   subnet: Net;

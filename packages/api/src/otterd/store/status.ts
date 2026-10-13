@@ -26,7 +26,13 @@ export interface ServiceStatus {
   /** Grants of the target revision running. */
   running: number;
   desiredPaused: boolean;
+  /** Why the target revision's newest attempt could not run, when the node said. */
+  failure?: { code: string; message: string } | null;
 }
+
+/** "image-pull-failed: …" as a sentence the deploy log can show. */
+export const failureText = (f: { code: string; message: string }) =>
+  `${f.code.replaceAll("-", " ")}: ${f.message}`;
 
 export function statusByName(
   serviceNames: readonly string[],
@@ -55,35 +61,39 @@ export function statusByName(
               .select()
               .from(otterdGrant)
               .where(
-                and(
-                  inArray(
-                    otterdGrant.resourceId,
-                    services.map((s) => s.resourceId),
-                  ),
-                  ne(otterdGrant.state, "released"),
+                inArray(
+                  otterdGrant.resourceId,
+                  services.map((s) => s.resourceId),
                 ),
-              );
+              )
+              .orderBy(desc(otterdGrant.createdAt));
       for (const s of services) {
         if (!s.serviceName) continue;
-        const mine = grants.filter((g) => g.resourceId === s.resourceId && !g.orphan);
+        const ofService = grants.filter((g) => g.resourceId === s.resourceId);
+        const mine = ofService.filter((g) => !g.orphan && g.state !== "released");
+        // The newest reason the target revision could not run, live or already retired.
+        const failure =
+          ofService.find((g) => g.specRevision === s.revision && g.failure)?.failure ?? null;
         const current = mine.filter((g) => g.specRevision === s.revision);
         // Serving now: a paused (frozen) process holds the slot but serves nothing.
         const running = current.filter((g) => g.runningSince !== null && !g.failed).length;
-        const status: ServiceStatus["status"] = current.some((g) => g.failed)
-          ? "error"
-          : running > 0
-            ? "running"
-            : mine.length > 0
-              ? "starting"
-              : s.paused
-                ? "stopped"
-                : "starting";
+        const status: ServiceStatus["status"] =
+          current.some((g) => g.failed) || (running === 0 && failure !== null)
+            ? "error"
+            : running > 0
+              ? "running"
+              : mine.length > 0
+                ? "starting"
+                : s.paused
+                  ? "stopped"
+                  : "starting";
         out.set(s.serviceName, {
           resourceId: s.resourceId,
           revision: s.revision,
           status,
           running,
           desiredPaused: s.paused,
+          failure,
         });
       }
       return out;
