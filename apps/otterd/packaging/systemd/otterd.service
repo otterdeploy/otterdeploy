@@ -1,0 +1,54 @@
+# otterd: the otterdeploy per-node daemon.
+#
+# Install as /etc/systemd/system/otterd.service with the binary at
+# /usr/local/bin/otterd. Settings come from /etc/otterd/otterd.env (see
+# otterd.env.example); enrollment (`otterd keygen`, `otterd init`) happens
+# before the first start.
+
+[Unit]
+Description=otterdeploy node daemon
+Documentation=https://otterdeploy.com/docs
+# Order after the Engine and the network when they exist, but never require
+# them: otterd must run, report and refuse safely while dockerd is down or hung.
+After=network-online.target docker.service containerd.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/local/bin/otterd run
+EnvironmentFile=-/etc/otterd/otterd.env
+
+# The daemon pets the watchdog only while its reconciler completes passes; a
+# wedged reconciler is restarted (into boot quarantine), a slow Engine is not.
+WatchdogSec=30s
+Restart=always
+RestartSec=2s
+# Exit status 2: the journal is missing or corrupt, or the key store disagrees
+# with it. That is recovery, and restarting would only repeat it.
+RestartPreventExitStatus=2
+# Containers belong to dockerd, not to this unit; stopping otterd stops only
+# otterd. Workloads keep running under their grants.
+KillMode=process
+TimeoutStopSec=20s
+
+# The staging root and the control socket live under /run/otterd.
+RuntimeDirectory=otterd
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+StateDirectory=otterd
+StateDirectoryMode=0700
+ConfigurationDirectory=otterd
+ConfigurationDirectoryMode=0700
+UMask=0077
+LimitNOFILE=65536
+
+# No PrivateTmp, ProtectSystem, ReadOnlyPaths or other mount-namespace
+# sandboxing: retained data is staged with bind mounts that dockerd must see,
+# so otterd has to share the host mount namespace (it checks this at start).
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=multi-user.target
