@@ -4,12 +4,19 @@
 //! (Postgres, Redis, the control plane and its edge) with no control plane, no
 //! registry and no tenant DNS: host binding, firewall baseline and legacy-unit
 //! checks, the fixed platform network, then each member in dependency order,
-//! each gated on its readiness. The control plane starts in recovery mode when
-//! asked. Every Engine mutation goes through the same Submitted/Settled adapter
-//! as tenant work, journalled in a separate root-only bootstrap journal; an
-//! unresolved submission blocks its member instead of being assumed cancelled.
-//! A running member on the same image that is ready is continued, never
-//! restarted.
+//! each gated on its readiness. Every Engine mutation goes through the same
+//! Submitted/Settled adapter as tenant work, journalled in a separate root-only
+//! bootstrap journal; an unresolved submission blocks its member instead of
+//! being assumed cancelled. A running member on the same image and config that
+//! is ready is continued, never restarted.
+//!
+//! The control plane starts in recovery mode when the operator asks for it, or
+//! when an update started it and it has not yet reported, with
+//! `platform.recovered`, that it restored current operations and authority.
+//! Leaving recovery mode is that journalled step and one deliberate restart,
+//! never a side effect of a boot: the mode a member was created in is on its
+//! own label, outside the config fingerprint, so a running control plane is
+//! continued in whichever mode it runs.
 
 use otterd_engine::{EngineAdapter, EngineOp, MutationSpec, SubmitResult};
 use otterd_journal::{NodeState, Submission};
@@ -29,6 +36,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 #[derive(Debug, thiserror::Error)]
@@ -86,6 +94,33 @@ pub struct Platform {
     recovery_key: PublicKey,
     status: Mutex<PlatformStatus>,
     run: tokio::sync::Mutex<()>,
+    /// The operator asked for recovery mode at the last boot.
+    operator_recovery: AtomicBool,
+}
+
+/// The mode the members of one pass are created in, and whether a control
+/// plane still running in recovery mode is due to leave it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Mode {
+    /// Create members in recovery mode (with their recovery environment).
+    recovery: bool,
+    /// The journal records that the active manifest's control plane left
+    /// recovery mode, and the operator does not hold it there: a member still
+    /// running in recovery mode is restarted in normal mode, once.
+    leave_recovery: bool,
+}
+
+impl Mode {
+    /// The control plane an update starts: recovery mode, so it migrates and
+    /// restores before serving.
+    const UPDATE: Self = Self {
+        recovery: true,
+        leave_recovery: false,
+    };
+}
+
+fn mode_name(recovery: bool) -> &'static str {
+    if recovery { "recovery" } else { "normal" }
 }
 
 const MAX_EVENTS: usize = 64;
@@ -106,6 +141,7 @@ impl Platform {
             recovery_key,
             status: Mutex::new(PlatformStatus::default()),
             run: tokio::sync::Mutex::new(()),
+            operator_recovery: AtomicBool::new(false),
         }
     }
 
@@ -275,6 +311,9 @@ impl Platform {
 
     /// Boot the platform. `revoked_below_term` comes from the node journal: a
     /// recovery-root revocation retires every manifest below it.
+    /// `recovery_mode` is the operator's request to start the control plane in
+    /// recovery mode; without it, the journal decides: recovery mode until the
+    /// control plane an update started reports `platform.recovered`.
     pub async fn boot(
         &self,
         host: &HostBinding,
@@ -282,9 +321,9 @@ impl Platform {
         recovery_mode: bool,
     ) -> Result<(), PlatformError> {
         let _run = self.run.lock().await;
-        let result = self
-            .boot_locked(host, revoked_below_term, recovery_mode)
-            .await;
+        self.operator_recovery
+            .store(recovery_mode, Ordering::Relaxed);
+        let result = self.boot_locked(host, revoked_below_term).await;
         match &result {
             Ok(()) => self.set_status(|s| {
                 s.phase = "up".into();
@@ -306,7 +345,6 @@ impl Platform {
         &self,
         host: &HostBinding,
         revoked_below_term: U53,
-        recovery_mode: bool,
     ) -> Result<(), PlatformError> {
         self.set_status(|s| s.phase = "preflight".into());
         if let Some(u) = self.state()?.update
@@ -350,12 +388,103 @@ impl Platform {
                 .collect::<Vec<_>>()
                 .join(" -> ")
         ));
+        let mode = self.mode(&digest)?;
+        self.event(format!(
+            "control plane mode: {}{}",
+            mode_name(mode.recovery),
+            if mode.leave_recovery {
+                " (recovery left)"
+            } else {
+                ""
+            }
+        ));
         self.ensure_network(&m).await?;
         for member in order {
             self.set_status(|s| s.phase = format!("starting {}", member.name));
-            self.ensure_member(&m, member, recovery_mode).await?;
+            self.ensure_member(&m, member, mode).await?;
         }
         Ok(())
+    }
+
+    /// The mode for the active manifest's members. Recovery mode when the
+    /// operator asks for it, or when an update started this manifest's control
+    /// plane (`NewCpStarted`) and the journal has no
+    /// [`Record::PlatformRecoveryLeft`] for it; normal mode otherwise.
+    fn mode(&self, active: &Sha256Hex) -> Result<Mode, PlatformError> {
+        let state = self.state()?;
+        let operator = self.operator_recovery.load(Ordering::Relaxed);
+        let left = state.recovery_left.as_ref() == Some(active);
+        let started_by_update = state.update.as_ref().is_some_and(|u| {
+            &u.to_manifest_digest == active
+                && matches!(u.phase, UpdatePhase::NewCpStarted | UpdatePhase::Committed)
+        });
+        Ok(Mode {
+            recovery: operator || (started_by_update && !left),
+            leave_recovery: left && !operator,
+        })
+    }
+
+    /// `platform.recovered`: the control plane restored current operations
+    /// and authority for the active manifest `digest`. Journals
+    /// [`Record::PlatformRecoveryLeft`] once (a retry records nothing again)
+    /// and answers whether the control plane still runs in recovery mode, that
+    /// is whether [`Platform::finish_recovery`] restarts it. Refused for any
+    /// manifest but the active one, and while an update is in progress.
+    pub async fn leave_recovery(&self, digest: &Sha256Hex) -> Result<bool, PlatformError> {
+        let _run = self.run.lock().await;
+        let (active, m) = self.active()?;
+        if digest != &active {
+            return Err(PlatformError::Blocked(format!(
+                "manifest {digest} is not the active one ({active})"
+            )));
+        }
+        let state = self.state()?;
+        if let Some(u) = state.update.filter(|u| !u.phase.is_terminal()) {
+            return Err(PlatformError::Blocked(format!(
+                "platform update {} is in progress at {:?}",
+                u.update_id, u.phase
+            )));
+        }
+        if state.recovery_left.as_ref() != Some(&active) {
+            self.engine
+                .journal()
+                .append(Record::PlatformRecoveryLeft {
+                    manifest_digest: active.clone(),
+                })
+                .await?;
+            self.event(format!(
+                "control plane left recovery mode for manifest {active}"
+            ));
+        }
+        if self.operator_recovery.load(Ordering::Relaxed) {
+            self.event(
+                "the operator holds the control plane in recovery mode; it restarts in normal mode at the next boot without that request".into(),
+            );
+            return Ok(false);
+        }
+        let cp = control_plane(&m)?;
+        let Some((_, container)) = self.created_containers(&slot(cp)?)?.pop() else {
+            return Ok(false);
+        };
+        Ok(self
+            .engine
+            .inspect(container.as_ref())
+            .await
+            .map_err(engine)?
+            .is_some_and(|v| v.process.is_live() && created_in_recovery(&v.labels)))
+    }
+
+    /// Restart the control plane in normal mode once the journal records that
+    /// it left recovery mode: one deliberate, logged restart. A control plane
+    /// already in normal mode is continued, so a second call restarts nothing.
+    pub async fn finish_recovery(&self) -> Result<(), PlatformError> {
+        let _run = self.run.lock().await;
+        let (digest, m) = self.active()?;
+        let mode = self.mode(&digest)?;
+        if !mode.leave_recovery {
+            return Ok(());
+        }
+        self.ensure_member(&m, control_plane(&m)?, mode).await
     }
 
     fn resume_marker(&self) -> PathBuf {
@@ -449,14 +578,7 @@ impl Platform {
     ) -> Result<(), PlatformError> {
         let old = self.load(from)?;
         let new = self.load(to)?;
-        let control_plane = |m: &PlatformBootManifest| {
-            m.members
-                .iter()
-                .find(|m| m.role == otterd_proto::platform::PlatformRole::ControlPlane)
-                .cloned()
-                .ok_or_else(|| PlatformError::Blocked("no control plane member".into()))
-        };
-        let old_cp = control_plane(&old)?;
+        let old_cp = control_plane(&old)?.clone();
         let steps = [
             UpdatePhase::CpQuiesced,
             UpdatePhase::CpStopped,
@@ -481,7 +603,7 @@ impl Platform {
                     self.set_status(|s| s.manifest_digest = Some(to.clone()));
                     self.ensure_network(&new).await?;
                     for m in new.preflight()? {
-                        self.ensure_member(&new, m, true).await?;
+                        self.ensure_member(&new, m, Mode::UPDATE).await?;
                     }
                 }
                 UpdatePhase::Committed => {
@@ -576,35 +698,22 @@ impl Platform {
     }
 
     /// One member: resolve earlier Engine work, continue a ready attempt on
-    /// the same image, otherwise replace it with a new attempt.
+    /// the same image and config in whichever mode it runs, otherwise replace
+    /// it with a new attempt in `mode`. The one exception is the journalled
+    /// exit from recovery mode, which restarts a member still in it.
     async fn ensure_member(
         &self,
         manifest: &PlatformBootManifest,
         m: &PlatformMember,
-        recovery_mode: bool,
+        mode: Mode,
     ) -> Result<(), PlatformError> {
         let slot = slot(m)?;
         self.retire_or_block(&slot).await?;
         let created = self.created_containers(&slot)?;
-        let config = container_config(manifest, m, recovery_mode);
-        if let Some((attempt, container)) = created.last()
-            && let Some(v) = self
-                .engine
-                .inspect(container.as_ref())
-                .await
-                .map_err(engine)?
-            && v.process.is_live()
-            && self.image_of(&v.id).await? == m.image.id
-            && v.labels.get(LABEL_CONFIG).map(String::as_str) == fingerprint(&config)
-            && self.ready(m, &v.id).await
-        {
-            self.event(format!(
-                "{}: attempt {attempt} running and ready; continued",
-                m.name
-            ));
-            self.set_status(|s| {
-                s.members.insert(m.name.clone(), "ready (continued)".into());
-            });
+        // A member without a recovery environment is the same in both modes.
+        let recovery = mode.recovery && !m.recovery_env.is_empty();
+        let config = container_config(manifest, m, recovery);
+        if self.continued(m, created.last(), &config, mode).await? {
             return Ok(());
         }
         for (attempt, container) in &created {
@@ -665,7 +774,11 @@ impl Platform {
         ) {
             return Err(engine(format!("start {name}: {start:?}")));
         }
-        self.event(format!("{}: started attempt {attempt}", m.name));
+        self.event(format!(
+            "{}: started attempt {attempt} in {} mode",
+            m.name,
+            mode_name(recovery)
+        ));
         let deadline = tokio::time::Instant::now() + self.cfg.ready_timeout;
         while !self.ready(m, container.as_ref()).await {
             if tokio::time::Instant::now() > deadline {
@@ -681,6 +794,55 @@ impl Platform {
             s.members.insert(m.name.clone(), "ready".into());
         });
         Ok(())
+    }
+
+    /// Whether the newest attempt runs on the same image and config and is
+    /// ready, so it is continued in whichever mode it runs. A member still in
+    /// recovery mode after the journalled exit is not continued.
+    async fn continued(
+        &self,
+        m: &PlatformMember,
+        newest: Option<&(AttemptId, ContainerRef)>,
+        config: &serde_json::Value,
+        mode: Mode,
+    ) -> Result<bool, PlatformError> {
+        let Some((attempt, container)) = newest else {
+            return Ok(false);
+        };
+        let Some(v) = self
+            .engine
+            .inspect(container.as_ref())
+            .await
+            .map_err(engine)?
+        else {
+            return Ok(false);
+        };
+        if !v.process.is_live()
+            || self.image_of(&v.id).await? != m.image.id
+            || v.labels.get(LABEL_CONFIG).map(String::as_str) != fingerprint(config)
+        {
+            return Ok(false);
+        }
+        let running = created_in_recovery(&v.labels);
+        if running && mode.leave_recovery {
+            self.event(format!(
+                "{}: left recovery mode; restarting attempt {attempt} in normal mode",
+                m.name
+            ));
+            return Ok(false);
+        }
+        if !self.ready(m, &v.id).await {
+            return Ok(false);
+        }
+        self.event(format!(
+            "{}: attempt {attempt} running and ready in {} mode; continued",
+            m.name,
+            mode_name(running)
+        ));
+        self.set_status(|s| {
+            s.members.insert(m.name.clone(), "ready (continued)".into());
+        });
+        Ok(true)
     }
 
     /// Containers this slot's settled creates produced, oldest first.
@@ -936,16 +1098,30 @@ fn no_unresolved(s: &NodeState, slot: &SlotRef) -> Result<(), String> {
     }
 }
 
+fn control_plane(m: &PlatformBootManifest) -> Result<&PlatformMember, PlatformError> {
+    m.members
+        .iter()
+        .find(|m| m.role == otterd_proto::platform::PlatformRole::ControlPlane)
+        .ok_or_else(|| PlatformError::Blocked("no control plane member".into()))
+}
+
+fn member_env(m: &PlatformMember, recovery_mode: bool) -> Vec<String> {
+    let mut env: BTreeMap<&String, &String> = m.env.iter().collect();
+    if recovery_mode {
+        env.extend(m.recovery_env.iter());
+    }
+    env.into_iter().map(|(k, v)| format!("{k}={v}")).collect()
+}
+
+/// The Engine create body for a member. The config fingerprint covers the
+/// normal-mode body, so it is the same in both modes; the mode is on
+/// [`LABEL_RECOVERY`].
 fn container_config(
     manifest: &PlatformBootManifest,
     m: &PlatformMember,
     recovery_mode: bool,
 ) -> serde_json::Value {
-    let mut env: BTreeMap<&String, &String> = m.env.iter().collect();
-    if recovery_mode {
-        env.extend(m.recovery_env.iter());
-    }
-    let env: Vec<String> = env.into_iter().map(|(k, v)| format!("{k}={v}")).collect();
+    let env = member_env(m, false);
     let binds: Vec<String> = m
         .data
         .iter()
@@ -980,15 +1156,22 @@ fn container_config(
             obj.insert("Cmd".into(), serde_json::json!(m.cmd));
         }
         // What the member was created from: a running member is continued
-        // only when this is unchanged.
+        // only when this is unchanged. The recovery environment is left out:
+        // the mode is not part of what a member is, only of how it started.
         let fingerprint = Sha256Hex::digest(
             serde_json::Value::Object(obj.clone())
                 .to_string()
                 .as_bytes(),
         );
+        if recovery_mode {
+            obj.insert("Env".into(), serde_json::json!(member_env(m, true)));
+        }
         obj.insert(
             "Labels".into(),
-            serde_json::json!({LABEL_CONFIG: fingerprint}),
+            serde_json::json!({
+                LABEL_CONFIG: fingerprint,
+                LABEL_RECOVERY: if recovery_mode { "1" } else { "0" },
+            }),
         );
     }
     body
@@ -996,6 +1179,14 @@ fn container_config(
 
 /// Label carrying a platform member's create-config fingerprint.
 const LABEL_CONFIG: &str = "dev.otterdeploy.config";
+
+/// Label recording the mode a platform member was created in: `1` for
+/// recovery mode, `0` (or absent, before the label existed) for normal mode.
+const LABEL_RECOVERY: &str = "dev.otterdeploy.recovery";
+
+fn created_in_recovery(labels: &BTreeMap<String, String>) -> bool {
+    labels.get(LABEL_RECOVERY).map(String::as_str) == Some("1")
+}
 
 fn fingerprint(body: &serde_json::Value) -> Option<&str> {
     body.get("Labels")?.get(LABEL_CONFIG)?.as_str()

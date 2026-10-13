@@ -95,7 +95,7 @@ impl ControlHandler {
         self.platform.as_ref()
     }
 
-    /// Run `platform.update` on this host's platform.
+    /// Run `platform.update` and `platform.recovered` on this host's platform.
     #[must_use]
     pub fn with_platform(mut self, platform: Arc<Platform>) -> Self {
         self.platform = Some(platform);

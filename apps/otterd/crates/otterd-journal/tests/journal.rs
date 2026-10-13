@@ -407,6 +407,91 @@ fn update_rollback_is_refused_after_schema_boundary() {
     j.append(phase(UpdatePhase::Committed)).unwrap();
 }
 
+fn activated(d: &otterd_proto::ids::Sha256Hex, revision: u64) -> Record {
+    Record::ManifestActivated {
+        manifest_digest: d.clone(),
+        manifest_revision: u(revision),
+        bootstrap_epoch: u(1),
+        authority_term: u(1),
+    }
+}
+
+fn recovery_left(d: &otterd_proto::ids::Sha256Hex) -> Record {
+    Record::PlatformRecoveryLeft {
+        manifest_digest: d.clone(),
+    }
+}
+
+#[test]
+fn recovery_is_left_once_and_only_for_the_active_manifest() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("node.journal");
+    let mut j = fresh(&dir);
+    let (v1, v2) = (
+        otterd_proto::ids::Sha256Hex::digest(b"v1"),
+        otterd_proto::ids::Sha256Hex::digest(b"v2"),
+    );
+    // No active manifest yet: nothing to leave recovery for.
+    assert_eq!(
+        transition(j.append(recovery_left(&v1)).unwrap_err()),
+        TransitionError::RecoveryNotActive(v1.clone())
+    );
+    j.append(activated(&v1, 1)).unwrap();
+    // Another manifest than the active one is refused.
+    assert_eq!(
+        transition(j.append(recovery_left(&v2)).unwrap_err()),
+        TransitionError::RecoveryNotActive(v2.clone())
+    );
+    j.append(recovery_left(&v1)).unwrap();
+    assert_eq!(j.state().recovery_left, Some(v1.clone()));
+    // Only once per manifest.
+    assert_eq!(
+        transition(j.append(recovery_left(&v1)).unwrap_err()),
+        TransitionError::RecoveryAlreadyLeft(v1.clone())
+    );
+    // Re-recording the same active manifest keeps the exit.
+    j.append(activated(&v1, 1)).unwrap();
+    assert_eq!(j.state().recovery_left, Some(v1.clone()));
+    // A new manifest starts without one, and the old one can no longer leave.
+    j.append(activated(&v2, 2)).unwrap();
+    assert_eq!(j.state().recovery_left, None);
+    assert_eq!(
+        transition(j.append(recovery_left(&v1)).unwrap_err()),
+        TransitionError::RecoveryNotActive(v1.clone())
+    );
+    j.append(recovery_left(&v2)).unwrap();
+    // The exit survives a reopen and a compaction, and stays once only.
+    drop(j);
+    let (j, _) = Journal::open(&path).unwrap();
+    assert_eq!(j.state().recovery_left, Some(v2.clone()));
+    let (mut j, _) = j.compact(CompactionPolicy::default(), "test").unwrap();
+    assert_eq!(j.state().recovery_left, Some(v2.clone()));
+    assert_eq!(
+        transition(j.append(recovery_left(&v2)).unwrap_err()),
+        TransitionError::RecoveryAlreadyLeft(v2.clone())
+    );
+    drop(j);
+    let (j, _) = Journal::open(&path).unwrap();
+    assert_eq!(j.state().recovery_left, Some(v2));
+}
+
+#[test]
+fn compaction_without_a_recovery_exit_keeps_none() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut j = fresh(&dir);
+    let v1 = otterd_proto::ids::Sha256Hex::digest(b"v1");
+    j.append(activated(&v1, 1)).unwrap();
+    let (j, _) = j.compact(CompactionPolicy::default(), "test").unwrap();
+    assert_eq!(j.state().recovery_left, None);
+    assert_eq!(
+        j.state()
+            .manifest
+            .as_ref()
+            .map(|m| m.manifest_digest.clone()),
+        Some(v1)
+    );
+}
+
 #[test]
 fn compaction_keeps_obligations_and_drops_released_history() {
     let dir = tempfile::tempdir().unwrap();

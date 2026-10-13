@@ -390,6 +390,7 @@ fn schemas() {
                           "digest": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862"}}),
         json!({"verb": "proxy.status"}),
         json!({"verb": "platform.update", "manifest": sign(RECOVERY, SignContext::PlatformBootManifest, &json!({"x": 1}))}),
+        json!({"verb": "platform.recovered", "manifestDigest": DIGEST}),
     ];
     // Every verb has exactly one case, in declaration order.
     let verbs: Vec<String> = commands
@@ -979,6 +980,10 @@ fn schemas() {
             "attemptId": "att_0123456789abcdef0123456789abcdef",
             "failure": {"code": "image-pull-failed",
                         "message": "pull busybox:does-not-exist: manifest unknown"}}),
+            ),
+            entry(
+                33,
+                json!({"type": "platformRecoveryLeft", "manifestDigest": DIGEST}),
             ),
         ],
     );

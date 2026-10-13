@@ -4,10 +4,11 @@
 //! The new file starts with `format` and `compacted` (naming the last sequence
 //! covered and the SHA-256 of the previous file), then re-records, in an order
 //! the reducer accepts, everything that is still live: identity, the current
-//! process, revocations, the active manifest and update, every grant that is
-//! not released with its attempts and mutations, platform work that is still
-//! needed, open holds, recent and unfinished operations, cleared slots and every
-//! high-water mark. Sequence numbers continue; they are never reset.
+//! process, revocations, the active manifest, its update and whether its
+//! control plane left recovery mode, every grant that is not released with its
+//! attempts and mutations, platform work that is still needed, open holds,
+//! recent and unfinished operations, cleared slots and every high-water mark.
+//! Sequence numbers continue; they are never reset.
 //!
 //! Before the new file replaces the old one, its fold is compared with the old
 //! fold over exactly those facts; any difference refuses the compaction. The
@@ -156,6 +157,7 @@ fn projection(state: &NodeState, cutoff: U53) -> Value {
         "cleared": cleared,
         "manifest": state.manifest,
         "update": state.update,
+        "recoveryLeft": state.recovery_left,
     })
 }
 
@@ -235,6 +237,11 @@ fn retained(state: &NodeState, cutoff: U53) -> Vec<(Record, Option<U53>)> {
         if u.phase != otterd_proto::journal::UpdatePhase::Staged {
             push(phase(u.phase));
         }
+    }
+    if let Some(digest) = &state.recovery_left {
+        push(Record::PlatformRecoveryLeft {
+            manifest_digest: digest.clone(),
+        });
     }
     let kept = kept_grants(state);
     let mut live: Vec<&GrantState> = state

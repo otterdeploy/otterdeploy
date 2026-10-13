@@ -17,7 +17,7 @@
 //! Steps 1–4 refuse without any side effect or journal record.
 
 use crate::lifecycle::{Node, NodeError};
-use crate::platform::Platform;
+use crate::platform::{Platform, PlatformError};
 use crate::telemetry::Telemetry;
 use crate::upgrade::Upgrader;
 use otterd_identity::rotation::valid_cp_keys;
@@ -80,7 +80,8 @@ impl Dispatcher {
         Self::default()
     }
 
-    /// Also run `platform.update` on this host's platform.
+    /// Also run `platform.update` and `platform.recovered` on this host's
+    /// platform.
     #[must_use]
     pub fn and_platform(mut self, platform: Option<Arc<Platform>>) -> Self {
         self.platform = platform;
@@ -295,6 +296,7 @@ async fn run(
         Command::HealthConfigure { .. }
             | Command::MetricsSample { .. }
             | Command::PlatformUpdate { .. }
+            | Command::PlatformRecovered { .. }
             | Command::NodeUpgrade { .. }
     ) {
         return run_service(node, command, services, session).await;
@@ -415,6 +417,33 @@ async fn run_service(
                 body: serde_json::json!({"manifestDigest": digest}),
             })
         }
+        Command::PlatformRecovered { manifest_digest } => {
+            let platform = services
+                .platform
+                .clone()
+                .ok_or_else(|| NodeError::Refused("this host runs no platform".into()))?;
+            let restart = platform
+                .leave_recovery(manifest_digest)
+                .await
+                .map_err(|e| platform_error(&e))?;
+            // The restart stops the control plane that asked: run it on its
+            // own and answer now, as `platform.update` does.
+            if restart {
+                tokio::spawn(async move {
+                    match platform.finish_recovery().await {
+                        Ok(()) => tracing::info!("control plane restarted in normal mode"),
+                        Err(e) => tracing::error!(
+                            error = %e,
+                            "control plane could not leave recovery mode; the next boot retries"
+                        ),
+                    }
+                });
+            }
+            Ok(CommandResult::Document {
+                schema: "otterd/platform-recovered/v1".into(),
+                body: serde_json::json!({"manifestDigest": manifest_digest, "restart": restart}),
+            })
+        }
         Command::NodeUpgrade { release } => {
             let upgrader = services.upgrader.as_deref().ok_or_else(|| {
                 NodeError::Refused("this node is not installed for A/B updates".into())
@@ -430,6 +459,18 @@ async fn run_service(
             "{} is not a service command",
             other.verb()
         ))),
+    }
+}
+
+/// A refusal the control plane can act on, or a node fault.
+fn platform_error(e: &PlatformError) -> NodeError {
+    match e {
+        PlatformError::Blocked(_) | PlatformError::Manifest(_) | PlatformError::Envelope(_) => {
+            NodeError::Refused(e.to_string())
+        }
+        PlatformError::Journal(_) | PlatformError::Engine(_) | PlatformError::Io { .. } => {
+            NodeError::Internal(e.to_string())
+        }
     }
 }
 

@@ -183,7 +183,10 @@ struct RunArgs {
         default_value = "https://get.otterdeploy.com/otterd"
     )]
     release_url: String,
-    /// Start the platform's control plane in recovery mode.
+    /// Hold the platform's control plane in recovery mode. Without it, a
+    /// control plane an update started stays in recovery mode until it reports
+    /// `platform.recovered`; a running control plane is never restarted to
+    /// change mode.
     #[arg(long, env = "OTTERD_PLATFORM_RECOVERY")]
     platform_recovery: bool,
     /// Where the node network keeps its endpoint book and VIP receiver state.

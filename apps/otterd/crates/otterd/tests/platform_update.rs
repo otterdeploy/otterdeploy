@@ -147,6 +147,11 @@ fn cp_revision() -> String {
         .to_owned()
 }
 
+fn cp_in_recovery() -> bool {
+    let id = running("pu-cp");
+    docker(&["inspect", "-f", "{{json .Config.Env}}", &id]).contains("OTTERDEPLOY_RECOVERY=1")
+}
+
 fn running(name: &str) -> String {
     docker(&[
         "ps",
@@ -528,7 +533,60 @@ mod session {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
         assert_eq!(cp_revision(), "2");
+        assert!(cp_in_recovery(), "the update starts recovery mode");
         reporter.after_pass(&node, Some(&p), &otterd_transport::Outbox::default());
+
+        // `platform.recovered` names the active manifest, or it is refused.
+        let recovered = |d: &Sha256Hex| Command::PlatformRecovered {
+            manifest_digest: d.clone(),
+        };
+        s.send(&request(
+            &sid,
+            3,
+            "op-pu-2",
+            &recovered(&v1.payload_digest().unwrap()),
+        ))
+        .await;
+        assert!(matches!(
+            answer(&mut s, 3).await,
+            OpOutcome::Failed { code, .. } if code == "refused"
+        ));
+        // Answered at once; the control plane then restarts in normal mode.
+        let v2_digest = v2.payload_digest().unwrap();
+        s.send(&request(&sid, 4, "op-pu-3", &recovered(&v2_digest)))
+            .await;
+        let left = |outcome: OpOutcome| match outcome {
+            OpOutcome::Completed {
+                result: CommandResult::Document { schema, body },
+            } => {
+                assert_eq!(schema, "otterd/platform-recovered/v1");
+                assert_eq!(body["manifestDigest"], serde_json::json!(v2_digest));
+                body["restart"].as_bool().unwrap()
+            }
+            other => panic!("{other:?}"),
+        };
+        assert!(left(answer(&mut s, 4).await), "a restart is due");
+        let deadline = std::time::Instant::now() + Duration::from_secs(120);
+        while cp_in_recovery() || running("pu-cp").is_empty() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the control plane did not leave recovery mode"
+            );
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+        assert_eq!(cp_revision(), "2");
+        stop.send(true).unwrap();
+        // A retry, from the restarted control plane's new session, is done
+        // with no second restart.
+        let handler = ControlHandler::new(Arc::clone(&node), SlotReporter::default())
+            .with_platform(Arc::clone(&p));
+        let (_cp, mut s, stop) = session_with(handler, &node).await;
+        let sid = s.session_id.clone();
+        let restarted = running("pu-cp");
+        s.send(&request(&sid, 5, "op-pu-4", &recovered(&v2_digest)))
+            .await;
+        assert!(!left(answer(&mut s, 5).await), "nothing to restart");
+        assert_eq!(running("pu-cp"), restarted);
         stop.send(true).unwrap();
         cleanup();
     }

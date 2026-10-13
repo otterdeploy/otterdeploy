@@ -133,6 +133,10 @@ pub enum TransitionError {
         from: Option<UpdatePhase>,
         to: UpdatePhase,
     },
+    #[error("recovery can only be left for the active platform manifest, not {0}")]
+    RecoveryNotActive(Sha256Hex),
+    #[error("the control plane already left recovery mode for manifest {0}")]
+    RecoveryAlreadyLeft(Sha256Hex),
     #[error("high-water {kind:?}/{scope} would go backwards ({have} -> {got})")]
     HighWaterDecrease {
         kind: HighWaterKind,
@@ -430,6 +434,9 @@ pub struct NodeState {
     pub cleared: BTreeSet<SlotRef>,
     pub manifest: Option<ActiveManifest>,
     pub update: Option<UpdateState>,
+    /// The active manifest whose control plane left recovery mode, if it did.
+    /// Never names any other manifest: activating another one clears it.
+    pub recovery_left: Option<Sha256Hex>,
     /// Sequence of the last applied entry.
     pub last_seq: U53,
     /// Entries applied since the file began (for compaction triggers).
@@ -678,6 +685,17 @@ impl NodeState {
             Record::UpdatePhaseEntered {
                 update_id, phase, ..
             } => self.check_update(update_id, *phase),
+            Record::PlatformRecoveryLeft { manifest_digest } => {
+                if self.manifest.as_ref().map(|m| &m.manifest_digest) != Some(manifest_digest) {
+                    Err(TransitionError::RecoveryNotActive(manifest_digest.clone()))
+                } else if self.recovery_left.as_ref() == Some(manifest_digest) {
+                    Err(TransitionError::RecoveryAlreadyLeft(
+                        manifest_digest.clone(),
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
             Record::HighWater { kind, scope, value } => {
                 let key = HighWaterKey::new(*kind, scope.clone());
                 match self.high_water.get(&key) {
@@ -1440,6 +1458,9 @@ impl NodeState {
                 bootstrap_epoch,
                 authority_term,
             } => {
+                if self.recovery_left.as_ref() != Some(manifest_digest) {
+                    self.recovery_left = None;
+                }
                 self.manifest = Some(ActiveManifest {
                     manifest_digest: manifest_digest.clone(),
                     manifest_revision: *manifest_revision,
@@ -1466,6 +1487,9 @@ impl NodeState {
                     to_manifest_digest: to_manifest_digest.clone(),
                     irreversible,
                 });
+            }
+            Record::PlatformRecoveryLeft { manifest_digest } => {
+                self.recovery_left = Some(manifest_digest.clone());
             }
             Record::HighWater { kind, scope, value } => {
                 self.raise(HighWaterKey::new(*kind, scope.clone()), *value);

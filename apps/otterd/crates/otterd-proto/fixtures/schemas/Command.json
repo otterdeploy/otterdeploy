@@ -607,6 +607,10 @@
         "signature": "IU/e4ZF7UU+RYp19uxMaO8FK21ShDvdcT3eNZPTpERkdgm1xFwDny97okrrjtNKle3wOvXav4lxPVeHPRwQdAg=="
       },
       "verb": "platform.update"
+    },
+    {
+      "manifestDigest": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "verb": "platform.recovered"
     }
   ],
   "schema": "Command"
