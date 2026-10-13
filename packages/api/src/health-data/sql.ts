@@ -1,7 +1,12 @@
 /**
  * Database plumbing shared by the health data modules: one typed error, the
  * executor type both `db` and a transaction satisfy, row parsing for raw
- * `execute` results.
+ * `execute` results, and Postgres array literals for set-based statements.
+ *
+ * Bulk statements pass each column as ONE bound parameter holding a Postgres
+ * array literal and `unnest(...)` it server-side: one round trip per batch,
+ * still fully parameterised (drizzle's `sql` would otherwise expand a JS
+ * array into a parameter list).
  */
 import type { db } from "@otterdeploy/db";
 
@@ -16,6 +21,9 @@ export class HealthDbError extends TaggedError("HealthDbError")<{
 
 /** `db` or a transaction handle: anything that can run a raw statement. */
 export type Executor = Pick<typeof db, "execute">;
+
+/** A transaction handle of the product client. */
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function stringField(value: unknown, key: string): string | null {
   if (typeof value !== "object" || value === null || !(key in value)) return null;
@@ -52,4 +60,31 @@ export function rowsOf<T>(result: unknown, schema: z.ZodType<T>): T[] {
       ? Reflect.get(result, "rows")
       : result;
   return z.array(schema).parse(Array.isArray(rows) ? rows : []);
+}
+
+/** int8/numeric columns arrive as strings; integers as numbers. */
+export const zNum = z.union([z.number(), z.string(), z.bigint()]).transform(Number);
+export const zBytes = z.instanceof(Uint8Array);
+
+/** `{1,2,NULL}` for a numeric array parameter. */
+export function intArray(values: readonly (number | null)[]): string {
+  return `{${values.map((v) => (v === null ? "NULL" : String(v))).join(",")}}`;
+}
+
+/** A text[] whose elements are numeric array literals, cast per row with `::int[]` / `::real[]`. */
+export function nestedArray(values: readonly (readonly (number | null)[] | null)[]): string {
+  const inner = (v: readonly (number | null)[]) =>
+    `"{${v.map((x) => (x === null ? "NULL" : String(x))).join(",")}}"`;
+  return `{${values.map((v) => (v === null ? "NULL" : inner(v))).join(",")}}`;
+}
+
+/** A bytea[] literal in hex form. */
+export function byteaArray(values: readonly (Uint8Array | null)[]): string {
+  return `{${values.map((v) => (v === null ? "NULL" : `"\\\\x${Buffer.from(v).toString("hex")}"`)).join(",")}}`;
+}
+
+/** A text[] literal (quotes and backslashes escaped). */
+export function textArray(values: readonly (string | null)[]): string {
+  const esc = (s: string) => `"${s.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  return `{${values.map((v) => (v === null ? "NULL" : esc(v))).join(",")}}`;
 }

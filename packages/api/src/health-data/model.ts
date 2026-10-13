@@ -5,14 +5,24 @@
  * Times are integer epoch milliseconds (event time); durations are
  * milliseconds; latencies are microseconds.
  */
+import { Temporal } from "@otterdeploy/shared/temporal";
+
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
 /** Corrections are accepted for seven days plus a five-minute clock allowance. */
 export const REPLAY_HORIZON_MS = 7 * DAY + 5 * MINUTE;
+/**
+ * Records whose clock uncertainty exceeds this stay diagnostic history and
+ * never correct an interval. It also bounds how far back inserting a record
+ * can change its predecessor (see `rebuildRange`).
+ */
+export const MAX_AUTHORITATIVE_UNCERTAINTY_MS = 5 * MINUTE;
 /** Raw payload retention (probe detail, raw metric samples). */
 export const RAW_RETENTION_MS = 48 * HOUR;
+/** Records further in the future than this (receiver time) are refused. */
+export const MAX_FUTURE_MS = HOUR;
 
 export const TIER = { base10m: 1, hour: 2, day: 3 } as const;
 type Tier = (typeof TIER)[keyof typeof TIER];
@@ -35,7 +45,10 @@ export const KIND = {
   /** Uncertainty over the authoritative bound: kept as history, never evaluated. */
   diagnostic: 7,
 } as const;
-type RecordKind = (typeof KIND)[keyof typeof KIND];
+export type RecordKind = (typeof KIND)[keyof typeof KIND];
+
+export const SERIES_KIND = { probe: 1, metric: 2 } as const;
+export type SeriesKind = (typeof SERIES_KIND)[keyof typeof SERIES_KIND];
 
 /** One correction-ledger record as the evaluator sees it. */
 export interface LedgerRecord {
@@ -66,3 +79,6 @@ export const METRIC_WIDTH = 32;
 export const SKETCH_ALPHA = 0.01;
 
 export const floorTo = (t: number, width: number): number => Math.floor(t / width) * width;
+
+/** Current epoch milliseconds. */
+export const nowMs = (): number => Temporal.Now.instant().epochMilliseconds;
