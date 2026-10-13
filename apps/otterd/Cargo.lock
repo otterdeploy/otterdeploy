@@ -1266,6 +1266,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "otterd-recover"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "clap",
+ "ed25519-dalek",
+ "otterd-anchor",
+ "otterd-fence",
+ "otterd-journal",
+ "otterd-proto",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "otterd-sys"
 version = "0.1.0"
 dependencies = [

@@ -17,6 +17,7 @@ otterd-fence = { path = "crates/otterd-fence" }
 otterd-identity = { path = "crates/otterd-identity" }
 otterd-journal = { path = "crates/otterd-journal" }
 otterd-proto = { path = "crates/otterd-proto" }
+otterd-recover = { path = "crates/otterd-recover" }
 otterd-sys = { path = "crates/otterd-sys" }
 otterd-transport = { path = "crates/otterd-transport" }
 
