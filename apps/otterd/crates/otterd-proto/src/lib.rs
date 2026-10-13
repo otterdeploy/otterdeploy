@@ -24,6 +24,7 @@ pub mod lifecycle;
 pub mod metrics;
 pub mod num;
 pub mod platform;
+pub mod release;
 pub mod spec;
 pub mod version;
 

@@ -46,6 +46,7 @@ import { journalEntry } from "./journal";
 import { leaseRenewal, slotGrant, slotReport, stopCertificate } from "./lifecycle";
 import { METRIC_NAMES, SIGNAL_KINDS, sampleBatch } from "./metrics";
 import { PLATFORM_ROLES, platformBootManifest } from "./platform";
+import { releaseKeySet, releaseManifest } from "./release";
 import { SPEC_ISSUE_CODES, serviceSpec, serviceSpecInput, specIssue } from "./spec";
 import { normalizeServiceSpec, validateServiceSpec } from "./spec-rules";
 import { FEATURES, negotiate, versionRange } from "./version";
@@ -78,6 +79,8 @@ const SCHEMAS: Record<string, z.ZodType> = {
   OpOutcome: opOutcome,
   OwnerSnapshot: ownerSnapshot,
   PlatformBootManifest: platformBootManifest,
+  ReleaseKeySet: releaseKeySet,
+  ReleaseManifest: releaseManifest,
   PeerAnswer: peerAnswer,
   SampleBatch: sampleBatch,
   ServingSet: servingSet,

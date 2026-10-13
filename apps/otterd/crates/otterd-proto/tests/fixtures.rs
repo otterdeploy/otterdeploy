@@ -36,6 +36,7 @@ use otterd_proto::journal::Entry;
 use otterd_proto::lifecycle::{LeaseRenewal, SlotGrant, SlotReport, StopCertificate};
 use otterd_proto::metrics::{MetricName, SampleBatch, SignalKind};
 use otterd_proto::platform::{PlatformBootManifest, PlatformRole};
+use otterd_proto::release::{ReleaseKeySet, ReleaseManifest};
 use otterd_proto::spec::{ServiceSpecInput, SpecIssueCode};
 use otterd_proto::version::{Feature, VersionRange, negotiate};
 use serde::Serialize;
@@ -632,6 +633,23 @@ fn schemas() {
             "recoveryListener": "127.0.0.1:3900",
             "preflight": {"requireNftTable": "inet otterd_base", "forbidUnits": ["otterdeploy-compose.service"]}
         })],
+    );
+    schema_file::<ReleaseManifest>(
+        "ReleaseManifest",
+        vec![json!({
+            "version": "1.4.0",
+            "artifacts": [
+                {"arch": "x86_64", "sha256": "a".repeat(64), "size": 18_234_112},
+                {"arch": "aarch64", "sha256": "b".repeat(64), "size": 17_100_800}
+            ],
+            "protocol": {"min": 1, "max": 1}, "journalFormat": 1,
+            "minRollbackVersion": "1.3.0", "issuedAtUnixMs": 1_791_000_000_000_u64})],
+    );
+    schema_file::<ReleaseKeySet>(
+        "ReleaseKeySet",
+        vec![json!({"serial": 2, "keys": [
+            {"key": public(10), "notAfterUnixMs": 1_822_536_000_000_u64},
+            {"key": public(11), "notBeforeUnixMs": 1_791_000_000_000_u64}]})],
     );
     schema_file::<AuthorityRevocation>(
         "AuthorityRevocation",
