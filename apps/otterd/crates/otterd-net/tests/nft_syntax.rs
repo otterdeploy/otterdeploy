@@ -69,6 +69,8 @@ fn policy() -> NodePolicy {
             addr: Ipv4Addr::new(172, 30, 228, 1),
         }],
         no_snat_extra: vec![],
+        edge_bridges: vec![IfacePattern::new("br-edge").unwrap()],
+        vip_backends: vec!["172.24.0.0/27".parse().unwrap()],
     }
 }
 

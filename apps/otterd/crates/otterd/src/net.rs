@@ -20,17 +20,21 @@
 //!   `otterd-dns` unit listening on them;
 //! - the VIP receiver: local serving sets installed in
 //!   [`otterd_net::vip::Receiver`], persisted before its table is loaded, with
-//!   this node as the fresh owner of its own attempts, plus the VIP hairpin
-//!   for backends on the client's own bridge.
+//!   this node as the fresh owner of its own attempts;
+//! - the packet policy ([`crate::netpolicy`]): each scope reaches only
+//!   itself and asks only its own resolver. The daemon writes it; the
+//!   `otterd-net` agent unit, which the daemon installs and keeps running,
+//!   applies it together with the VIP hairpin, guards every container
+//!   interface on a scope bridge and persists the generation that
+//!   `otterd-firewall.service` loads at boot, before Docker.
+//!
+//! Scope bridges run in the Engine's `nat-unprotected` gateway mode: the
+//! Engine adds no filter of its own, so isolation between environments is
+//! otterd's policy and nothing else.
 //!
 //! Only local owners feed the views here. Serving sets of services on other
 //! nodes add to the same [`ZoneBuilder`] and [`Forwarder`]; they need owner
 //! freshness proven by challenge, which local attempts do not.
-//!
-//! The firewall policy (scope pairs, the resolver destination check) is not
-//! applied here. Until it is, scope bridges stay in the Engine's default
-//! `nat` gateway mode, whose own filter keeps other bridges away from
-//! unpublished ports, and the hairpin NAT table is loaded with the VIP table.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -43,9 +47,9 @@ use otterd_engine::DockerClient;
 use otterd_journal::NodeState;
 use otterd_net::Ipv4Net;
 use otterd_net::cmd::{DEFAULT_TIMEOUT, Runner};
-use otterd_net::firewall::write_atomic;
+use otterd_net::firewall::{self, write_atomic};
 use otterd_net::ipam::{self, LARGEST_SCOPE_LEN, UNIT_LEN};
-use otterd_net::policy::{Egress, Interfaces, LocalScope, NodePolicy, Proto};
+use otterd_net::policy::Proto;
 use otterd_net::vip::{self, PortMap, Receiver, VipBinding, VipView};
 use otterd_proto::U53;
 use otterd_proto::discovery::{
@@ -56,7 +60,7 @@ use otterd_proto::ids::{
     AttemptId, GrantId, InstallId, NodeId, ScopeId, Sha256Hex, SlotRef, VipId,
 };
 use otterd_proto::lifecycle::GrantNetwork;
-use otterd_proto::spec::{PortProtocol, ServiceSpec};
+use otterd_proto::spec::{PortProtocol, PublishMode, ServiceSpec};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -68,6 +72,10 @@ const LABEL_CLASS: &str = "dev.otterdeploy.class";
 const LABEL_SCOPE: &str = "dev.otterdeploy.scope";
 const OPT_BRIDGE: &str = "com.docker.network.bridge.name";
 const OPT_MTU: &str = "com.docker.network.driver.mtu";
+const OPT_GATEWAY_MODE: &str = "com.docker.network.bridge.gateway_mode_ipv4";
+/// The Engine routes and masquerades but filters nothing: otterd's policy
+/// decides what reaches a scope.
+pub const GATEWAY_MODE: &str = "nat-unprotected";
 /// The workload MTU, leaving room for the mesh encapsulation.
 pub const MTU: &str = "1400";
 /// The dummy link that carries every resolver address as a /32.
@@ -92,6 +100,17 @@ pub struct NetConfig {
     pub unit_dir: PathBuf,
     /// The responder's unit name.
     pub dns_unit: String,
+    /// The packet policy the agent applies.
+    pub policy_file: PathBuf,
+    /// The `otterd-net` binary the agent unit runs.
+    pub net_binary: PathBuf,
+    /// The agent's unit name.
+    pub net_unit: String,
+    /// Where the agent persists what it applied, and the units that load it
+    /// at boot. The agent uses the default layout.
+    pub firewall: firewall::Layout,
+    /// The edge proxy's bridges, which reach VIP backends through a VIP.
+    pub edge_bridges: Vec<otterd_net::policy::IfacePattern>,
 }
 
 impl Default for NetConfig {
@@ -102,6 +121,11 @@ impl Default for NetConfig {
             dns_binary: PathBuf::from("/usr/lib/otterd/otterd-dns"),
             unit_dir: PathBuf::from("/etc/systemd/system"),
             dns_unit: "otterd-dns.service".into(),
+            policy_file: PathBuf::from("/var/lib/otterd/net/policy.json"),
+            net_binary: PathBuf::from("/usr/lib/otterd/otterd-net"),
+            net_unit: "otterd-net.service".into(),
+            firewall: firewall::Layout::default(),
+            edge_bridges: Vec::new(),
         }
     }
 }
@@ -240,13 +264,13 @@ impl Place {
             "Name": self.network(),
             "Driver": "bridge",
             "IPAM": {"Config": [{"Subnet": self.subnet.to_string(), "Gateway": self.gateway().to_string()}]},
-            "Options": {OPT_BRIDGE: self.bridge(), OPT_MTU: MTU},
+            "Options": {OPT_BRIDGE: self.bridge(), OPT_MTU: MTU, OPT_GATEWAY_MODE: GATEWAY_MODE},
             "Labels": {LABEL_MANAGED: "1", LABEL_CLASS: "scope", LABEL_SCOPE: self.scope.as_str()},
         })
     }
 
     /// An existing network of this name is used only when it is otterd's
-    /// network for this scope, with this subnet and bridge.
+    /// network for this scope, with this subnet, bridge and gateway mode.
     pub fn check_existing(&self, v: &Value) -> Result<(), String> {
         let name = self.network();
         let labels = v.get("Labels");
@@ -279,6 +303,15 @@ impl Place {
             return Err(format!(
                 "network {name} uses bridge {bridge:?}, expected {}",
                 self.bridge()
+            ));
+        }
+        let mode = v.get("Options").and_then(|o| o.get(OPT_GATEWAY_MODE));
+        let mode = mode.and_then(Value::as_str).unwrap_or("nat");
+        if mode != GATEWAY_MODE {
+            return Err(format!(
+                "network {name} uses gateway mode {mode}, expected {GATEWAY_MODE}: \
+                 its isolation would be the Engine's filter, not otterd's policy. \
+                 Remove the network once its containers are gone and otterd recreates it"
             ));
         }
         Ok(())
@@ -357,6 +390,17 @@ pub struct Entry {
     pub aliases: Vec<String>,
     /// VIP ports; the backend port is the same port.
     pub ports: Vec<PortMap>,
+    /// Ports published on the host: `port` on the host, `target` in the
+    /// container. The policy lets their flows into the scope.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub host_ports: Vec<PortMap>,
+}
+
+const fn proto(p: PortProtocol) -> Proto {
+    match p {
+        PortProtocol::Tcp => Proto::Tcp,
+        PortProtocol::Udp => Proto::Udp,
+    }
 }
 
 impl Entry {
@@ -369,17 +413,28 @@ impl Entry {
             .ports
             .iter()
             .map(|p| PortMap {
-                proto: match p.protocol {
-                    PortProtocol::Tcp => Proto::Tcp,
-                    PortProtocol::Udp => Proto::Udp,
-                },
+                proto: proto(p.protocol),
                 port: p.target_port,
                 target: p.target_port,
+            })
+            .collect();
+        let host_ports: BTreeSet<PortMap> = spec
+            .endpoint
+            .ports
+            .iter()
+            .filter(|p| p.publish == PublishMode::Host)
+            .filter_map(|p| {
+                Some(PortMap {
+                    proto: proto(p.protocol),
+                    port: p.published_port?,
+                    target: p.target_port,
+                })
             })
             .collect();
         Ok(Self {
             aliases: spec.endpoint.aliases.clone(),
             ports: ports.into_iter().collect(),
+            host_ports: host_ports.into_iter().collect(),
         })
     }
 }
@@ -746,34 +801,10 @@ impl Forwarder {
     }
 }
 
-/// The receiver table plus the hairpin for local scopes: without
-/// `br_netfilter` a same-bridge backend answers the client directly and the
-/// reply bypasses conntrack, so DNAT'd flows inside one scope are masqueraded.
-pub fn render_nft(views: &[VipView], scopes: &BTreeSet<Ipv4Net>) -> String {
-    let layout = ipam::Layout::default();
-    let nat = NodePolicy {
-        interfaces: Interfaces::default(),
-        workload: layout.supernet,
-        host_mesh: layout.mesh,
-        vip: layout.vip,
-        pairs: BTreeSet::new(),
-        host_reach: BTreeSet::new(),
-        published: BTreeSet::new(),
-        edge_ports: BTreeSet::new(),
-        local_scopes: scopes
-            .iter()
-            .map(|n| LocalScope {
-                network: *n,
-                egress: Egress::Docker,
-            })
-            .collect(),
-        dns: Vec::new(),
-        no_snat_extra: Vec::new(),
-    }
-    .render_nat();
-    let mut text = vip::render(views);
-    text.push_str(&nat);
-    text
+/// The receiver table. The hairpin for backends on the client's own bridge
+/// is part of the packet policy the agent applies.
+pub fn render_nft(views: &[VipView]) -> String {
+    vip::render(views)
 }
 
 // ------------------------------------------------------------------ host
@@ -837,10 +868,9 @@ impl Host {
         Ok(())
     }
 
-    /// Install, start or restart the responder unit; `None` stops and removes it.
-    pub fn unit(&self, cfg: &NetConfig, text: Option<&str>) -> Result<(), String> {
-        let path = cfg.unit_dir.join(&cfg.dns_unit);
-        let name = cfg.dns_unit.as_str();
+    /// Install, start or restart a unit; `None` stops and removes it.
+    pub fn unit(&self, dir: &Path, name: &str, text: Option<&str>) -> Result<(), String> {
+        let path = dir.join(name);
         let current = std::fs::read_to_string(&path).ok();
         match text {
             Some(t) if current.as_deref() != Some(t) => {
@@ -860,6 +890,45 @@ impl Host {
                 self.ok("systemctl", &["daemon-reload"], None)?;
             }
             None => {}
+        }
+        Ok(())
+    }
+
+    /// Make the generation the agent persisted load again at boot and on an
+    /// nftables restart, before Docker: the load file, the nftables wrapper
+    /// and drop-in, `otterd-firewall.service` and Docker's ordering drop-in.
+    /// Nothing until the agent has persisted a generation; a fresh node
+    /// starts with a guard that drops every scope interface.
+    pub fn persist(&self, layout: &firewall::Layout) -> Result<(), String> {
+        if !layout.policy_file().exists() {
+            return Ok(());
+        }
+        let mut files = layout.unit_files();
+        files.push((layout.load_file(), layout.render_load()));
+        files.push((layout.wrapper_file(), layout.render_wrapper()));
+        if !layout.guard_file().exists() {
+            let bridges = otterd_net::policy::Interfaces::default().bridges;
+            let guard = otterd_net::policy::render_bridge_guard(&bridges, &[]);
+            files.push((layout.guard_file(), guard));
+        }
+        let mut wrote = false;
+        for (path, text) in files {
+            if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
+                write_atomic(&path, &text).map_err(|e| e.to_string())?;
+                wrote = true;
+            }
+        }
+        if wrote {
+            self.ok("systemctl", &["daemon-reload"], None)?;
+            self.ok(
+                "systemctl",
+                &["enable", "--now", firewall::FIREWALL_UNIT],
+                None,
+            )?;
+            tracing::info!(
+                unit = firewall::FIREWALL_UNIT,
+                "packet policy persisted for boot"
+            );
         }
         Ok(())
     }
@@ -892,6 +961,8 @@ struct Inner {
     listeners: Option<BTreeSet<Ipv4Addr>>,
     nft_shape: Option<String>,
     nft_applied_ms: u64,
+    policy_text: Option<String>,
+    agent_checked_ms: Option<u64>,
 }
 
 /// The node network: configuration, kernel access and derived state.
@@ -955,8 +1026,8 @@ impl NodeNet {
         Ok(())
     }
 
-    /// Bring the zone, resolver addresses, responder unit and VIP table in
-    /// line with the journal. Each part is tried; the first error is returned.
+    /// Bring the zone, resolver addresses, responder unit, VIP table, packet
+    /// policy and its agent in line with the journal. Each part is tried; the first error is returned.
     pub fn sync(&self, state: &NodeState, now_ms: u64) -> Result<(), String> {
         let mut inner = self.lock()?;
         let before = inner.book.len();
@@ -971,6 +1042,11 @@ impl NodeNet {
             return Ok(());
         }
         let mut errors = Vec::new();
+        // The policy and its agent first: names and VIPs of a new scope come
+        // up behind it.
+        if let Err(e) = self.sync_policy(&mut inner, &locals, now_ms) {
+            errors.push(format!("policy: {e}"));
+        }
         if let Err(e) = self.sync_zone(&mut inner, &locals, now_ms) {
             errors.push(format!("zone: {e}"));
         }
@@ -1025,7 +1101,8 @@ impl NodeNet {
                 &listen,
             )
         });
-        self.host.unit(&self.cfg, unit.as_deref())?;
+        self.host
+            .unit(&self.cfg.unit_dir, &self.cfg.dns_unit, unit.as_deref())?;
         tracing::info!(listeners = ?listen, "resolver listeners in place");
         inner.listeners = Some(want);
         Ok(())
@@ -1055,18 +1132,17 @@ impl NodeNet {
             )?;
         }
         let views = inner.forwarder.views(now_ms);
-        let scopes: BTreeSet<Ipv4Net> = locals.iter().map(|l| l.place.subnet).collect();
         let shape = {
             let mut v = views.clone();
             for b in v.iter_mut().flat_map(|v| v.backends.iter_mut()) {
                 b.remaining = std::time::Duration::ZERO;
             }
-            render_nft(&v, &scopes)
+            render_nft(&v)
         };
         let leased = views.iter().any(|v| !v.backends.is_empty());
         let due = leased && now_ms.saturating_sub(inner.nft_applied_ms) >= REFRESH_MS;
         if inner.nft_shape.as_ref() != Some(&shape) || due {
-            let text = render_nft(&views, &scopes);
+            let text = render_nft(&views);
             write_atomic(&self.cfg.state_dir.join("vip.nft"), &text).map_err(|e| e.to_string())?;
             self.host.nft(&text)?;
             inner.nft_shape = Some(shape);
@@ -1074,6 +1150,38 @@ impl NodeNet {
         }
         for (vip, backend) in drains {
             self.host.forget(vip, backend);
+        }
+        Ok(())
+    }
+
+    /// Write the packet policy when it differs from the file, the empty one
+    /// once the last scope is gone, and keep the agent running while there
+    /// is a scope: checked after every change and every refresh period.
+    fn sync_policy(&self, inner: &mut Inner, locals: &[Local], now_ms: u64) -> Result<(), String> {
+        let policy = crate::netpolicy::derive(locals, &self.cfg.edge_bridges)?;
+        let text = crate::netpolicy::to_json(&policy)?;
+        if inner.policy_text.as_ref() != Some(&text) {
+            let file = &self.cfg.policy_file;
+            if std::fs::read_to_string(file).ok().as_ref() != Some(&text) {
+                write_atomic(file, &text).map_err(|e| e.to_string())?;
+                tracing::info!(scopes = policy.local_scopes.len(), "packet policy written");
+            }
+            inner.policy_text = Some(text);
+            inner.agent_checked_ms = None;
+        }
+        if policy.local_scopes.is_empty() {
+            return Ok(());
+        }
+        let due = inner
+            .agent_checked_ms
+            .is_none_or(|t| now_ms.saturating_sub(t) >= REFRESH_MS);
+        if due {
+            let unit =
+                crate::netpolicy::render_agent_unit(&self.cfg.net_binary, &self.cfg.policy_file);
+            self.host
+                .unit(&self.cfg.unit_dir, &self.cfg.net_unit, Some(&unit))?;
+            self.host.persist(&self.cfg.firewall)?;
+            inner.agent_checked_ms = Some(now_ms);
         }
         Ok(())
     }
@@ -1135,9 +1243,22 @@ mod tests {
         let inspect =
             json!({"Labels": body["Labels"], "IPAM": body["IPAM"], "Options": body["Options"]});
         p.check_existing(&inspect).unwrap();
+        assert_eq!(body["Options"][OPT_GATEWAY_MODE], "nat-unprotected");
         let mut foreign = inspect.clone();
         foreign["Labels"] = json!({});
         assert!(p.check_existing(&foreign).unwrap_err().contains("refusing"));
+        // A network from before otterd's policy, in the Engine's own `nat`
+        // mode, is refused rather than changed under its containers.
+        let mut nat = inspect.clone();
+        nat["Options"]
+            .as_object_mut()
+            .unwrap()
+            .remove(OPT_GATEWAY_MODE);
+        let msg = p.check_existing(&nat).unwrap_err();
+        assert!(
+            msg.contains("gateway mode nat, expected nat-unprotected"),
+            "{msg}"
+        );
         let mut other = inspect;
         other["IPAM"]["Config"][0]["Subnet"] = json!("172.24.0.64/27");
         assert!(p.check_existing(&other).unwrap_err().contains("subnets"));
@@ -1174,6 +1295,7 @@ mod tests {
                     port: 5432,
                     target: 5432,
                 }],
+                host_ports: Vec::new(),
             },
             live,
         }
@@ -1241,12 +1363,12 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&f).unwrap()).unwrap();
         back.receiver = back.receiver.restarted(40_000, false);
         assert!(back.advance(&live, &owner(), 40_000).is_err());
-        let nft = render_nft(
-            &back.views(50_000),
-            &BTreeSet::from(["172.24.0.32/27".parse().unwrap()]),
-        );
+        let nft = render_nft(&back.views(50_000));
         assert!(nft.contains("elements = { 172.31.0.10 }") && !nft.contains("dnat ip to"));
-        assert!(nft.contains("ct status dnat ip saddr 172.24.0.32/27 ip daddr 172.24.0.32/27"));
+        assert!(
+            !nft.contains("otterd_nat"),
+            "the hairpin is the agent's, with the policy"
+        );
     }
 
     /// A host where every command succeeds; records the calls.
@@ -1288,16 +1410,29 @@ mod tests {
         }
     }
 
+    fn test_config(dir: &Path) -> NetConfig {
+        NetConfig {
+            state_dir: dir.join("net"),
+            zone_file: dir.join("dns/zone.json"),
+            unit_dir: dir.join("units"),
+            policy_file: dir.join("net/policy.json"),
+            firewall: firewall::Layout {
+                state_dir: dir.join("firewall"),
+                unit_dir: dir.join("units"),
+                ..firewall::Layout::default()
+            },
+            ..NetConfig::default()
+        }
+    }
+
     #[test]
     fn sync_writes_the_zone_the_listeners_the_unit_and_the_table() {
         let dir = tempfile::tempdir().unwrap();
-        let cfg = NetConfig {
-            state_dir: dir.path().join("net"),
-            zone_file: dir.path().join("dns/zone.json"),
-            unit_dir: dir.path().join("units"),
-            ..NetConfig::default()
-        };
+        let cfg = test_config(dir.path());
         let unit = cfg.unit_dir.join("otterd-dns.service");
+        let policy = || -> otterd_net::policy::NodePolicy {
+            read_json::<Option<_>>(&cfg.policy_file).unwrap().unwrap()
+        };
         let rec = Arc::new(Recorder::default());
         let n = NodeNet::open(cfg.clone(), rec.clone(), 1_000).unwrap();
         let mut state = NodeState::default();
@@ -1340,12 +1475,26 @@ mod tests {
         );
         let calls = rec.calls.lock().unwrap().clone();
         for want in [
+            "systemctl restart otterd-net.service",
             "ip addr add 172.30.228.1/32 dev otd-dns0",
             "systemctl restart otterd-dns.service",
             "nft -f -",
         ] {
             assert!(calls.iter().any(|c| c == want), "{want} in {calls:?}");
         }
+        let at = |c: &str| calls.iter().position(|x| x == c).unwrap();
+        assert!(
+            at("systemctl restart otterd-net.service") < at("nft -f -"),
+            "the agent comes up before the VIP forwards"
+        );
+        let agent = std::fs::read_to_string(cfg.unit_dir.join("otterd-net.service")).unwrap();
+        assert!(agent.contains(&format!(
+            "ExecStart=/usr/lib/otterd/otterd-net agent {}\n",
+            cfg.policy_file.display()
+        )));
+        let p = policy();
+        assert_eq!(p.local_scopes.len(), 1);
+        assert_eq!(p.dns[0].addr, Ipv4Addr::new(172, 30, 228, 1));
         let table = || std::fs::read_to_string(cfg.state_dir.join("vip.nft")).unwrap();
         assert!(table().contains("dnat ip to 172.24.0.34:5432"));
         rec.calls.lock().unwrap().clear();
@@ -1358,17 +1507,61 @@ mod tests {
         g.revoked = Some("stop".into());
         g.superseded_by_epoch = Some(U53::ONE);
         state.grants.insert(db, g);
-        n.sync(&state, 4_000).unwrap();
+        n.sync(&state, 3_000 + 3 * REFRESH_MS).unwrap();
         assert!(read_json::<Zone>(&cfg.zone_file).unwrap().views.is_empty());
         assert!(!unit.exists() && !table().contains("dnat ip to"));
         let calls = rec.calls.lock().unwrap().clone();
         assert!(calls.contains(&"ip addr del 172.30.228.1/32 dev otd-dns0".to_owned()));
         assert!(calls.contains(&"systemctl disable --now otterd-dns.service".to_owned()));
-        let again = NodeNet::open(cfg, rec, 5_000).unwrap();
+        let p = policy();
+        assert!(p.local_scopes.is_empty() && p.pairs.is_empty() && p.dns.is_empty());
+        let again = NodeNet::open(cfg, rec, 4 * REFRESH_MS).unwrap();
         let inner = again.lock().unwrap();
         assert!(
             !inner.forwarder.is_empty() && inner.book.is_empty(),
             "withdrawal kept, book pruned"
+        );
+    }
+
+    #[test]
+    fn the_generation_the_agent_persisted_loads_at_boot() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = test_config(dir.path());
+        let rec = Arc::new(Recorder::default());
+        let n = NodeNet::open(cfg.clone(), rec.clone(), 1_000).unwrap();
+        let mut state = NodeState::default();
+        let g = grant_state(net("172.24.0.34", None));
+        state.grants.insert(g.grant.grant_id.clone(), g);
+        n.sync(&state, 1_000).unwrap();
+        assert!(cfg.unit_dir.join("otterd-net.service").exists());
+        assert!(
+            !cfg.unit_dir.join("otterd-firewall.service").exists(),
+            "nothing to persist before the agent applied a generation"
+        );
+        std::fs::create_dir_all(&cfg.firewall.state_dir).unwrap();
+        std::fs::write(cfg.firewall.policy_file(), "").unwrap();
+        n.sync(&state, 1_000 + REFRESH_MS).unwrap();
+        let calls = rec.calls.lock().unwrap().clone();
+        assert!(calls.contains(&"systemctl enable --now otterd-firewall.service".to_owned()));
+        for f in [
+            cfg.unit_dir.join("otterd-firewall.service"),
+            cfg.unit_dir.join("nftables.service.d/otterd.conf"),
+            cfg.unit_dir.join("docker.service.d/otterd-firewall.conf"),
+            cfg.firewall.load_file(),
+            cfg.firewall.guard_file(),
+        ] {
+            assert!(f.exists(), "{}", f.display());
+        }
+        rec.calls.lock().unwrap().clear();
+        n.sync(&state, 1_000 + 2 * REFRESH_MS).unwrap();
+        let calls = rec.calls.lock().unwrap().clone();
+        assert!(
+            !calls.iter().any(|c| c.contains("otterd-firewall")),
+            "persisted once: {calls:?}"
+        );
+        assert!(
+            calls.contains(&"systemctl enable --now otterd-net.service".to_owned()),
+            "a stopped agent is started again: {calls:?}"
         );
     }
 

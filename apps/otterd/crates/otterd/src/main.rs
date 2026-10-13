@@ -200,6 +200,21 @@ struct RunArgs {
         default_value = "/usr/lib/otterd/otterd-dns"
     )]
     dns_binary: PathBuf,
+    /// The packet policy the `otterd-net` agent applies; default
+    /// `policy.json` under the network state directory.
+    #[arg(long, env = "OTTERD_NET_POLICY")]
+    net_policy: Option<PathBuf>,
+    /// The `otterd-net` binary the agent unit runs.
+    #[arg(
+        long,
+        env = "OTTERD_NET_BINARY",
+        default_value = "/usr/lib/otterd/otterd-net"
+    )]
+    net_binary: PathBuf,
+    /// The edge proxy's bridges, comma-separated: their flows to a VIP reach
+    /// its backends.
+    #[arg(long, env = "OTTERD_EDGE_BRIDGES", value_delimiter = ',')]
+    edge_bridges: Vec<String>,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -468,11 +483,24 @@ async fn start_node(args: &RunArgs) -> Result<Node, (u8, String)> {
             Ok(Ok(v)) => v.version,
             _ => "unknown".into(),
         };
+    let edge_bridges = args
+        .edge_bridges
+        .iter()
+        .filter(|b| !b.trim().is_empty())
+        .map(|b| otterd::netpolicy::edge_bridge(b))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(fail)?;
     let net = NodeNet::open(
         NetConfig {
             state_dir: args.net_state.clone(),
             zone_file: args.dns_zone.clone(),
             dns_binary: args.dns_binary.clone(),
+            policy_file: args
+                .net_policy
+                .clone()
+                .unwrap_or_else(|| args.net_state.join("policy.json")),
+            net_binary: args.net_binary.clone(),
+            edge_bridges,
             ..NetConfig::default()
         },
         Arc::new(otterd_net::cmd::System),

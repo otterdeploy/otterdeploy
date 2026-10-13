@@ -86,8 +86,14 @@ fn run(args: &[String]) -> Result<(), String> {
         "agent" => {
             let opts = Options::new(PathBuf::from(arg(2)?));
             let stop = Arc::new(AtomicBool::new(false));
+            let mut a = Agent::new(System, Engine::default(), opts);
+            // Ready once the first pass applied the policy, so whoever starts
+            // the unit and waits starts workloads behind it, not before it.
+            if let Err(e) = a.pass(true) {
+                tracing::error!(error = %e, "first network pass failed");
+            }
             let _ = otterd_sys::notify::Notifier::from_env().ready();
-            agent::run(Agent::new(System, Engine::default(), opts), &stop);
+            agent::run(a, &stop);
             Ok(())
         }
         "guard" => {

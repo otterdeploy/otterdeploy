@@ -874,6 +874,8 @@ mod tests {
             local_scopes: vec![],
             dns: vec![],
             no_snat_extra: vec![],
+            edge_bridges: vec![],
+            vip_backends: vec![],
         }
     }
 }
