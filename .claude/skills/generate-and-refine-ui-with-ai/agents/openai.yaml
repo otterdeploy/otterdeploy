@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate and Refine UI with AI"
+  short_description: "Turn AI UI drafts into evidence-backed product designs"
+  default_prompt: "Use $generate-and-refine-ui-with-ai to document the current screen, research task-specific references, generate or refine it, and explain every before-to-after decision with visual evidence."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Data Experiences"
+  short_description: "Design Data Experiences guidance for design agents"
+  default_prompt: "Use $design-data-experiences to help me design data experiences."

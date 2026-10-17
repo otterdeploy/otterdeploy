@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Feedback and Ethical States"
+  short_description: "Design Feedback and Ethical States guidance for design agents"
+  default_prompt: "Use $design-feedback-and-ethical-states to help me design feedback and ethical states."

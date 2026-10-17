@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adapt Platform Interfaces"
+  short_description: "Adapt Platform Interfaces guidance for design agents"
+  default_prompt: "Use $adapt-platform-interfaces to help me adapt platform interfaces."

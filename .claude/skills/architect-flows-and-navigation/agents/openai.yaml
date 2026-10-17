@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architect Flows and Navigation"
+  short_description: "Architect Flows and Navigation guidance for design agents"
+  default_prompt: "Use $architect-flows-and-navigation to help me architect flows and navigation."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prototype and Implement Motion"
+  short_description: "Design and build purposeful product motion"
+  default_prompt: "Use $prototype-and-implement-motion to turn this state change into a testable motion contract and implement it in the most appropriate medium."

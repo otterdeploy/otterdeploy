@@ -1,0 +1,92 @@
+[
+  {
+    "slug": "frame-product-strategy",
+    "name": "Frame Product Strategy",
+    "description": "Load when an agent must translate user intent and business goals into product priorities, feature decisions, or engagement loops.",
+    "scope": "Includes problem framing, funnel diagnosis, feature triage, personalization, recommendations, creator ecosystems, gamification, retention, conversion, and consequence analysis; excludes project pricing, visual execution, and detailed screen flows."
+  },
+  {
+    "slug": "scope-and-prove-design-work",
+    "name": "Scope and Prove Design Work",
+    "description": "Load when an agent must position, price, present, or demonstrate the value of professional design work.",
+    "scope": "Includes hourly, fixed, and value-based pricing; client discovery and engagement structure; analytics access; outcome measurement; portfolios, resumes, case studies, and hiring narratives; excludes interface construction and product analytics visualization."
+  },
+  {
+    "slug": "research-critique-and-iterate",
+    "name": "Research and Iterate",
+    "description": "Load when an agent should gather references, diagnose design defects, practise deliberately, or turn critique into an ordered improvement plan.",
+    "scope": "Includes reference libraries, competitor audits, mood boards, interface replication, low-fidelity testing, self-teaching loops, design audits, iteration workflow, resource selection, and Figma file hygiene; excludes final art direction and specialized usability-flow design."
+  },
+  {
+    "slug": "architect-flows-and-navigation",
+    "name": "Architect Flows and Navigation",
+    "description": "Load when an agent must determine what content, screens, branches, navigation, and escape paths a product needs.",
+    "scope": "Includes information architecture, site maps, screen allocation, onboarding, search, progressive disclosure, empty and error paths, flow coverage, navigation labels, dropdowns, tabs, sheets, modals, and dead-end audits; excludes styling local controls and animating transitions."
+  },
+  {
+    "slug": "adapt-platform-interfaces",
+    "name": "Adapt Platform Interfaces",
+    "description": "Load when an agent must make an interface conform to mobile, touch, desktop, or operating-system conventions.",
+    "scope": "Includes responsive content reduction, mobile navigation, thumb reach, touch targets, gesture models, mobile chrome, bottom sheets, one-handed flows, macOS shells, keyboard-first utilities, drag and drop, and native search patterns; excludes general page composition and motion implementation."
+  },
+  {
+    "slug": "compose-responsive-layouts",
+    "name": "Compose Responsive Layouts",
+    "description": "Load when an agent must organize page-level content into a clear, responsive, conversion-aware spatial hierarchy.",
+    "scope": "Includes grids, spacing, whitespace, density, focal actions, heroes, landing pages, e-commerce sections, bento grids, carousels, galleries, footers, ruled layouts, cards-in-context, real-viewport validation, and section rhythm; excludes component APIs, palette construction, and brand imagery creation."
+  },
+  {
+    "slug": "build-type-systems",
+    "name": "Build Type Systems",
+    "description": "Load when an agent must select, measure, scale, pair, space, and apply type for readable interface hierarchy.",
+    "scope": "Includes typeface classification and licensing, font anatomy, role assignment, modular and fluid scales, line height, tracking, weight, opacity-based hierarchy, display typography, and density-aware sizing; excludes broader colour systems and page copy strategy."
+  },
+  {
+    "slug": "engineer-ui-colour-and-depth",
+    "name": "Engineer Colour and Depth",
+    "description": "Load when an agent must create an accessible palette, theme, elevation model, or functional surface treatment.",
+    "scope": "Includes neutral and accent ramps, OKLCH and HSB derivation, semantic and data colours, interaction-state colours, light and dark themes, contrast, tinted neutrals, surface elevation, borders, shadows, gradients, glass, and image scrims; excludes brand concept development and purely decorative illustration."
+  },
+  {
+    "slug": "build-component-systems",
+    "name": "Build Component Systems",
+    "description": "Load when an agent must turn recurring interface decisions into consistent tokens, components, variants, and reusable rules.",
+    "scope": "Includes system scope and governance, spacing and radius tokens, buttons, chips, cards, inputs, tables, tabs, icons, dividers, forms, nav links, component anatomy, variants, consistency audits, and host-product refitting; excludes page-level information architecture and bespoke marketing composition."
+  },
+  {
+    "slug": "design-feedback-and-ethical-states",
+    "name": "Design Feedback and Ethical States",
+    "description": "Load when an agent must specify how controls and interruptions communicate state, outcomes, trust, and user agency.",
+    "scope": "Includes hover, press, focus, disabled, loading, success, warning and error states; optimistic feedback and rollback; affordances, tooltips, toasts, microcopy, permissions, access gates, dismissals, failure language, humane nudges, and dark-pattern audits; excludes flow topology and animation production."
+  },
+  {
+    "slug": "prototype-and-implement-motion",
+    "name": "Prototype and Implement Motion",
+    "description": "Load when an agent must design, prototype, or code motion that explains continuity, state change, hierarchy, or progress.",
+    "scope": "Includes gesture-linked transitions, easing, springs, staggering, scroll effects, loaders, page transitions, hover and press motion, Figma Smart Animate, masks, matched layers, CSS and GSAP timelines, runtime measurements, fallbacks, and performance restraint; excludes deciding product structure or static visual styling."
+  },
+  {
+    "slug": "design-data-experiences",
+    "name": "Design Data Experiences",
+    "description": "Load when an agent must turn datasets, metrics, or analytical tasks into accurate and decision-oriented interfaces.",
+    "scope": "Includes dashboard shells and modules, tables, lists, chart selection, axes and legends, categorical colour, density, comparisons, billing and usage views, personal analytics recaps, financial dashboards, data storytelling, and shareable summaries; excludes generic page layout and backend analytics instrumentation."
+  },
+  {
+    "slug": "art-direct-brand-and-imagery",
+    "name": "Art-Direct Brand and Imagery",
+    "description": "Load when an agent must establish a distinctive visual direction or present interface work as a cohesive branded composition.",
+    "scope": "Includes naming, wordmarks, type-led identity, mood-derived visual systems, photography selection and cropping, illustration, texture, decorative gradients, badges, 3D assets, packaging, product screenshots, mockups, portfolio showcase shots, and presentation treatments; excludes functional UI palette engineering and structural layout decisions."
+  },
+  {
+    "slug": "design-ai-product-experiences",
+    "name": "Design AI Product Experiences",
+    "description": "Load when an agent must design controls, transparency, editing, memory, history, waiting, or trust patterns specific to AI products.",
+    "scope": "Includes prompt composers, attachments and modes, advanced settings, cost signals, generation history, editable memory, scoped AI edits, selection diffs, reasoning trails, sources, streaming output, skeletons, confidence signals, and AI-product marketing demonstrations; excludes using AI tools to generate the interface itself."
+  },
+  {
+    "slug": "generate-and-refine-ui-with-ai",
+    "name": "Generate and Refine UI with AI",
+    "description": "Load when an agent must produce an editable interface draft from prompts or references and then bring it to production-quality design standards.",
+    "scope": "Includes selecting references, constraining prompts, AI UI generation, AI-assisted component sourcing and coding, HTML-to-Figma conversion, targeted Figma cleanup, semantic-state audits, and removal of generator-default layouts, palettes, icons, and decoration; excludes designing AI-product features and general-purpose critique unrelated to generated output."
+  }
+]

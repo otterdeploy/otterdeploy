@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design AI Product Experiences"
+  short_description: "Design AI Product Experiences guidance for design agents"
+  default_prompt: "Use $design-ai-product-experiences to help me design ai product experiences."

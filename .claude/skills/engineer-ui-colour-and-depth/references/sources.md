@@ -1,0 +1,36 @@
+# Sources
+
+Derived from 30 chapters across 12 videos.
+
+- [6 Things You Probably Need to Hear (as a web designer) — There are more colors than you think](https://www.youtube.com/watch?v=6CC8lLnqa28&t=46s)
+- [7 UI/UX mistakes that SCREAM you’re a beginner — Overusing Effects](https://www.youtube.com/watch?v=AH_ugxmLeUM&t=66s)
+- [8 Web Design Hacks To ACTUALLY Make Your Designs Better — Hack 4](https://www.youtube.com/watch?v=Lp6ey4AyDzA&t=175s)
+- [8 Web Design Hacks To ACTUALLY Make Your Designs Better — Hack 7](https://www.youtube.com/watch?v=Lp6ey4AyDzA&t=330s)
+- [Animated Dashboard Sidebar Tutorial in Figma (+ free design files) — segment](https://www.youtube.com/watch?v=NtZeYmTMuo4&t=0s)
+- [Awful To AMAZING Web Designs Easily — Depth](https://www.youtube.com/watch?v=ulSOdTgoGeY&t=215s)
+- [Awful To AMAZING Web Designs Easily — Dark mode](https://www.youtube.com/watch?v=ulSOdTgoGeY&t=264s)
+- [Awful To AMAZING Web Designs Easily — Background changes](https://www.youtube.com/watch?v=ulSOdTgoGeY&t=304s)
+- [Every UI/UX Concept Explained in Under 10 Minutes — Color Theory](https://www.youtube.com/watch?v=EcbgbKtOELY&t=295s)
+- [Every UI/UX Concept Explained in Under 10 Minutes — Dark Mode](https://www.youtube.com/watch?v=EcbgbKtOELY&t=347s)
+- [Every UI/UX Concept Explained in Under 10 Minutes — Shadows](https://www.youtube.com/watch?v=EcbgbKtOELY&t=379s)
+- [Every UI/UX Concept Explained in Under 10 Minutes — Overalys](https://www.youtube.com/watch?v=EcbgbKtOELY&t=516s)
+- [Everything you need to Design macOS Apps EXACTLY like Apple (beginner friendly) — Color Modes](https://www.youtube.com/watch?v=Vy0KKvZJRH8&t=294s)
+- [The 7 Color Mistakes that RUIN your UI Designs — Too many colors](https://www.youtube.com/watch?v=EOcY3hPMQkk&t=16s)
+- [The 7 Color Mistakes that RUIN your UI Designs — Bad neutral balance](https://www.youtube.com/watch?v=EOcY3hPMQkk&t=87s)
+- [The 7 Color Mistakes that RUIN your UI Designs — Misusing brand colors](https://www.youtube.com/watch?v=EOcY3hPMQkk&t=156s)
+- [The 7 Color Mistakes that RUIN your UI Designs — Pure white & black](https://www.youtube.com/watch?v=EOcY3hPMQkk&t=247s)
+- [The 7 Color Mistakes that RUIN your UI Designs — Frankenstein dark mode](https://www.youtube.com/watch?v=EOcY3hPMQkk&t=294s)
+- [The 7 Color Mistakes that RUIN your UI Designs — Ignoring semantic colors](https://www.youtube.com/watch?v=EOcY3hPMQkk&t=339s)
+- [The 7 Color Mistakes that RUIN your UI Designs — Element states](https://www.youtube.com/watch?v=EOcY3hPMQkk&t=373s)
+- [The 7 UI Components to Design Like Unicorn AI Startups — Soft Glass UI](https://www.youtube.com/watch?v=If7iCPDy2vk&t=343s)
+- [The 8 UI/UX Cheat Codes for INSTANTLY Better Designs — Better color palettes](https://www.youtube.com/watch?v=c1TvOcKdBVE&t=181s)
+- [The 8 UI/UX Cheat Codes for INSTANTLY Better Designs — Create better backgrounds](https://www.youtube.com/watch?v=c1TvOcKdBVE&t=408s)
+- [The 8 UI/UX Cheat Codes for INSTANTLY Better Designs — Depth on dark modes](https://www.youtube.com/watch?v=c1TvOcKdBVE&t=449s)
+- [The secret behind weirdly perfect UI designs — Relative emphasis and default states](https://www.youtube.com/watch?v=neE6wOuBIP8&t=365s)
+- [Why the 60-30-10 Rule is RUINING Your UI Designs — Intro](https://www.youtube.com/watch?v=66oOi9OLMCw&t=0s)
+- [Why the 60-30-10 Rule is RUINING Your UI Designs — Layer 1](https://www.youtube.com/watch?v=66oOi9OLMCw&t=27s)
+- [Why the 60-30-10 Rule is RUINING Your UI Designs — Layer 2](https://www.youtube.com/watch?v=66oOi9OLMCw&t=131s)
+- [Why the 60-30-10 Rule is RUINING Your UI Designs — Layer 3](https://www.youtube.com/watch?v=66oOi9OLMCw&t=274s)
+- [Why the 60-30-10 Rule is RUINING Your UI Designs — Layer 4](https://www.youtube.com/watch?v=66oOi9OLMCw&t=339s)
+
+The neE6wOuBIP8 additions use local small.en ASR and editorial topic boundaries; timestamps are approximate. Sponsor and outro units are excluded.
